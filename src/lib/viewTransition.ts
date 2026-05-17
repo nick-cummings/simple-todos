@@ -26,11 +26,12 @@ export function withViewTransition(callback: () => void): void {
     callback();
     return;
   }
-  const start = (document as unknown as { startViewTransition: StartViewTransition })
-    .startViewTransition;
-  start(() => {
-    // flushSync forces React to commit the update synchronously before the
-    // browser captures the "new" snapshot.
-    flushSync(callback);
-  });
+  // Must be called as a method on `document` — extracting the function and
+  // invoking it bare throws "Illegal invocation" (loses its `this`).
+  (document as unknown as { startViewTransition: StartViewTransition })
+    .startViewTransition(() => {
+      // flushSync forces React to commit the update synchronously before the
+      // browser captures the "new" snapshot.
+      flushSync(callback);
+    });
 }
