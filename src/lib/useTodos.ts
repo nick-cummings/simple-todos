@@ -4,6 +4,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import {
   STORAGE_KEY,
   Todo,
+  TodoInput,
   createTodo,
   dedupeLabels,
   loadTodos,
@@ -52,32 +53,34 @@ function mutate(updater: (prev: Todo[]) => Todo[]) {
   emit();
 }
 
+export type TodoPatch = Partial<
+  Pick<Todo, "title" | "description" | "dueDate" | "labels" | "completed">
+>;
+
 export function useTodos() {
   const todos = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const hydrated = todos !== EMPTY || (typeof window !== "undefined" && cache !== null);
+  const hydrated =
+    todos !== EMPTY || (typeof window !== "undefined" && cache !== null);
 
-  const add = useCallback((title: string, labels: string[] = []) => {
-    if (!title.trim()) return;
-    mutate((prev) => [createTodo(title, labels), ...prev]);
+  const add = useCallback((input: TodoInput) => {
+    if (!input.title.trim()) return;
+    mutate((prev) => [createTodo(input), ...prev]);
   }, []);
 
-  const update = useCallback(
-    (id: string, patch: Partial<Pick<Todo, "title" | "labels" | "completed">>) => {
-      mutate((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                ...patch,
-                labels: patch.labels ? dedupeLabels(patch.labels) : t.labels,
-                updatedAt: Date.now(),
-              }
-            : t,
-        ),
-      );
-    },
-    [],
-  );
+  const update = useCallback((id: string, patch: TodoPatch) => {
+    mutate((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              ...patch,
+              labels: patch.labels ? dedupeLabels(patch.labels) : t.labels,
+              updatedAt: Date.now(),
+            }
+          : t,
+      ),
+    );
+  }, []);
 
   const toggle = useCallback((id: string) => {
     mutate((prev) =>
