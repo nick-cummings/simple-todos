@@ -364,3 +364,14 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* iOS Safari auto-zooms text inputs whose font-size is < 16px when focused.
+   Bump form controls to 16px on touch devices only — desktop keeps the
+   smaller, denser sizing from the design tokens. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
