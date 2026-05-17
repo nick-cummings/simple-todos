@@ -12,10 +12,12 @@ type Props = {
   onClose: () => void;
 };
 
+const EXIT_MS = 220;
+
 export default function TodoModal(props: Props) {
   if (!props.open) return null;
   // Remount when switching todos / create-vs-edit so useState initializers
-  // pick up the right defaults — avoids effect-driven state sync.
+  // pick up the right defaults — no effect-driven state sync.
   return <TodoModalContent key={props.initial?.id ?? "__new__"} {...props} />;
 }
 
@@ -30,21 +32,33 @@ function TodoModalContent({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
   const [labels, setLabels] = useState<string[]>(initial?.labels ?? []);
+  const [exitingLabels, setExitingLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
+  const [closing, setClosing] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const closingRef = useRef(false);
 
   useEffect(() => {
     const t = setTimeout(() => titleRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, []);
 
+  function requestClose() {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setClosing(true);
+    window.setTimeout(() => onClose(), EXIT_MS);
+  }
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    // requestClose is stable via ref; intentional empty deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function addLabel(raw: string) {
     const next = normalizeLabel(raw);
@@ -54,7 +68,12 @@ function TodoModalContent({
   }
 
   function removeLabel(label: string) {
-    setLabels((prev) => prev.filter((l) => l !== label));
+    // Mark for exit animation, then unmount after the animation finishes.
+    setExitingLabels((prev) => (prev.includes(label) ? prev : [...prev, label]));
+    window.setTimeout(() => {
+      setLabels((prev) => prev.filter((l) => l !== label));
+      setExitingLabels((prev) => prev.filter((l) => l !== label));
+    }, 160);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -69,7 +88,13 @@ function TodoModalContent({
       dueDate: dueDate || undefined,
       labels: finalLabels,
     });
-    onClose();
+    requestClose();
+  }
+
+  function handleDelete() {
+    if (!onDelete) return;
+    onDelete();
+    requestClose();
   }
 
   const isEdit = !!initial;
@@ -87,13 +112,19 @@ function TodoModalContent({
       role="dialog"
       aria-modal="true"
       aria-label={isEdit ? "Edit todo" : "Add todo"}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-overlay p-0 backdrop-blur-md animate-fade-in sm:items-center sm:p-4"
+      className={
+        "fixed inset-0 z-50 flex items-end justify-center bg-overlay p-0 backdrop-blur-md sm:items-center sm:p-4 " +
+        (closing ? "animate-fade-out" : "animate-fade-in")
+      }
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) requestClose();
       }}
     >
       <div
-        className="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-pop animate-pop-in sm:rounded-2xl"
+        className={
+          "w-full max-w-md rounded-t-2xl bg-card p-5 shadow-pop sm:rounded-2xl " +
+          (closing ? "animate-pop-out" : "animate-pop-in")
+        }
         style={{ marginBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -102,7 +133,7 @@ function TodoModalContent({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-subtle hover:text-fg"
           >
@@ -171,24 +202,30 @@ function TodoModalContent({
             </label>
             {labels.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
-                {labels.map((l) => (
-                  <span
-                    key={l}
-                    className="inline-flex animate-chip-in items-center gap-1 rounded-full bg-subtle px-2.5 py-0.5 text-xs text-fg"
-                  >
-                    #{l}
-                    <button
-                      type="button"
-                      aria-label={`Remove ${l}`}
-                      onClick={() => removeLabel(l)}
-                      className="rounded-full text-muted hover:text-danger"
+                {labels.map((l) => {
+                  const exiting = exitingLabels.includes(l);
+                  return (
+                    <span
+                      key={l}
+                      className={
+                        "inline-flex items-center gap-1 overflow-hidden rounded-full bg-subtle px-2.5 py-0.5 text-xs text-fg " +
+                        (exiting ? "animate-chip-out" : "animate-chip-in")
+                      }
                     >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M18 6 6 18M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
+                      #{l}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${l}`}
+                        onClick={() => removeLabel(l)}
+                        className="rounded-full text-muted hover:text-danger"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M18 6 6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             )}
             <div className="flex gap-2">
@@ -205,7 +242,7 @@ function TodoModalContent({
                     labelDraft === "" &&
                     labels.length > 0
                   ) {
-                    setLabels((prev) => prev.slice(0, -1));
+                    removeLabel(labels[labels.length - 1]);
                   }
                 }}
                 placeholder="Add a label (multi-word ok), press Enter"
@@ -240,10 +277,7 @@ function TodoModalContent({
             {isEdit && onDelete ? (
               <button
                 type="button"
-                onClick={() => {
-                  onDelete();
-                  onClose();
-                }}
+                onClick={handleDelete}
                 className="text-sm text-danger hover:underline underline-offset-2"
               >
                 Delete
@@ -254,7 +288,7 @@ function TodoModalContent({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={requestClose}
                 className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle hover:text-fg"
               >
                 Cancel

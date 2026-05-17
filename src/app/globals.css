@@ -28,7 +28,7 @@
     0 4px 8px rgb(0 0 0 / 0.06);
 
   --motion-fast: 120ms;
-  --motion-base: 200ms;
+  --motion-base: 220ms;
   --motion-slow: 320ms;
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -91,9 +91,12 @@
   --ease-spring: var(--ease-spring);
 
   --animate-fade-in: fade-in var(--motion-fast) var(--ease-smooth) both;
+  --animate-fade-out: fade-out var(--motion-base) var(--ease-smooth) both;
   --animate-pop-in: pop-in var(--motion-base) var(--ease-spring) both;
+  --animate-pop-out: pop-out var(--motion-base) var(--ease-smooth) both;
   --animate-slide-up: slide-up var(--motion-base) var(--ease-smooth) both;
-  --animate-chip-in: chip-in 160ms var(--ease-spring) both;
+  --animate-chip-in: chip-in 180ms var(--ease-spring) both;
+  --animate-chip-out: chip-out 160ms var(--ease-smooth) both;
 }
 
 /* -------- Keyframes -------- */
@@ -101,17 +104,62 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 @keyframes pop-in {
   from { opacity: 0; transform: scale(0.96) translateY(8px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes pop-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.96) translateY(8px); }
 }
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes chip-in {
-  from { opacity: 0; transform: scale(0.85); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.7); max-width: 0; }
+  to { opacity: 1; transform: scale(1); max-width: 16rem; }
+}
+@keyframes chip-out {
+  from { opacity: 1; transform: scale(1); max-width: 16rem; }
+  to { opacity: 0; transform: scale(0.7); max-width: 0; padding-inline: 0; margin: 0; }
+}
+
+/* -------- View Transitions -------- */
+::view-transition-group(*) {
+  animation-duration: var(--motion-base);
+  animation-timing-function: var(--ease-smooth);
+}
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: var(--motion-base);
+  animation-timing-function: var(--ease-smooth);
+}
+/* Smoother per-todo enter/exit. */
+::view-transition-old(.todo-vt) {
+  animation: pop-out var(--motion-base) var(--ease-smooth) both;
+}
+::view-transition-new(.todo-vt) {
+  animation: pop-in var(--motion-base) var(--ease-spring) both;
+}
+
+/* -------- Animated strike-through -------- */
+.todo-title {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 60%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  transition:
+    background-size var(--motion-base) var(--ease-smooth),
+    color var(--motion-base) var(--ease-smooth);
+}
+.todo-title[data-completed="true"] {
+  background-size: 100% 1px;
+  color: var(--faint);
 }
 
 /* -------- Base layer -------- */

@@ -9,15 +9,29 @@ const OPTIONS: { value: Theme; label: string; icon: React.ReactNode }[] = [
   { value: "dark", label: "Dark theme", icon: <MoonIcon /> },
 ];
 
+// Each button is h-7 w-7 (28px). gap-0.5 = 2px between buttons. Container
+// p-0.5 = 2px padding. So the indicator slides 30px between adjacent slots.
+const SLOT_PX = 30;
+
 export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  const index = OPTIONS.findIndex((o) => o.value === theme);
 
   return (
     <div
       role="radiogroup"
       aria-label="Theme"
-      className="inline-flex items-center gap-0.5 rounded-full border border-line bg-card p-0.5 shadow-soft"
+      className="relative inline-flex items-center gap-0.5 rounded-full border border-line bg-card p-0.5 shadow-soft"
     >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-0.5 left-0.5 h-7 w-7 rounded-full bg-primary shadow-soft"
+        style={{
+          transform: `translateX(${index * SLOT_PX}px)`,
+          transition:
+            "transform var(--motion-base) var(--ease-spring), background-color var(--motion-fast) var(--ease-smooth)",
+        }}
+      />
       {OPTIONS.map((opt) => {
         const active = theme === opt.value;
         return (
@@ -29,11 +43,12 @@ export default function ThemeToggle() {
             aria-label={opt.label}
             onClick={() => setTheme(opt.value)}
             className={
-              "flex h-7 w-7 items-center justify-center rounded-full text-muted " +
-              (active
-                ? "bg-primary text-on-primary shadow-soft"
-                : "hover:bg-subtle hover:text-fg")
+              "relative z-10 flex h-7 w-7 items-center justify-center rounded-full " +
+              (active ? "text-on-primary" : "text-muted hover:text-fg")
             }
+            style={{
+              transition: "color var(--motion-base) var(--ease-smooth)",
+            }}
           >
             {opt.icon}
           </button>

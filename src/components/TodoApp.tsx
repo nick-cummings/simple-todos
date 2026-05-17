@@ -5,12 +5,14 @@ import { useTodos } from "@/lib/useTodos";
 import {
   Todo,
   SortKey,
+  TodoInput,
   allLabels,
   filterTodos,
   formatDueDate,
   isOverdue,
   sortTodos,
 } from "@/lib/todos";
+import { withViewTransition } from "@/lib/viewTransition";
 import TodoModal from "./TodoModal";
 import ThemeToggle from "./ThemeToggle";
 
@@ -42,10 +44,41 @@ export default function TodoApp() {
     setModalOpen(true);
   }
 
+  function handleSubmit(input: TodoInput) {
+    withViewTransition(() => {
+      if (editing) update(editing.id, input);
+      else add(input);
+    });
+  }
+
+  function handleDelete() {
+    if (!editing) return;
+    const id = editing.id;
+    withViewTransition(() => remove(id));
+  }
+
+  function handleToggle(id: string) {
+    withViewTransition(() => toggle(id));
+  }
+
   function toggleLabelFilter(label: string) {
-    setActiveLabels((prev) =>
-      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label],
+    withViewTransition(() =>
+      setActiveLabels((prev) =>
+        prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label],
+      ),
     );
+  }
+
+  function clearLabelFilters() {
+    withViewTransition(() => setActiveLabels([]));
+  }
+
+  function handleSort(next: SortKey) {
+    withViewTransition(() => setSort(next));
+  }
+
+  function handleClearCompleted() {
+    withViewTransition(() => clearCompleted());
   }
 
   return (
@@ -55,7 +88,7 @@ export default function TodoApp() {
           <div className="flex items-baseline gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">todos</h1>
             <span className="text-sm text-muted">
-              {hydrated ? `${remaining} open` : " "}
+              {hydrated ? `${remaining} open` : " "}
             </span>
           </div>
           <ThemeToggle />
@@ -76,7 +109,7 @@ export default function TodoApp() {
             <select
               id="sort"
               value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
+              onChange={(e) => handleSort(e.target.value as SortKey)}
               className="rounded-lg border border-line-strong bg-card px-2 py-1.5 text-sm"
             >
               <option value="createdDesc">Newest</option>
@@ -96,12 +129,17 @@ export default function TodoApp() {
                     key={l}
                     type="button"
                     onClick={() => toggleLabelFilter(l)}
+                    aria-pressed={active}
                     className={
-                      "rounded-full border px-2.5 py-0.5 text-xs " +
+                      "rounded-full border px-2.5 py-0.5 text-xs active:scale-95 " +
                       (active
                         ? "border-transparent bg-primary text-on-primary shadow-soft"
                         : "border-line bg-card text-muted hover:border-line-strong hover:text-fg")
                     }
+                    style={{
+                      transition:
+                        "transform var(--motion-fast) var(--ease-spring), background-color var(--motion-fast) var(--ease-smooth), color var(--motion-fast) var(--ease-smooth), border-color var(--motion-fast) var(--ease-smooth), box-shadow var(--motion-fast) var(--ease-smooth)",
+                    }}
                   >
                     #{l}
                   </button>
@@ -110,7 +148,7 @@ export default function TodoApp() {
               {activeLabels.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setActiveLabels([])}
+                  onClick={clearLabelFilters}
                   className="rounded-full px-2.5 py-0.5 text-xs text-muted hover:text-fg hover:underline underline-offset-2"
                 >
                   clear
@@ -132,7 +170,7 @@ export default function TodoApp() {
             <TodoItem
               key={t.id}
               todo={t}
-              onToggle={() => toggle(t.id)}
+              onToggle={() => handleToggle(t.id)}
               onOpen={() => openEdit(t)}
             />
           ))}
@@ -141,7 +179,7 @@ export default function TodoApp() {
         {todos.some((t) => t.completed) && (
           <button
             type="button"
-            onClick={clearCompleted}
+            onClick={handleClearCompleted}
             className="self-start text-xs text-muted hover:text-fg hover:underline underline-offset-2"
           >
             Clear completed
@@ -167,11 +205,8 @@ export default function TodoApp() {
         open={modalOpen}
         initial={editing}
         knownLabels={labels}
-        onSubmit={(input) => {
-          if (editing) update(editing.id, input);
-          else add(input);
-        }}
-        onDelete={editing ? () => remove(editing.id) : undefined}
+        onSubmit={handleSubmit}
+        onDelete={editing ? handleDelete : undefined}
         onClose={() => setModalOpen(false)}
       />
     </>
@@ -190,19 +225,17 @@ function TodoItem({
   const overdue = isOverdue(todo.dueDate, todo.completed);
   return (
     <li
-      className="group flex items-start gap-3 rounded-xl border border-line bg-card p-3 shadow-soft animate-slide-up hover:border-line-strong hover:shadow-card hover:-translate-y-px"
+      className="todo-vt group flex items-start gap-3 rounded-xl border border-line bg-card p-3 shadow-soft hover:border-line-strong hover:shadow-card hover:-translate-y-px"
       style={{
+        viewTransitionName: `todo-${todo.id}`,
         transition:
           "transform var(--motion-fast) var(--ease-smooth), border-color var(--motion-fast) var(--ease-smooth), box-shadow var(--motion-fast) var(--ease-smooth), background-color var(--motion-fast) var(--ease-smooth)",
       }}
     >
-      <input
-        type="checkbox"
+      <AnimatedCheckbox
         checked={todo.completed}
         onChange={onToggle}
-        onClick={(e) => e.stopPropagation()}
-        aria-label={todo.completed ? "Mark as open" : "Mark as done"}
-        className="mt-1 h-4 w-4 accent-[color:var(--primary)]"
+        label={todo.completed ? "Mark as open" : "Mark as done"}
       />
       <button
         type="button"
@@ -210,10 +243,8 @@ function TodoItem({
         className="flex min-w-0 flex-1 flex-col gap-1 text-left"
       >
         <span
-          className={
-            "text-sm leading-snug " +
-            (todo.completed ? "text-faint line-through" : "text-fg")
-          }
+          className="todo-title text-sm leading-snug text-fg"
+          data-completed={todo.completed}
         >
           {todo.title}
         </span>
@@ -223,6 +254,9 @@ function TodoItem({
               "line-clamp-2 text-xs " +
               (todo.completed ? "text-faint" : "text-muted")
             }
+            style={{
+              transition: "color var(--motion-base) var(--ease-smooth)",
+            }}
           >
             {todo.description}
           </span>
@@ -235,6 +269,9 @@ function TodoItem({
                   "text-[10px] uppercase tracking-wide " +
                   (overdue ? "text-danger" : "text-muted")
                 }
+                style={{
+                  transition: "color var(--motion-base) var(--ease-smooth)",
+                }}
               >
                 {overdue ? "overdue · " : "due · "}
                 {formatDueDate(todo.dueDate)}
@@ -252,5 +289,54 @@ function TodoItem({
         )}
       </button>
     </li>
+  );
+}
+
+function AnimatedCheckbox({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <label
+      className="relative mt-0.5 inline-flex h-5 w-5 shrink-0 select-none items-center justify-center"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        aria-label={label}
+        className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-md border border-line-strong bg-card peer-checked:border-transparent peer-checked:bg-primary peer-hover:border-fg peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2"
+        style={{
+          transition:
+            "background-color var(--motion-base) var(--ease-smooth), border-color var(--motion-base) var(--ease-smooth), transform var(--motion-fast) var(--ease-spring)",
+        }}
+      />
+      <svg
+        aria-hidden
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none relative h-3 w-3 scale-50 text-on-primary opacity-0 peer-checked:scale-100 peer-checked:opacity-100"
+        style={{
+          transition:
+            "opacity var(--motion-base) var(--ease-smooth), transform var(--motion-base) var(--ease-spring)",
+        }}
+      >
+        <path d="M5 12l5 5L20 7" />
+      </svg>
+    </label>
   );
 }
