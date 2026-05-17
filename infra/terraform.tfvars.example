@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+# Alternatively, export as TF_VAR_* env vars.
+
+# vercel_api_token  = "vrcl_xxx"                  # required (or use TF_VAR_vercel_api_token)
+# vercel_team_id    = ""                          # optional, blank = personal account
+# project_name      = "simple-todos"
+# github_repo       = "your-gh-user/simple-todos" # optional, blank = no Git wiring
+# production_branch = "main"
+# custom_domain     = ""                          # optional, e.g. "todos.example.com"
