@@ -5,20 +5,50 @@
 
 /* -------- Design tokens (light) -------- */
 :root {
-  --bg: #fafafa;
-  --card: #ffffff;
-  --subtle: #f4f4f5;
-  --overlay: rgb(0 0 0 / 0.45);
-  --line: rgb(0 0 0 / 0.06);
-  --line-strong: rgb(0 0 0 / 0.12);
-  --fg: #18181b;
-  --muted: #71717a;
-  --faint: #a1a1aa;
-  --primary: #18181b;
-  --on-primary: #fafafa;
-  --danger: #dc2626;
-  --ring: rgb(24 24 27 / 0.35);
+  /* Surfaces */
+  --bg: #F7F8FA;
+  --card: #FFFFFF;
+  --card-hover: #F2F3F6;
+  --subtle: rgb(15 18 25 / 0.04);
+  --subtle-hover: rgb(15 18 25 / 0.07);
+  --overlay: rgb(10 12 18 / 0.45);
 
+  /* Text */
+  --fg: #0F1115;
+  --muted: #5B6370;
+  --faint: #8B919E;
+
+  /* Lines */
+  --line: rgb(15 18 25 / 0.06);
+  --line-strong: rgb(15 18 25 / 0.12);
+  --line-emphasis: rgb(15 18 25 / 0.22);
+
+  /* Accent — warm amber */
+  --primary: #ED8A45;
+  --primary-hover: #E27937;
+  --on-primary: #1A0E03;
+  --primary-bg: rgb(237 138 69 / 0.12);
+  --primary-bg-strong: rgb(237 138 69 / 0.20);
+  --primary-border: rgb(237 138 69 / 0.36);
+  --primary-glow: rgb(237 138 69 / 0.08);
+  --ring: rgb(237 138 69 / 0.45);
+
+  /* Status */
+  --danger: #E0464F;
+  --danger-bg: rgb(224 70 79 / 0.10);
+  --success: #1FB36C;
+
+  /* Tag palette */
+  --tag-bill-fg: #E0464F;
+  --tag-bill-bg: rgb(224 70 79 / 0.10);
+  --tag-dinner-fg: #E2733A;
+  --tag-dinner-bg: rgb(226 115 58 / 0.12);
+  --tag-judith-fg: #DA61A0;
+  --tag-judith-bg: rgb(218 97 160 / 0.10);
+  --tag-subscription-fg: #3F86E8;
+  --tag-subscription-bg: rgb(63 134 232 / 0.10);
+
+  /* Shadows */
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04);
   --shadow-card:
     0 1px 2px rgb(0 0 0 / 0.04),
@@ -26,7 +56,12 @@
   --shadow-pop:
     0 24px 48px -16px rgb(0 0 0 / 0.18),
     0 4px 8px rgb(0 0 0 / 0.06);
+  --shadow-fab:
+    inset 0 0 0 1px rgb(255 255 255 / 0.35),
+    0 12px 32px -8px rgb(237 138 69 / 0.55),
+    0 6px 16px -6px rgb(0 0 0 / 0.18);
 
+  /* Motion */
   --motion-fast: 120ms;
   --motion-base: 220ms;
   --motion-slow: 320ms;
@@ -36,19 +71,42 @@
 
 /* -------- Design tokens (dark) -------- */
 .dark {
-  --bg: #0a0a0b;
-  --card: #131316;
-  --subtle: #1c1c20;
-  --overlay: rgb(0 0 0 / 0.6);
+  --bg: #0B0C10;
+  --card: #14161C;
+  --card-hover: #1A1D26;
+  --subtle: rgb(255 255 255 / 0.04);
+  --subtle-hover: rgb(255 255 255 / 0.07);
+  --overlay: rgb(0 0 0 / 0.65);
+
+  --fg: #ECEDEE;
+  --muted: #9CA3AE;
+  --faint: #6B7280;
+
   --line: rgb(255 255 255 / 0.06);
   --line-strong: rgb(255 255 255 / 0.12);
-  --fg: #f4f4f5;
-  --muted: #a1a1aa;
-  --faint: #71717a;
-  --primary: #f4f4f5;
-  --on-primary: #18181b;
-  --danger: #fb7185;
-  --ring: rgb(244 244 245 / 0.35);
+  --line-emphasis: rgb(255 255 255 / 0.22);
+
+  --primary: #F5A66B;
+  --primary-hover: #F8B987;
+  --on-primary: #1A0E03;
+  --primary-bg: rgb(245 166 107 / 0.10);
+  --primary-bg-strong: rgb(245 166 107 / 0.18);
+  --primary-border: rgb(245 166 107 / 0.28);
+  --primary-glow: rgb(245 166 107 / 0.05);
+  --ring: rgb(245 166 107 / 0.45);
+
+  --danger: #F87171;
+  --danger-bg: rgb(248 113 113 / 0.10);
+  --success: #4ADE80;
+
+  --tag-bill-fg: #F87171;
+  --tag-bill-bg: rgb(248 113 113 / 0.10);
+  --tag-dinner-fg: #FB923C;
+  --tag-dinner-bg: rgb(251 146 60 / 0.10);
+  --tag-judith-fg: #F472B6;
+  --tag-judith-bg: rgb(244 114 182 / 0.10);
+  --tag-subscription-fg: #60A5FA;
+  --tag-subscription-bg: rgb(96 165 250 / 0.10);
 
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-card:
@@ -57,24 +115,38 @@
   --shadow-pop:
     0 24px 64px -16px rgb(0 0 0 / 0.6),
     0 4px 8px rgb(0 0 0 / 0.35);
+  --shadow-fab:
+    inset 0 0 0 1px rgb(255 255 255 / 0.22),
+    0 14px 32px -6px rgb(245 166 107 / 0.45),
+    0 6px 16px -4px rgb(0 0 0 / 0.55);
 }
 
 /* -------- Expose tokens as Tailwind theme values -------- */
 @theme inline {
   --color-bg: var(--bg);
   --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
   --color-subtle: var(--subtle);
+  --color-subtle-hover: var(--subtle-hover);
   --color-overlay: var(--overlay);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-line-emphasis: var(--line-emphasis);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-on-primary: var(--on-primary);
+  --color-primary-bg: var(--primary-bg);
+  --color-primary-bg-strong: var(--primary-bg-strong);
+  --color-primary-border: var(--primary-border);
   --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-success: var(--success);
   --color-ring: var(--ring);
 
+  --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
   --radius-lg: 0.875rem;
   --radius-xl: 1.25rem;
@@ -83,6 +155,7 @@
   --shadow-soft: var(--shadow-soft);
   --shadow-card: var(--shadow-card);
   --shadow-pop: var(--shadow-pop);
+  --shadow-fab: var(--shadow-fab);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -97,6 +170,7 @@
   --animate-slide-up: slide-up var(--motion-base) var(--ease-smooth) both;
   --animate-chip-in: chip-in 180ms var(--ease-spring) both;
   --animate-chip-out: chip-out 160ms var(--ease-smooth) both;
+  --animate-check: check 280ms var(--ease-spring) both;
 }
 
 /* -------- Keyframes -------- */
@@ -128,6 +202,11 @@
   from { opacity: 1; transform: scale(1); max-width: 16rem; }
   to { opacity: 0; transform: scale(0.7); max-width: 0; padding-inline: 0; margin: 0; }
 }
+@keyframes check {
+  0%   { opacity: 0; transform: scale(0.4); }
+  60%  { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
 
 /* -------- View Transitions -------- */
 ::view-transition-group(*) {
@@ -139,7 +218,6 @@
   animation-duration: var(--motion-base);
   animation-timing-function: var(--ease-smooth);
 }
-/* Smoother per-todo enter/exit. */
 ::view-transition-old(.todo-vt) {
   animation: pop-out var(--motion-base) var(--ease-smooth) both;
 }
@@ -150,16 +228,47 @@
 /* -------- Animated strike-through -------- */
 .todo-title {
   background-image: linear-gradient(currentColor, currentColor);
-  background-position: 0 60%;
+  background-position: 0 65%;
   background-repeat: no-repeat;
-  background-size: 0% 1px;
+  background-size: 0% 1.5px;
   transition:
     background-size var(--motion-base) var(--ease-smooth),
     color var(--motion-base) var(--ease-smooth);
 }
 .todo-title[data-completed="true"] {
-  background-size: 100% 1px;
+  background-size: 100% 1.5px;
   color: var(--faint);
+}
+
+/* -------- Tag pill -------- */
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 3px 8px;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.tag-pill::before {
+  content: "#";
+  margin-right: 3px;
+  opacity: 0.55;
+}
+
+/* -------- Priority bar (todo card left edge) -------- */
+.priority-bar {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  transition: background-color var(--motion-base) var(--ease-smooth);
 }
 
 /* -------- Base layer -------- */
@@ -168,19 +277,25 @@
     color-scheme: light dark;
   }
   body {
-    background: var(--bg);
+    background:
+      radial-gradient(
+        ellipse 80% 50% at 50% -10%,
+        var(--primary-glow),
+        transparent 70%
+      ),
+      var(--bg);
     color: var(--fg);
     font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI",
       Roboto, Helvetica, Arial, sans-serif;
+    font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    min-height: 100vh;
     transition:
       background-color var(--motion-base) var(--ease-smooth),
       color var(--motion-base) var(--ease-smooth);
   }
 
-  /* Smooth colour transitions on interactive surfaces so theme toggles
-     and hover states feel fluid. */
   button,
   input,
   textarea,
@@ -194,7 +309,6 @@
       box-shadow var(--motion-fast) var(--ease-smooth);
   }
 
-  /* Tailwind v4 dropped the default cursor on buttons — restore it. */
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]):not(:disabled),
   summary,
@@ -218,7 +332,6 @@
     color: var(--fg);
   }
 
-  /* Focus rings — visible on keyboard nav, hidden on mouse. */
   *:focus {
     outline: none;
   }
@@ -227,9 +340,22 @@
     outline-offset: 2px;
     border-radius: inherit;
   }
+
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: var(--subtle);
+    border: 1px solid var(--line);
+    color: var(--faint);
+    font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 500;
+  }
 }
 
-/* -------- Reduced motion -------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 1ms !important;

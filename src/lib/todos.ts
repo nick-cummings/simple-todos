@@ -2,7 +2,7 @@ export type Todo = {
   id: string;
   title: string;
   description?: string;
-  dueDate?: string; // ISO YYYY-MM-DD (date-only, no timezone confusion)
+  dueDate?: string; // ISO YYYY-MM-DD
   completed: boolean;
   labels: string[];
   createdAt: number;
@@ -78,7 +78,6 @@ export function sortTodos(todos: Todo[], sort: SortKey): Todo[] {
       });
     case "dueDate":
       return copy.sort((a, b) => {
-        // Todos with no due date sink to the bottom.
         if (!a.dueDate && !b.dueDate) return b.createdAt - a.createdAt;
         if (!a.dueDate) return 1;
         if (!b.dueDate) return -1;
@@ -112,29 +111,13 @@ export function allLabels(todos: Todo[]): string[] {
   return [...set].sort();
 }
 
-export function todayISO(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-export function formatDueDate(iso: string): string {
-  // Parse as local date (avoid UTC shift).
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-export function isOverdue(iso: string | undefined, completed: boolean): boolean {
-  if (!iso || completed) return false;
-  return iso < todayISO();
+export function labelCounts(todos: Todo[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const t of todos) {
+    if (t.completed) continue;
+    for (const l of t.labels) m.set(l, (m.get(l) ?? 0) + 1);
+  }
+  return m;
 }
 
 export function loadTodos(): Todo[] {

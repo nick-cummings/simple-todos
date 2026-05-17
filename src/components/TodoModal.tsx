@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Todo, TodoInput, normalizeLabel } from "@/lib/todos";
+import { tagPillStyle } from "@/lib/tagColors";
 
 type Props = {
   open: boolean;
@@ -16,8 +17,6 @@ const EXIT_MS = 220;
 
 export default function TodoModal(props: Props) {
   if (!props.open) return null;
-  // Remount when switching todos / create-vs-edit so useState initializers
-  // pick up the right defaults — no effect-driven state sync.
   return <TodoModalContent key={props.initial?.id ?? "__new__"} {...props} />;
 }
 
@@ -56,7 +55,6 @@ function TodoModalContent({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // requestClose is stable via ref; intentional empty deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -68,7 +66,6 @@ function TodoModalContent({
   }
 
   function removeLabel(label: string) {
-    // Mark for exit animation, then unmount after the animation finishes.
     setExitingLabels((prev) => (prev.includes(label) ? prev : [...prev, label]));
     window.setTimeout(() => {
       setLabels((prev) => prev.filter((l) => l !== label));
@@ -122,13 +119,13 @@ function TodoModalContent({
     >
       <div
         className={
-          "w-full max-w-md rounded-t-2xl bg-card p-5 shadow-pop sm:rounded-2xl " +
+          "w-full max-w-md rounded-t-2xl bg-card p-6 shadow-pop sm:rounded-2xl " +
           (closing ? "animate-pop-out" : "animate-pop-in")
         }
         style={{ marginBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold tracking-tight">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-[-0.01em]">
             {isEdit ? "Edit todo" : "New todo"}
           </h2>
           <button
@@ -143,63 +140,54 @@ function TodoModalContent({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted" htmlFor="todo-title">
-              Title
-            </label>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field id="todo-title" label="Title">
             <input
               id="todo-title"
               ref={titleRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs doing?"
-              className="rounded-lg border border-line-strong bg-card px-3 py-2 text-base placeholder:text-faint"
+              className="h-11 rounded-lg border border-line-strong bg-card px-3 text-base placeholder:text-faint hover:border-line-emphasis focus:border-line-emphasis"
             />
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted" htmlFor="todo-description">
-              Description <span className="text-faint">(optional)</span>
-            </label>
+          <Field id="todo-description" label="Description" optional>
             <textarea
               id="todo-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Notes, links, context…"
-              className="resize-y rounded-lg border border-line-strong bg-card px-3 py-2 text-sm placeholder:text-faint"
+              className="resize-y rounded-lg border border-line-strong bg-card px-3 py-2.5 text-[13px] leading-[1.55] placeholder:text-faint hover:border-line-emphasis focus:border-line-emphasis"
             />
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted" htmlFor="todo-due">
-              Due date <span className="text-faint">(optional)</span>
-            </label>
+          <Field id="todo-due" label="Due date" optional>
             <div className="flex items-center gap-2">
               <input
                 id="todo-due"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="flex-1 rounded-lg border border-line-strong bg-card px-3 py-2 text-sm"
+                className="h-11 flex-1 rounded-lg border border-line-strong bg-card px-3 text-sm hover:border-line-emphasis focus:border-line-emphasis"
               />
               {dueDate && (
                 <button
                   type="button"
                   onClick={() => setDueDate("")}
-                  className="text-xs text-muted hover:text-fg hover:underline underline-offset-2"
+                  className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint hover:text-fg"
                 >
                   clear
                 </button>
               )}
             </div>
-          </div>
+          </Field>
 
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-muted" htmlFor="todo-label">
+            <span className="text-xs text-muted">
               Labels <span className="text-faint">(one at a time)</span>
-            </label>
+            </span>
             {labels.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {labels.map((l) => {
@@ -208,18 +196,19 @@ function TodoModalContent({
                     <span
                       key={l}
                       className={
-                        "inline-flex items-center gap-1 overflow-hidden rounded-full bg-subtle px-2.5 py-0.5 text-xs text-fg " +
+                        "tag-pill items-center gap-1 overflow-hidden " +
                         (exiting ? "animate-chip-out" : "animate-chip-in")
                       }
+                      style={tagPillStyle(l)}
                     >
-                      #{l}
+                      {l}
                       <button
                         type="button"
                         aria-label={`Remove ${l}`}
                         onClick={() => removeLabel(l)}
-                        className="rounded-full text-muted hover:text-danger"
+                        className="ml-0.5 inline-flex items-center justify-center rounded-full opacity-70 hover:opacity-100"
                       >
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                           <path d="M18 6 6 18M6 6l12 12" />
                         </svg>
                       </button>
@@ -245,14 +234,14 @@ function TodoModalContent({
                     removeLabel(labels[labels.length - 1]);
                   }
                 }}
-                placeholder="Add a label (multi-word ok), press Enter"
-                className="flex-1 rounded-lg border border-line-strong bg-card px-3 py-2 text-sm placeholder:text-faint"
+                placeholder="Add a label, press Enter"
+                className="h-10 flex-1 rounded-lg border border-line-strong bg-card px-3 text-sm placeholder:text-faint hover:border-line-emphasis focus:border-line-emphasis"
               />
               <button
                 type="button"
                 onClick={() => addLabel(labelDraft)}
                 disabled={!labelDraft.trim()}
-                className="rounded-lg border border-line-strong bg-card px-3 py-2 text-sm font-medium hover:bg-subtle disabled:opacity-40"
+                className="h-10 rounded-lg border border-line-strong bg-card px-3 text-sm font-medium hover:bg-card-hover disabled:opacity-40"
               >
                 Add
               </button>
@@ -264,7 +253,7 @@ function TodoModalContent({
                     key={s}
                     type="button"
                     onClick={() => addLabel(s)}
-                    className="rounded-full border border-line bg-card px-2 py-0.5 text-xs text-muted hover:border-line-strong hover:text-fg"
+                    className="rounded-full border border-line bg-card px-2.5 py-1 text-[11px] text-muted hover:border-line-strong hover:text-fg"
                   >
                     #{s}
                   </button>
@@ -278,7 +267,7 @@ function TodoModalContent({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="text-sm text-danger hover:underline underline-offset-2"
+                className="rounded-lg px-2.5 py-1.5 text-sm text-danger hover:bg-danger-bg"
               >
                 Delete
               </button>
@@ -296,10 +285,10 @@ function TodoModalContent({
               <button
                 type="submit"
                 disabled={!title.trim()}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary shadow-soft hover:shadow-card disabled:opacity-40 disabled:hover:shadow-soft active:scale-[0.98]"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-40 active:scale-[0.98]"
                 style={{
                   transition:
-                    "transform var(--motion-fast) var(--ease-smooth), box-shadow var(--motion-fast) var(--ease-smooth), background-color var(--motion-fast) var(--ease-smooth), opacity var(--motion-fast) var(--ease-smooth)",
+                    "transform var(--motion-fast) var(--ease-smooth), background-color var(--motion-fast) var(--ease-smooth), opacity var(--motion-fast) var(--ease-smooth)",
                 }}
               >
                 {isEdit ? "Save" : "Add"}
@@ -308,6 +297,28 @@ function TodoModalContent({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function Field({
+  id,
+  label,
+  optional,
+  children,
+}: {
+  id: string;
+  label: string;
+  optional?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs text-muted">
+        {label}
+        {optional && <span className="text-faint"> (optional)</span>}
+      </label>
+      {children}
     </div>
   );
 }
