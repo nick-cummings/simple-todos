@@ -36,9 +36,6 @@ function TodoModalContent({
   onDelete,
   onClose,
 }: Props) {
-  // Existing todos open in view mode by default; new todos jump straight
-  // into the form. Edit and Create share the same form — the only
-  // difference is whether fields are pre-populated.
   const isExisting = !!initial;
   const [mode, setMode] = useState<Mode>(isExisting ? "view" : "form");
 
@@ -129,7 +126,7 @@ function TodoModalContent({
       aria-modal="true"
       aria-label={heading}
       className={
-        "fixed inset-0 z-50 flex items-end justify-center bg-overlay p-0 backdrop-blur-md sm:items-center sm:p-4 " +
+        "fixed inset-0 z-50 flex items-end justify-center bg-overlay backdrop-blur-md sm:items-center sm:p-4 " +
         (closing ? "animate-fade-out" : "animate-fade-in")
       }
       onMouseDown={(e) => {
@@ -138,12 +135,17 @@ function TodoModalContent({
     >
       <div
         className={
-          "w-full max-w-md rounded-t-2xl bg-card p-6 shadow-pop sm:rounded-2xl " +
+          "flex w-full max-w-md flex-col bg-card shadow-pop " +
+          // Mobile: bottom sheet pinned at 75dvh.
+          "h-[75dvh] rounded-t-2xl " +
+          // Desktop: auto height, cap at 85vh, fully rounded.
+          "sm:h-auto sm:max-h-[85vh] sm:rounded-2xl " +
           (closing ? "animate-pop-out" : "animate-pop-in")
         }
-        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="mb-5 flex items-center justify-between">
+        {/* Header (fixed) */}
+        <div className="flex shrink-0 items-center justify-between px-6 pb-3 pt-5">
           <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">
             {heading}
           </h2>
@@ -151,50 +153,95 @@ function TodoModalContent({
             type="button"
             onClick={requestClose}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-subtle hover:text-fg"
+            className="-mr-1 flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-subtle hover:text-fg"
           >
             <XIcon size={14} stroke={2} />
           </button>
         </div>
 
-        {mode === "view" && initial ? (
-          <ViewBody
-            title={title}
-            description={description}
-            dueDate={dueDate}
-            labels={labels}
-            completed={initial.completed}
-            createdAt={initial.createdAt}
-          />
-        ) : (
-          <FormBody
-            titleRef={titleRef}
-            title={title}
-            setTitle={setTitle}
-            description={description}
-            setDescription={setDescription}
-            dueDate={dueDate}
-            setDueDate={setDueDate}
-            labels={labels}
-            exitingLabels={exitingLabels}
-            labelDraft={labelDraft}
-            setLabelDraft={setLabelDraft}
-            addLabel={addLabel}
-            removeLabel={removeLabel}
-            knownLabels={knownLabels}
-            onSubmit={handleSubmit}
-          />
-        )}
+        {/* Body (scrollable) */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-2">
+          {mode === "view" && initial ? (
+            <ViewBody
+              title={title}
+              description={description}
+              dueDate={dueDate}
+              labels={labels}
+              completed={initial.completed}
+              createdAt={initial.createdAt}
+            />
+          ) : (
+            <FormBody
+              titleRef={titleRef}
+              title={title}
+              setTitle={setTitle}
+              description={description}
+              setDescription={setDescription}
+              dueDate={dueDate}
+              setDueDate={setDueDate}
+              labels={labels}
+              exitingLabels={exitingLabels}
+              labelDraft={labelDraft}
+              setLabelDraft={setLabelDraft}
+              addLabel={addLabel}
+              removeLabel={removeLabel}
+              knownLabels={knownLabels}
+              onSubmit={handleSubmit}
+            />
+          )}
+        </div>
 
-        <ActionRow
-          mode={mode}
-          isExisting={isExisting}
-          canSave={!!title.trim()}
-          canDelete={isExisting && !!onDelete}
-          onEdit={() => setMode("form")}
-          onDelete={handleDelete}
-          onCancel={requestClose}
-        />
+        {/* Action row (fixed) */}
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line px-6 py-4">
+          {isExisting && onDelete ? (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="rounded-lg px-2.5 py-1.5 text-sm text-danger hover:bg-danger-bg"
+            >
+              Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={requestClose}
+              className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle hover:text-fg"
+            >
+              Cancel
+            </button>
+            {mode === "view" ? (
+              <button
+                key="edit-btn"
+                type="button"
+                onClick={() => setMode("form")}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover active:scale-[0.98]"
+                style={{
+                  transition:
+                    "transform var(--motion-fast) var(--ease-smooth), background-color var(--motion-fast) var(--ease-smooth)",
+                }}
+              >
+                Edit
+              </button>
+            ) : (
+              <button
+                key="save-btn"
+                type="submit"
+                form="todo-form"
+                disabled={!title.trim()}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-40 active:scale-[0.98]"
+                style={{
+                  transition:
+                    "transform var(--motion-fast) var(--ease-smooth), background-color var(--motion-fast) var(--ease-smooth), opacity var(--motion-fast) var(--ease-smooth)",
+                }}
+              >
+                {isExisting ? "Save" : "Add"}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -220,7 +267,7 @@ function ViewBody({
   const overdue = isOverdue(dueDate || undefined, completed);
   const dueSoon = !overdue && isDueSoon(dueDate || undefined);
   return (
-    <div className="flex flex-col gap-4 animate-fade-in">
+    <div className="flex flex-col gap-4 py-2 animate-fade-in">
       <h3 className="text-xl font-semibold leading-snug tracking-[-0.01em] text-fg">
         {title}
       </h3>
@@ -321,7 +368,7 @@ function FormBody({
     : [];
 
   return (
-    <form id="todo-form" onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form id="todo-form" onSubmit={onSubmit} className="flex flex-col gap-4 py-2">
       <Field id="todo-title" label="Title">
         <input
           id="todo-title"
@@ -441,67 +488,6 @@ function FormBody({
         )}
       </div>
     </form>
-  );
-}
-
-/* ---------- Action row ---------- */
-
-function ActionRow({
-  mode,
-  isExisting,
-  canSave,
-  canDelete,
-  onEdit,
-  onDelete,
-  onCancel,
-}: {
-  mode: Mode;
-  isExisting: boolean;
-  canSave: boolean;
-  canDelete: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-  onCancel: () => void;
-}) {
-  const isFormSubmit = mode === "form";
-  const primaryLabel = mode === "view" ? "Edit" : isExisting ? "Save" : "Add";
-
-  return (
-    <div className="mt-5 flex items-center justify-between gap-2">
-      {canDelete ? (
-        <button
-          type="button"
-          onClick={onDelete}
-          className="rounded-lg px-2.5 py-1.5 text-sm text-danger hover:bg-danger-bg"
-        >
-          Delete
-        </button>
-      ) : (
-        <span />
-      )}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-subtle hover:text-fg"
-        >
-          Cancel
-        </button>
-        <button
-          type={isFormSubmit ? "submit" : "button"}
-          form={isFormSubmit ? "todo-form" : undefined}
-          onClick={isFormSubmit ? undefined : onEdit}
-          disabled={isFormSubmit && !canSave}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover disabled:opacity-40 active:scale-[0.98]"
-          style={{
-            transition:
-              "transform var(--motion-fast) var(--ease-smooth), background-color var(--motion-fast) var(--ease-smooth), opacity var(--motion-fast) var(--ease-smooth)",
-          }}
-        >
-          {primaryLabel}
-        </button>
-      </div>
-    </div>
   );
 }
 
