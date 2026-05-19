@@ -10,6 +10,9 @@ import {
   shortWeekday,
 } from "@/lib/dates";
 import { tagPillStyle } from "@/lib/tagColors";
+import { type LabelColor } from "@/lib/labels";
+import { useLabels } from "@/lib/useLabels";
+import { NewLabelRow } from "./NewLabelRow";
 
 type Props = {
   open: boolean;
@@ -36,6 +39,7 @@ function TodoModalContent({
   onDelete,
   onClose,
 }: Props) {
+  const { labels: labelRegistry, addLabel: addLabelToRegistry } = useLabels();
   const isExisting = !!initial;
   const [mode, setMode] = useState<Mode>(isExisting ? "view" : "form");
 
@@ -105,7 +109,10 @@ function TodoModalContent({
   function addLabel(raw: string) {
     const next = normalizeLabel(raw);
     if (!next) return;
-    setLabels((prev) => (prev.includes(next) ? prev : [...prev, next]));
+    const key = next.toLowerCase();
+    setLabels((prev) =>
+      prev.some((l) => l.toLowerCase() === key) ? prev : [...prev, next],
+    );
     setLabelDraft("");
   }
 
@@ -198,6 +205,7 @@ function TodoModalContent({
               description={description}
               dueDate={dueDate}
               labels={labels}
+              labelRegistry={labelRegistry}
               completed={initial.completed}
               createdAt={initial.createdAt}
             />
@@ -215,8 +223,13 @@ function TodoModalContent({
               labelDraft={labelDraft}
               setLabelDraft={setLabelDraft}
               addLabel={addLabel}
+              addLabelWithColor={(name, color) => {
+                addLabel(name);
+                addLabelToRegistry(name, color);
+              }}
               removeLabel={removeLabel}
               knownLabels={knownLabels}
+              labelRegistry={labelRegistry}
               onSubmit={handleSubmit}
             />
           )}
@@ -285,6 +298,7 @@ function ViewBody({
   description,
   dueDate,
   labels,
+  labelRegistry,
   completed,
   createdAt,
 }: {
@@ -292,6 +306,7 @@ function ViewBody({
   description: string;
   dueDate: string;
   labels: string[];
+  labelRegistry: import("@/lib/labels").Label[];
   completed: boolean;
   createdAt: number;
 }) {
@@ -335,7 +350,11 @@ function ViewBody({
           {labels.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {labels.map((l) => (
-                <span key={l} className="tag-pill" style={tagPillStyle(l)}>
+                <span
+                  key={l}
+                  className="tag-pill"
+                  style={tagPillStyle(l, labelRegistry)}
+                >
                   {l}
                 </span>
               ))}
@@ -369,8 +388,10 @@ function FormBody({
   labelDraft,
   setLabelDraft,
   addLabel,
+  addLabelWithColor,
   removeLabel,
   knownLabels,
+  labelRegistry,
   onSubmit,
 }: {
   titleRef: React.RefObject<HTMLInputElement | null>;
@@ -385,17 +406,24 @@ function FormBody({
   labelDraft: string;
   setLabelDraft: (v: string) => void;
   addLabel: (raw: string) => void;
+  addLabelWithColor: (name: string, color: LabelColor) => void;
   removeLabel: (label: string) => void;
   knownLabels: string[];
+  labelRegistry: import("@/lib/labels").Label[];
   onSubmit: (e: React.FormEvent) => void;
 }) {
   const suggestions = labelDraft
-    ? knownLabels
-        .filter(
-          (l) =>
-            l.includes(normalizeLabel(labelDraft)) && !labels.includes(l),
-        )
-        .slice(0, 5)
+    ? (() => {
+        const draftKey = normalizeLabel(labelDraft).toLowerCase();
+        const usedKeys = new Set(labels.map((l) => l.toLowerCase()));
+        return knownLabels
+          .filter(
+            (l) =>
+              l.toLowerCase().includes(draftKey) &&
+              !usedKeys.has(l.toLowerCase()),
+          )
+          .slice(0, 5);
+      })()
     : [];
 
   return (
@@ -458,7 +486,7 @@ function FormBody({
                     "tag-pill items-center gap-1 overflow-hidden " +
                     (exiting ? "animate-chip-out" : "animate-chip-in")
                   }
-                  style={tagPillStyle(l)}
+                  style={tagPillStyle(l, labelRegistry)}
                 >
                   {l}
                   <button
@@ -474,35 +502,14 @@ function FormBody({
             })}
           </div>
         )}
-        <div className="flex gap-2">
-          <input
-            id="todo-label"
-            value={labelDraft}
-            onChange={(e) => setLabelDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addLabel(labelDraft);
-              } else if (
-                e.key === "Backspace" &&
-                labelDraft === "" &&
-                labels.length > 0
-              ) {
-                removeLabel(labels[labels.length - 1]);
-              }
-            }}
-            placeholder="Add a label, press Enter"
-            className="h-10 flex-1 rounded-lg border border-line-strong bg-card px-3 text-sm placeholder:text-faint hover:border-line-emphasis focus:border-line-emphasis"
-          />
-          <button
-            type="button"
-            onClick={() => addLabel(labelDraft)}
-            disabled={!labelDraft.trim()}
-            className="h-10 rounded-lg border border-line-strong bg-card px-3 text-sm font-medium hover:bg-card-hover disabled:opacity-40"
-          >
-            Add
-          </button>
-        </div>
+        <NewLabelRow
+          existingNames={
+            new Set(labels.map((l) => l.toLowerCase()))
+          }
+          onAdd={addLabelWithColor}
+          onNameChange={setLabelDraft}
+          placeholder="Add a label, press Enter"
+        />
         {suggestions.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {suggestions.map((s) => (

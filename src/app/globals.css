@@ -38,15 +38,8 @@
   --danger-bg: rgb(224 70 79 / 0.10);
   --success: #1FB36C;
 
-  /* Tag palette */
-  --tag-bill-fg: #E0464F;
-  --tag-bill-bg: rgb(224 70 79 / 0.10);
-  --tag-dinner-fg: #E2733A;
-  --tag-dinner-bg: rgb(226 115 58 / 0.12);
-  --tag-judith-fg: #DA61A0;
-  --tag-judith-bg: rgb(218 97 160 / 0.10);
-  --tag-subscription-fg: #3F86E8;
-  --tag-subscription-bg: rgb(63 134 232 / 0.10);
+  /* Tag colors are read from the label registry at render time
+     (see src/lib/labels.ts → SWATCHES); no per-name CSS variables. */
 
   /* Shadows */
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04);
@@ -99,14 +92,7 @@
   --danger-bg: rgb(248 113 113 / 0.10);
   --success: #4ADE80;
 
-  --tag-bill-fg: #F87171;
-  --tag-bill-bg: rgb(248 113 113 / 0.10);
-  --tag-dinner-fg: #FB923C;
-  --tag-dinner-bg: rgb(251 146 60 / 0.10);
-  --tag-judith-fg: #F472B6;
-  --tag-judith-bg: rgb(244 114 182 / 0.10);
-  --tag-subscription-fg: #60A5FA;
-  --tag-subscription-bg: rgb(96 165 250 / 0.10);
+  /* Tag colors come from the registry; see :root above. */
 
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow-card:
@@ -250,7 +236,6 @@
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: lowercase;
   line-height: 1.4;
   white-space: nowrap;
 }

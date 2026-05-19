@@ -9,6 +9,7 @@ import {
   shortWeekday,
 } from "@/lib/dates";
 import { tagPillStyle } from "@/lib/tagColors";
+import { useLabels } from "@/lib/useLabels";
 
 const PRIORITY_BG: Record<string, string> = {
   high: "var(--danger)",
@@ -28,6 +29,7 @@ export default function TodoCard({
 }) {
   const priority = priorityOf(todo);
   const overdue = isOverdue(todo.dueDate, todo.completed);
+  const { labels: labelRegistry } = useLabels();
 
   return (
     <li
@@ -78,7 +80,11 @@ export default function TodoCard({
         {todo.labels.length > 0 && (
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {todo.labels.map((l) => (
-              <span key={l} className="tag-pill" style={tagPillStyle(l)}>
+              <span
+                key={l}
+                className="tag-pill"
+                style={tagPillStyle(l, labelRegistry)}
+              >
                 {l}
               </span>
             ))}

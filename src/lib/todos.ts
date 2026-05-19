@@ -43,7 +43,9 @@ export function createTodo(input: TodoInput): Todo {
 }
 
 export function normalizeLabel(raw: string): string {
-  return raw.trim().toLowerCase().replace(/\s+/g, " ");
+  // Trim and collapse whitespace, but preserve casing — uniqueness
+  // is enforced case-insensitively in dedupeLabels.
+  return raw.trim().replace(/\s+/g, " ");
 }
 
 export function dedupeLabels(labels: string[]): string[] {
@@ -51,8 +53,10 @@ export function dedupeLabels(labels: string[]): string[] {
   const out: string[] = [];
   for (const raw of labels) {
     const label = normalizeLabel(raw);
-    if (!label || seen.has(label)) continue;
-    seen.add(label);
+    if (!label) continue;
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
     out.push(label);
   }
   return out;

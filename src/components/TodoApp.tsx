@@ -13,10 +13,12 @@ import {
 } from "@/lib/todos";
 import { groupByDue, isCompletedThisWeek } from "@/lib/dates";
 import { tagDotStyle } from "@/lib/tagColors";
+import { useLabels } from "@/lib/useLabels";
 import { withViewTransition } from "@/lib/viewTransition";
 import TodoCard from "./TodoCard";
 import TodoModal from "./TodoModal";
 import ThemeToggle from "./ThemeToggle";
+import LabelsManager from "./LabelsManager";
 
 const SORT_LABELS: Record<SortKey, string> = {
   createdDesc: "Newest",
@@ -29,12 +31,14 @@ const SORT_LABELS: Record<SortKey, string> = {
 export default function TodoApp() {
   const { todos, hydrated, add, update, toggle, remove, clearCompleted } =
     useTodos();
+  const { labels: labelRegistry, ensureLabelsExist } = useLabels();
 
   const [sort, setSort] = useState<SortKey>("createdDesc");
   const [activeLabels, setActiveLabels] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Todo | undefined>(undefined);
+  const [labelsManagerOpen, setLabelsManagerOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // ⌘K / Ctrl+K focuses search.
@@ -72,6 +76,11 @@ export default function TodoApp() {
     setModalOpen(true);
   }
   function handleSubmit(input: TodoInput) {
+    // Register any new label names in the label registry so they
+    // pick up a color (defaults to gray) and show up in the manager.
+    if (input.labels && input.labels.length > 0) {
+      ensureLabelsExist(input.labels);
+    }
     withViewTransition(() => {
       if (editing) update(editing.id, input);
       else add(input);
@@ -150,8 +159,10 @@ export default function TodoApp() {
             counts={counts}
             allCount={openCount}
             activeLabels={activeLabels}
+            labelRegistry={labelRegistry}
             onToggle={toggleLabelFilter}
             onClear={clearLabelFilters}
+            onManage={() => setLabelsManagerOpen(true)}
           />
         </div>
 
@@ -212,6 +223,11 @@ export default function TodoApp() {
         onSubmit={handleSubmit}
         onDelete={editing ? handleDelete : undefined}
         onClose={() => setModalOpen(false)}
+      />
+
+      <LabelsManager
+        open={labelsManagerOpen}
+        onClose={() => setLabelsManagerOpen(false)}
       />
     </>
   );
@@ -295,15 +311,19 @@ function FilterChips({
   counts,
   allCount,
   activeLabels,
+  labelRegistry,
   onToggle,
   onClear,
+  onManage,
 }: {
   labels: string[];
   counts: Map<string, number>;
   allCount: number;
   activeLabels: string[];
+  labelRegistry: import("@/lib/labels").Label[];
   onToggle: (label: string) => void;
   onClear: () => void;
+  onManage: () => void;
 }) {
   const allActive = activeLabels.length === 0;
   return (
@@ -323,8 +343,31 @@ function FilterChips({
           label={l}
           count={counts.get(l) ?? 0}
           tagDotForLabel={l}
+          labelRegistry={labelRegistry}
         />
       ))}
+      <button
+        type="button"
+        onClick={onManage}
+        aria-label="Manage labels"
+        title="Manage labels"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-line bg-subtle text-muted hover:bg-subtle-hover hover:text-fg"
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+        </svg>
+      </button>
     </div>
   );
 }
@@ -336,6 +379,7 @@ function FilterChip({
   count,
   tagDotForLabel,
   showPrimaryDot,
+  labelRegistry,
 }: {
   active: boolean;
   onClick: () => void;
@@ -343,11 +387,12 @@ function FilterChip({
   count: number;
   tagDotForLabel?: string;
   showPrimaryDot?: boolean;
+  labelRegistry?: import("@/lib/labels").Label[];
 }) {
   const dotStyle = showPrimaryDot
     ? { backgroundColor: "var(--primary)" }
-    : tagDotForLabel
-      ? tagDotStyle(tagDotForLabel)
+    : tagDotForLabel && labelRegistry
+      ? tagDotStyle(tagDotForLabel, labelRegistry)
       : undefined;
 
   return (

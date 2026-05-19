@@ -1,41 +1,40 @@
 import type { CSSProperties } from "react";
+import {
+  type Label,
+  type LabelColor,
+  DEFAULT_COLOR,
+  findLabelByName,
+  swatchFor,
+} from "./labels";
 
-export type KnownTag = "bill" | "dinner" | "judith" | "subscription";
+/**
+ * Style helpers that look up a label's color from the registry so
+ * pills and filter dots match whatever the user chose in the Labels
+ * manager. If a label string isn't in the registry, we fall back to
+ * the default named color (gray).
+ */
 
-export const KNOWN_TAGS: ReadonlyArray<KnownTag> = [
-  "bill",
-  "dinner",
-  "judith",
-  "subscription",
-];
-
-function isKnown(tag: string): tag is KnownTag {
-  return (KNOWN_TAGS as readonly string[]).includes(tag);
+function resolveColor(
+  labelName: string,
+  registry: Label[],
+): LabelColor {
+  const found = findLabelByName(registry, labelName);
+  return found ? found.color : DEFAULT_COLOR;
 }
 
 /** Inline style for a tag pill (foreground + tinted background). */
-export function tagPillStyle(tag: string): CSSProperties {
-  if (isKnown(tag)) {
-    return {
-      color: `var(--tag-${tag}-fg)`,
-      backgroundColor: `var(--tag-${tag}-bg)`,
-    };
-  }
-  return {
-    color: "var(--muted)",
-    backgroundColor: "var(--subtle)",
-  };
+export function tagPillStyle(
+  labelName: string,
+  registry: Label[],
+): CSSProperties {
+  const s = swatchFor(resolveColor(labelName, registry));
+  return { color: s.fg, backgroundColor: s.bg };
 }
 
 /** Inline style for a filter-chip leading dot. */
-export function tagDotStyle(tag: string): CSSProperties {
-  if (isKnown(tag)) {
-    return { backgroundColor: `var(--tag-${tag}-fg)` };
-  }
-  return { backgroundColor: "var(--faint)" };
-}
-
-/** Class name for an unknown tag pill's bg/text (falls back to subtle). */
-export function tagPillFallbackClass(tag: string): string {
-  return isKnown(tag) ? "" : "bg-subtle text-muted";
+export function tagDotStyle(
+  labelName: string,
+  registry: Label[],
+): CSSProperties {
+  return { backgroundColor: swatchFor(resolveColor(labelName, registry)).fg };
 }
