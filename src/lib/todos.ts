@@ -93,13 +93,21 @@ export function sortTodos(todos: Todo[], sort: SortKey): Todo[] {
   }
 }
 
+export type StatusFilter = "open" | "done";
+
 export function filterTodos(
   todos: Todo[],
   activeLabels: string[],
   query: string,
+  activeStatuses: ReadonlySet<StatusFilter> = new Set(),
 ): Todo[] {
   const q = query.trim().toLowerCase();
+  // Selection acts like checkboxes: empty OR both checked means "show
+  // everything", single selection narrows to that status.
+  const wantOpen = activeStatuses.size === 0 || activeStatuses.has("open");
+  const wantDone = activeStatuses.size === 0 || activeStatuses.has("done");
   return todos.filter((t) => {
+    if (t.completed ? !wantDone : !wantOpen) return false;
     if (q) {
       const hay = `${t.title} ${t.description ?? ""}`.toLowerCase();
       if (!hay.includes(q)) return false;

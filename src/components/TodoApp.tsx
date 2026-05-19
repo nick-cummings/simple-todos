@@ -5,6 +5,7 @@ import { useTodos } from "@/lib/useTodos";
 import {
   Todo,
   SortKey,
+  StatusFilter,
   TodoInput,
   allLabels,
   filterTodos,
@@ -35,6 +36,13 @@ export default function TodoApp() {
 
   const [sort, setSort] = useState<SortKey>("createdDesc");
   const [activeLabels, setActiveLabels] = useState<string[]>([]);
+  // Both selected by default so the chips truthfully reflect what's
+  // shown — the empty-set short-circuit in filterTodos also means
+  // "show all", but starting with both checked makes the UI state
+  // match the visible list state.
+  const [activeStatuses, setActiveStatuses] = useState<Set<StatusFilter>>(
+    new Set(["open", "done"]),
+  );
   const [query, setQuery] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Todo | undefined>(undefined);
@@ -57,12 +65,13 @@ export default function TodoApp() {
   const labels = useMemo(() => allLabels(todos), [todos]);
   const counts = useMemo(() => labelCounts(todos), [todos]);
   const visible = useMemo(
-    () => sortTodos(filterTodos(todos, activeLabels, query), sort),
-    [todos, activeLabels, query, sort],
+    () => sortTodos(filterTodos(todos, activeLabels, query, activeStatuses), sort),
+    [todos, activeLabels, query, sort, activeStatuses],
   );
   const groups = useMemo(() => groupByDue(visible), [visible]);
 
   const openCount = todos.filter((t) => !t.completed).length;
+  const doneCount = todos.length - openCount;
   const completedThisWeek = todos.filter(
     (t) => t.completed && isCompletedThisWeek(t.updatedAt),
   ).length;
@@ -103,6 +112,16 @@ export default function TodoApp() {
   }
   function clearLabelFilters() {
     withViewTransition(() => setActiveLabels([]));
+  }
+  function toggleStatusFilter(s: StatusFilter) {
+    withViewTransition(() =>
+      setActiveStatuses((prev) => {
+        const next = new Set(prev);
+        if (next.has(s)) next.delete(s);
+        else next.add(s);
+        return next;
+      }),
+    );
   }
   function handleSort(next: SortKey) {
     withViewTransition(() => setSort(next));
@@ -153,6 +172,13 @@ export default function TodoApp() {
             />
             <SortMenu value={sort} onChange={handleSort} />
           </div>
+
+          <StatusChips
+            openCount={openCount}
+            doneCount={doneCount}
+            active={activeStatuses}
+            onToggle={toggleStatusFilter}
+          />
 
           <FilterChips
             labels={labels}
@@ -303,6 +329,117 @@ function SortMenu({
         ))}
       </select>
     </label>
+  );
+}
+
+function StatusChips({
+  openCount,
+  doneCount,
+  active,
+  onToggle,
+}: {
+  openCount: number;
+  doneCount: number;
+  active: Set<StatusFilter>;
+  onToggle: (s: StatusFilter) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <StatusChip
+        label="Open"
+        count={openCount}
+        active={active.has("open")}
+        onClick={() => onToggle("open")}
+        type="open"
+      />
+      <StatusChip
+        label="Done"
+        count={doneCount}
+        active={active.has("done")}
+        onClick={() => onToggle("done")}
+        type="done"
+      />
+    </div>
+  );
+}
+
+function StatusChip({
+  label,
+  count,
+  active,
+  onClick,
+  type,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  type: StatusFilter;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-medium active:scale-[0.97] " +
+        (active
+          ? "border-primary-border bg-primary-bg text-primary"
+          : "border-line bg-subtle text-muted hover:bg-subtle-hover hover:text-fg")
+      }
+      style={{
+        transition:
+          "transform var(--motion-fast) var(--ease-spring), background-color var(--motion-fast) var(--ease-smooth), color var(--motion-fast) var(--ease-smooth), border-color var(--motion-fast) var(--ease-smooth)",
+      }}
+    >
+      {type === "open" ? <CircleIcon /> : <CheckCircleIcon />}
+      <span>{label}</span>
+      <span
+        className={
+          "tabular-nums text-[11px] " +
+          (active ? "text-primary opacity-75" : "text-faint")
+        }
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function CircleIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  );
+}
+
+function CheckCircleIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12l3 3 5-6" />
+    </svg>
   );
 }
 
