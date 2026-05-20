@@ -41,15 +41,21 @@ variable "anthropic_api_key" {
   sensitive   = true
 }
 
-variable "upstash_redis_rest_url" {
-  description = "Upstash Redis REST URL used by the per-IP rate limiter on /api/generate-description. Leave empty to skip provisioning — the route falls back to a leaky in-memory limiter."
+variable "upstash_email" {
+  description = "Upstash account email. Together with upstash_api_key, lets Terraform provision the Redis DB itself and wire its endpoint into Vercel env vars. Leave empty to skip — the route falls back to its in-memory limiter."
   type        = string
   default     = ""
 }
 
-variable "upstash_redis_rest_token" {
-  description = "Upstash Redis REST token. See upstash_redis_rest_url for behavior when empty."
+variable "upstash_api_key" {
+  description = "Upstash management API key from https://console.upstash.com/account/api. Used to provision the Redis DB."
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "upstash_redis_region" {
+  description = "AWS region for the Upstash Redis DB. Choose one close to where the Vercel functions run (sfo1 ≈ us-west-1, iad1 ≈ us-east-1)."
+  type        = string
+  default     = "us-east-1"
 }

@@ -2,7 +2,7 @@ locals {
   has_git_repo          = var.github_repo != ""
   has_domain            = var.custom_domain != ""
   has_anthropic_api_key = var.anthropic_api_key != ""
-  has_upstash           = var.upstash_redis_rest_url != "" && var.upstash_redis_rest_token != ""
+  has_upstash_creds     = var.upstash_email != "" && var.upstash_api_key != ""
 }
 
 resource "vercel_project" "app" {
@@ -44,22 +44,39 @@ resource "vercel_project_environment_variable" "anthropic_api_key" {
   sensitive  = true
 }
 
-# Upstash Redis credentials for cross-instance rate limiting on the AI
-# route. Both vars must be set together; without them the route falls
-# back to an in-memory limiter (per-lambda, leaky).
+# Upstash Redis for cross-instance rate limiting on the AI route.
+# Terraform provisions the DB itself and feeds its REST endpoint+token
+# into the Vercel project as env vars. Gated on credentials being
+# present so a fresh clone without Upstash creds still plans cleanly
+# (the route falls back to an in-memory limiter).
+resource "upstash_redis_database" "ratelimit" {
+  count          = local.has_upstash_creds ? 1 : 0
+  database_name  = "${var.project_name}-ratelimit"
+  # Upstash deprecated single-region "regional" databases in favor of
+  # "global" databases that pick a primary + replicas. region="global"
+  # tells the API to provision a global DB; primary_region picks the
+  # write region; read_regions is empty since we only need one region
+  # for rate-limiting.
+  region         = "global"
+  primary_region = var.upstash_redis_region
+  read_regions   = []
+  tls            = true
+  eviction       = false
+}
+
 resource "vercel_project_environment_variable" "upstash_redis_rest_url" {
-  count      = local.has_upstash ? 1 : 0
+  count      = local.has_upstash_creds ? 1 : 0
   project_id = vercel_project.app.id
   key        = "UPSTASH_REDIS_REST_URL"
-  value      = var.upstash_redis_rest_url
+  value      = "https://${upstash_redis_database.ratelimit[0].endpoint}"
   target     = ["production", "preview"]
 }
 
 resource "vercel_project_environment_variable" "upstash_redis_rest_token" {
-  count      = local.has_upstash ? 1 : 0
+  count      = local.has_upstash_creds ? 1 : 0
   project_id = vercel_project.app.id
   key        = "UPSTASH_REDIS_REST_TOKEN"
-  value      = var.upstash_redis_rest_token
+  value      = upstash_redis_database.ratelimit[0].rest_token
   target     = ["production", "preview"]
   sensitive  = true
 }

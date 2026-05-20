@@ -8,5 +8,6 @@
 # production_branch = "main"
 # custom_domain     = ""                          # optional, e.g. "todos.example.com"
 # anthropic_api_key = "sk-ant-..."                # required for /api/generate-description; pulled into Vercel env
-# upstash_redis_rest_url   = "https://...upstash.io"  # optional, enables real cross-instance rate limiting on AI route
-# upstash_redis_rest_token = "AX..."                  # paired with upstash_redis_rest_url
+# upstash_email        = "you@example.com"            # optional, enables real cross-instance rate limit
+# upstash_api_key      = "..."                         # https://console.upstash.com/account/api
+# upstash_redis_region = "us-east-1"                   # default us-east-1 (closer to Vercel iad1 lambdas)
