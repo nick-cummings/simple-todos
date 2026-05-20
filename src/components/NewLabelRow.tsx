@@ -101,9 +101,16 @@ export function InlineColorPicker({
   size?: "sm" | "md";
 }) {
   const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(
-    null,
-  );
+  // Anchor by `bottom` (distance from viewport bottom) rather than
+  // `top + translateY(-100%)`. The pop-in animation's keyframes end at
+  // `transform: scale(1) translateY(0)`, which overrides any inline
+  // translateY after the animation finishes — leaving the popover
+  // positioned at its top edge instead of growing upward from its
+  // bottom edge. `bottom` sidesteps the conflict entirely.
+  const [anchor, setAnchor] = useState<{
+    left: number;
+    bottom: number;
+  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -114,7 +121,10 @@ export function InlineColorPicker({
     }
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setAnchor({ left: rect.left, top: rect.top - 8 });
+    setAnchor({
+      left: rect.left,
+      bottom: window.innerHeight - rect.top + 8,
+    });
     setOpen(true);
   }
 
@@ -174,8 +184,7 @@ export function InlineColorPicker({
             className="fixed z-[60] w-max rounded-lg border border-line bg-card p-2.5 shadow-pop animate-pop-in"
             style={{
               left: anchor.left,
-              top: anchor.top,
-              transform: "translateY(-100%)",
+              bottom: anchor.bottom,
             }}
           >
             <SwatchRow
@@ -252,9 +261,12 @@ function CustomSwatch({
   ariaLabel: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{ right: number; top: number } | null>(
-    null,
-  );
+  // See InlineColorPicker for why we anchor by bottom rather than
+  // top + translateY — same animate-pop-in conflict.
+  const [anchor, setAnchor] = useState<{
+    right: number;
+    bottom: number;
+  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -267,7 +279,7 @@ function CustomSwatch({
     if (!rect) return;
     setAnchor({
       right: window.innerWidth - rect.right,
-      top: rect.top - 8,
+      bottom: window.innerHeight - rect.top + 8,
     });
     setOpen(true);
   }
@@ -342,8 +354,7 @@ function CustomSwatch({
             className="fixed z-[70] rounded-lg border border-line bg-card p-2.5 shadow-pop animate-pop-in"
             style={{
               right: anchor.right,
-              top: anchor.top,
-              transform: "translateY(-100%)",
+              bottom: anchor.bottom,
             }}
           >
             <CustomColorPicker
