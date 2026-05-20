@@ -16,11 +16,11 @@ import {
  * per-lambda limiter when UPSTASH_REDIS_REST_URL / TOKEN aren't set
  * (local dev, or before the user provisions the Redis instance).
  *
- * 10 requests per IP per hour either way.
+ * 20 requests per IP per 24 hours either way.
  */
-const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW = "1 h" as const;
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_WINDOW = "24 h" as const;
+const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const upstashLimiter = (() => {
   const url = process.env.UPSTASH_REDIS_REST_URL;
