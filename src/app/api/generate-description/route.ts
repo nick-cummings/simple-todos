@@ -6,6 +6,44 @@ import {
   isValidLocation,
 } from "@/lib/prompts/generateDescription";
 
+// Lightweight per-IP rate limit. Stored in-memory at module scope, so
+// counters reset when a lambda instance cycles and are not shared
+// across instances — a sufficiently determined attacker hitting many
+// cold lambdas can exceed the nominal limit. Fine for a PoC; swap for
+// Vercel KV / Upstash if abuse becomes real.
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX = 10; // requests per IP per window
+const buckets = new Map<string, { count: number; reset: number }>();
+
+function checkRateLimit(ip: string): {
+  allowed: boolean;
+  retryAfterSec: number;
+} {
+  const now = Date.now();
+  const b = buckets.get(ip);
+  if (!b || b.reset < now) {
+    buckets.set(ip, { count: 1, reset: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, retryAfterSec: 0 };
+  }
+  if (b.count >= RATE_LIMIT_MAX) {
+    return {
+      allowed: false,
+      retryAfterSec: Math.ceil((b.reset - now) / 1000),
+    };
+  }
+  b.count += 1;
+  return { allowed: true, retryAfterSec: 0 };
+}
+
+function clientIp(request: Request): string {
+  // Vercel sets x-forwarded-for; first value is the client IP.
+  const fwd = request.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  const real = request.headers.get("x-real-ip");
+  if (real) return real.trim();
+  return "unknown";
+}
+
 /**
  * Server-side proxy that calls Claude Haiku 4.5 to generate a description
  * for a todo title. The Anthropic API key stays on the server — the
@@ -21,6 +59,18 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Server is not configured for AI generation." },
       { status: 503 },
+    );
+  }
+
+  const limit = checkRateLimit(clientIp(request));
+  if (!limit.allowed) {
+    const minutes = Math.max(1, Math.ceil(limit.retryAfterSec / 60));
+    return NextResponse.json(
+      { error: `Rate limit reached. Try again in ~${minutes} min.` },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSec) },
+      },
     );
   }
 

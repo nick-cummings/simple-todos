@@ -17,6 +17,13 @@ resource "vercel_project" "app" {
     repo              = var.github_repo
     production_branch = var.production_branch
   } : null
+
+  # Public deploys: disable Vercel SSO so anonymous clients can hit
+  # the site and the /api/generate-description route. Abuse protection
+  # for the AI route is handled in the route itself (per-IP rate limit).
+  vercel_authentication = {
+    deployment_type = "none"
+  }
 }
 
 resource "vercel_project_domain" "primary" {
