@@ -48,3 +48,10 @@ infra/*.tfvars
 !infra/*.tfvars.example
 
 .playwright-cli
+
+# Local planning / scratch docs — keep out of source.
+TESTING_PLAN.md
+
+# Husky-generated internal scripts (the actual hook files live next to
+# this directory, e.g. .husky/pre-push).
+.husky/_

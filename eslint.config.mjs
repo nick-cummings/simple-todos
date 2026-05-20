@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated coverage report assets.
+    "coverage/**",
+    // Throwaway design mockups — also excluded from tests.
+    "src/components/mockups/**",
+    "src/app/mockups/**",
   ]),
 ]);
 

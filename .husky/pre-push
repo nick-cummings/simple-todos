@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Runs the full test pipeline before allowing a push.
+# Bypass (discouraged) with: git push --no-verify
+npm run verify
