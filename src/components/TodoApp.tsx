@@ -36,12 +36,11 @@ export default function TodoApp() {
 
   const [sort, setSort] = useState<SortKey>("createdDesc");
   const [activeLabels, setActiveLabels] = useState<string[]>([]);
-  // Both selected by default so the chips truthfully reflect what's
-  // shown — the empty-set short-circuit in filterTodos also means
-  // "show all", but starting with both checked makes the UI state
-  // match the visible list state.
+  // Open-only by default: completed todos are noise once they're done,
+  // so the user has to opt in to seeing them by toggling the Done chip.
+  // The chip's filled state still truthfully reflects what's shown.
   const [activeStatuses, setActiveStatuses] = useState<Set<StatusFilter>>(
-    new Set(["open", "done"]),
+    new Set(["open"]),
   );
   const [query, setQuery] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -180,6 +179,8 @@ export default function TodoApp() {
             onToggle={toggleStatusFilter}
           />
 
+          <hr className="border-t border-line" />
+
           <FilterChips
             labels={labels}
             counts={counts}
@@ -214,7 +215,7 @@ export default function TodoApp() {
           ))}
         </div>
 
-        {todos.some((t) => t.completed) && (
+        {visible.some((t) => t.completed) && (
           <button
             type="button"
             onClick={handleClearCompleted}
@@ -465,24 +466,6 @@ function FilterChips({
   const allActive = activeLabels.length === 0;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <FilterChip
-        active={allActive}
-        onClick={onClear}
-        label="All"
-        count={allCount}
-        showPrimaryDot
-      />
-      {labels.map((l) => (
-        <FilterChip
-          key={l}
-          active={activeLabels.includes(l)}
-          onClick={() => onToggle(l)}
-          label={l}
-          count={counts.get(l) ?? 0}
-          tagDotForLabel={l}
-          labelRegistry={labelRegistry}
-        />
-      ))}
       <button
         type="button"
         onClick={onManage}
@@ -505,6 +488,24 @@ function FilterChips({
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         </svg>
       </button>
+      <FilterChip
+        active={allActive}
+        onClick={onClear}
+        label="All"
+        count={allCount}
+        showPrimaryDot
+      />
+      {labels.map((l) => (
+        <FilterChip
+          key={l}
+          active={activeLabels.includes(l)}
+          onClick={() => onToggle(l)}
+          label={l}
+          count={counts.get(l) ?? 0}
+          tagDotForLabel={l}
+          labelRegistry={labelRegistry}
+        />
+      ))}
     </div>
   );
 }
