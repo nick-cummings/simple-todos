@@ -113,7 +113,10 @@ export function filterTodos(
       if (!hay.includes(q)) return false;
     }
     if (activeLabels.length === 0) return true;
-    return activeLabels.every((l) => t.labels.includes(l));
+    // Multiple labels selected = OR. A todo matches if it carries any
+    // of the selected labels (case-insensitive).
+    const todoKeys = new Set(t.labels.map((l) => l.toLowerCase()));
+    return activeLabels.some((l) => todoKeys.has(l.toLowerCase()));
   });
 }
 
