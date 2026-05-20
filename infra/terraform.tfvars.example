@@ -7,3 +7,4 @@
 # github_repo       = "your-gh-user/simple-todos" # optional, blank = no Git wiring
 # production_branch = "main"
 # custom_domain     = ""                          # optional, e.g. "todos.example.com"
+# anthropic_api_key = "sk-ant-..."                # required for /api/generate-description; pulled into Vercel env

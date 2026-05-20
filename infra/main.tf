@@ -1,6 +1,7 @@
 locals {
-  has_git_repo = var.github_repo != ""
-  has_domain   = var.custom_domain != ""
+  has_git_repo          = var.github_repo != ""
+  has_domain            = var.custom_domain != ""
+  has_anthropic_api_key = var.anthropic_api_key != ""
 }
 
 resource "vercel_project" "app" {
@@ -16,12 +17,21 @@ resource "vercel_project" "app" {
     repo              = var.github_repo
     production_branch = var.production_branch
   } : null
-
-  # No env vars required for the MVP — todos live in localStorage.
 }
 
 resource "vercel_project_domain" "primary" {
-  count   = local.has_domain ? 1 : 0
+  count      = local.has_domain ? 1 : 0
   project_id = vercel_project.app.id
   domain     = var.custom_domain
+}
+
+# Env vars. Keep one resource per var so additions/removals don't churn
+# unrelated state. Mark sensitive so plan/state never echoes the value.
+resource "vercel_project_environment_variable" "anthropic_api_key" {
+  count      = local.has_anthropic_api_key ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "ANTHROPIC_API_KEY"
+  value      = var.anthropic_api_key
+  target     = ["production", "preview"]
+  sensitive  = true
 }

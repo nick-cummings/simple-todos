@@ -33,3 +33,10 @@ variable "custom_domain" {
   type        = string
   default     = ""
 }
+
+variable "anthropic_api_key" {
+  description = "Anthropic API key for /api/generate-description. Leave empty to skip provisioning the env var on Vercel (the route will then return a 503 in production). Provide via TF_VAR_anthropic_api_key or terraform.tfvars."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
