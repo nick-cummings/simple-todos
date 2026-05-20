@@ -2,6 +2,7 @@ locals {
   has_git_repo          = var.github_repo != ""
   has_domain            = var.custom_domain != ""
   has_anthropic_api_key = var.anthropic_api_key != ""
+  has_upstash           = var.upstash_redis_rest_url != "" && var.upstash_redis_rest_token != ""
 }
 
 resource "vercel_project" "app" {
@@ -39,6 +40,26 @@ resource "vercel_project_environment_variable" "anthropic_api_key" {
   project_id = vercel_project.app.id
   key        = "ANTHROPIC_API_KEY"
   value      = var.anthropic_api_key
+  target     = ["production", "preview"]
+  sensitive  = true
+}
+
+# Upstash Redis credentials for cross-instance rate limiting on the AI
+# route. Both vars must be set together; without them the route falls
+# back to an in-memory limiter (per-lambda, leaky).
+resource "vercel_project_environment_variable" "upstash_redis_rest_url" {
+  count      = local.has_upstash ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "UPSTASH_REDIS_REST_URL"
+  value      = var.upstash_redis_rest_url
+  target     = ["production", "preview"]
+}
+
+resource "vercel_project_environment_variable" "upstash_redis_rest_token" {
+  count      = local.has_upstash ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "UPSTASH_REDIS_REST_TOKEN"
+  value      = var.upstash_redis_rest_token
   target     = ["production", "preview"]
   sensitive  = true
 }

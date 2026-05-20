@@ -40,3 +40,16 @@ variable "anthropic_api_key" {
   default     = ""
   sensitive   = true
 }
+
+variable "upstash_redis_rest_url" {
+  description = "Upstash Redis REST URL used by the per-IP rate limiter on /api/generate-description. Leave empty to skip provisioning — the route falls back to a leaky in-memory limiter."
+  type        = string
+  default     = ""
+}
+
+variable "upstash_redis_rest_token" {
+  description = "Upstash Redis REST token. See upstash_redis_rest_url for behavior when empty."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

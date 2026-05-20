@@ -1,21 +1,43 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 import {
   GENERATE_DESCRIPTION_SYSTEM_PROMPT,
   buildUserMessage,
   isValidLocation,
 } from "@/lib/prompts/generateDescription";
 
-// Lightweight per-IP rate limit. Stored in-memory at module scope, so
-// counters reset when a lambda instance cycles and are not shared
-// across instances — a sufficiently determined attacker hitting many
-// cold lambdas can exceed the nominal limit. Fine for a PoC; swap for
-// Vercel KV / Upstash if abuse becomes real.
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const RATE_LIMIT_MAX = 10; // requests per IP per window
-const buckets = new Map<string, { count: number; reset: number }>();
+/**
+ * Rate limiter.
+ *
+ * Prefers an Upstash Redis sliding-window limiter so the counter is
+ * shared across all lambda instances. Falls back to an in-memory
+ * per-lambda limiter when UPSTASH_REDIS_REST_URL / TOKEN aren't set
+ * (local dev, or before the user provisions the Redis instance).
+ *
+ * 10 requests per IP per hour either way.
+ */
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW = "1 h" as const;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-function checkRateLimit(ip: string): {
+const upstashLimiter = (() => {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  return new Ratelimit({
+    redis: new Redis({ url, token }),
+    limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
+    analytics: false,
+    prefix: "rl:generate-description",
+  });
+})();
+
+// In-memory fallback (leaky — see note in security audit). Used only
+// when Upstash isn't configured.
+const buckets = new Map<string, { count: number; reset: number }>();
+function inMemoryLimit(ip: string): {
   allowed: boolean;
   retryAfterSec: number;
 } {
@@ -33,6 +55,20 @@ function checkRateLimit(ip: string): {
   }
   b.count += 1;
   return { allowed: true, retryAfterSec: 0 };
+}
+
+async function checkRateLimit(
+  ip: string,
+): Promise<{ allowed: boolean; retryAfterSec: number }> {
+  if (upstashLimiter) {
+    const res = await upstashLimiter.limit(ip);
+    if (res.success) return { allowed: true, retryAfterSec: 0 };
+    return {
+      allowed: false,
+      retryAfterSec: Math.max(1, Math.ceil((res.reset - Date.now()) / 1000)),
+    };
+  }
+  return inMemoryLimit(ip);
 }
 
 function clientIp(request: Request): string {
@@ -62,7 +98,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const limit = checkRateLimit(clientIp(request));
+  const limit = await checkRateLimit(clientIp(request));
   if (!limit.allowed) {
     const minutes = Math.max(1, Math.ceil(limit.retryAfterSec / 60));
     return NextResponse.json(
@@ -114,16 +150,11 @@ export async function POST(request: Request) {
     // results to Claude; we pay only for tokens. If the model decides
     // the title is trivial (e.g. "buy milk"), it skips the search.
     //
-    // If the server-side sampling loop hits its iteration cap, the
-    // response has `stop_reason: "pause_turn"` and we replay it once
-    // to resume. One retry is enough for this short, focused task.
-    const messages: Anthropic.MessageParam[] = [
-      {
-        role: "user",
-        content: buildUserMessage({ title, location: validatedLocation }),
-      },
-    ];
-    let response = await client.messages.create({
+    // Capped at a single model turn — we do NOT honor `pause_turn`.
+    // A short todo description never needs more tool calls than fit in
+    // one server-side sampling loop, and capping here prevents a
+    // crafted title from running up the bill via runaway tool chains.
+    const response = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 600,
       system: [
@@ -133,25 +164,14 @@ export async function POST(request: Request) {
           cache_control: { type: "ephemeral" },
         },
       ],
-      messages,
+      messages: [
+        {
+          role: "user",
+          content: buildUserMessage({ title, location: validatedLocation }),
+        },
+      ],
       tools: [{ type: "web_search_20250305", name: "web_search" }],
     });
-    if (response.stop_reason === "pause_turn") {
-      messages.push({ role: "assistant", content: response.content });
-      response = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 600,
-        system: [
-          {
-            type: "text",
-            text: GENERATE_DESCRIPTION_SYSTEM_PROMPT,
-            cache_control: { type: "ephemeral" },
-          },
-        ],
-        messages,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-      });
-    }
 
     const text = response.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")
