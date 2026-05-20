@@ -10,7 +10,7 @@ import {
   shortWeekday,
 } from "@/lib/dates";
 import { tagPillStyle } from "@/lib/tagColors";
-import { type LabelColor } from "@/lib/labels";
+import { type LabelColor, swatchFor } from "@/lib/labels";
 import { useLabels } from "@/lib/useLabels";
 import { NewLabelRow } from "./NewLabelRow";
 
@@ -47,7 +47,6 @@ function TodoModalContent({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
   const [labels, setLabels] = useState<string[]>(initial?.labels ?? []);
-  const [exitingLabels, setExitingLabels] = useState<string[]>([]);
   const [labelDraft, setLabelDraft] = useState("");
   const [closing, setClosing] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -116,12 +115,13 @@ function TodoModalContent({
     setLabelDraft("");
   }
 
-  function removeLabel(label: string) {
-    setExitingLabels((prev) => (prev.includes(label) ? prev : [...prev, label]));
-    window.setTimeout(() => {
-      setLabels((prev) => prev.filter((l) => l !== label));
-      setExitingLabels((prev) => prev.filter((l) => l !== label));
-    }, 160);
+  function toggleLabel(name: string) {
+    const key = name.toLowerCase();
+    setLabels((prev) =>
+      prev.some((l) => l.toLowerCase() === key)
+        ? prev.filter((l) => l.toLowerCase() !== key)
+        : [...prev, name],
+    );
   }
 
   function commitSave() {
@@ -174,10 +174,11 @@ function TodoModalContent({
       <div
         className={
           "flex w-full max-w-md flex-col bg-card shadow-pop " +
-          // Mobile: bottom sheet pinned at 75dvh.
-          "h-[75dvh] rounded-t-2xl " +
-          // Desktop: auto height, cap at 85vh, fully rounded.
-          "sm:h-auto sm:max-h-[85vh] sm:rounded-2xl " +
+          // Mobile: bottom sheet pinned at 88dvh — enough for the
+          // taller description textarea without crowding the action row.
+          "h-[88dvh] rounded-t-2xl " +
+          // Desktop: auto height, cap at 92vh, fully rounded.
+          "sm:h-auto sm:max-h-[92vh] sm:rounded-2xl " +
           (closing ? "animate-pop-out" : "animate-pop-in")
         }
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -219,16 +220,13 @@ function TodoModalContent({
               dueDate={dueDate}
               setDueDate={setDueDate}
               labels={labels}
-              exitingLabels={exitingLabels}
               labelDraft={labelDraft}
               setLabelDraft={setLabelDraft}
-              addLabel={addLabel}
               addLabelWithColor={(name, color) => {
                 addLabel(name);
                 addLabelToRegistry(name, color);
               }}
-              removeLabel={removeLabel}
-              knownLabels={knownLabels}
+              toggleLabel={toggleLabel}
               labelRegistry={labelRegistry}
               onSubmit={handleSubmit}
             />
@@ -384,13 +382,10 @@ function FormBody({
   dueDate,
   setDueDate,
   labels,
-  exitingLabels,
   labelDraft,
   setLabelDraft,
-  addLabel,
   addLabelWithColor,
-  removeLabel,
-  knownLabels,
+  toggleLabel,
   labelRegistry,
   onSubmit,
 }: {
@@ -402,29 +397,83 @@ function FormBody({
   dueDate: string;
   setDueDate: (v: string) => void;
   labels: string[];
-  exitingLabels: string[];
   labelDraft: string;
   setLabelDraft: (v: string) => void;
-  addLabel: (raw: string) => void;
   addLabelWithColor: (name: string, color: LabelColor) => void;
-  removeLabel: (label: string) => void;
-  knownLabels: string[];
+  toggleLabel: (name: string) => void;
   labelRegistry: import("@/lib/labels").Label[];
   onSubmit: (e: React.FormEvent) => void;
 }) {
-  const suggestions = labelDraft
-    ? (() => {
-        const draftKey = normalizeLabel(labelDraft).toLowerCase();
-        const usedKeys = new Set(labels.map((l) => l.toLowerCase()));
-        return knownLabels
-          .filter(
-            (l) =>
-              l.toLowerCase().includes(draftKey) &&
-              !usedKeys.has(l.toLowerCase()),
-          )
-          .slice(0, 5);
-      })()
-    : [];
+  // Source of truth for the picker is the label registry (all labels
+  // the user has created, including ones not yet on any todo). Add any
+  // labels currently on this todo that aren't in the registry so they
+  // still appear in the picker — defensive against orphans.
+  const pickerLabels = (() => {
+    const out: { name: string; color: import("@/lib/labels").LabelColor }[] = [];
+    const seen = new Set<string>();
+    for (const l of labelRegistry) {
+      const key = l.name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ name: l.name, color: l.color });
+    }
+    for (const name of labels) {
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ name, color: "gray" });
+    }
+    return out;
+  })();
+  const selectedKeys = new Set(labels.map((l) => l.toLowerCase()));
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  async function getLocationBestEffort(): Promise<
+    { latitude: number; longitude: number } | null
+  > {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return null;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) =>
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          }),
+        () => resolve(null),
+        { timeout: 6000, maximumAge: 600_000 },
+      );
+    });
+  }
+
+  async function handleGenerateDescription() {
+    if (!title.trim() || aiLoading) return;
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const location = await getLocationBestEffort();
+      const res = await fetch("/api/generate-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), location }),
+      });
+      const data = (await res.json()) as
+        | { description: string }
+        | { error: string };
+      if (!res.ok || !("description" in data)) {
+        setAiError(
+          "error" in data ? data.error : "Could not generate description.",
+        );
+        return;
+      }
+      setDescription(data.description);
+    } catch {
+      setAiError("Network error — try again.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   return (
     <form id="todo-form" onSubmit={onSubmit} className="flex flex-col gap-4 py-2">
@@ -439,16 +488,39 @@ function FormBody({
         />
       </Field>
 
-      <Field id="todo-description" label="Description" optional>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <label htmlFor="todo-description" className="text-xs text-muted">
+            Description<span className="text-faint"> (optional)</span>
+          </label>
+          <button
+            type="button"
+            onClick={handleGenerateDescription}
+            disabled={!title.trim() || aiLoading}
+            aria-label="Generate description with AI"
+            title={
+              !title.trim()
+                ? "Enter a title first"
+                : "Generate description with AI"
+            }
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-line-strong bg-card px-2 text-[11px] font-medium text-muted hover:border-line-emphasis hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {aiLoading ? <SpinnerIcon /> : <SparkleIcon />}
+            <span>{aiLoading ? "Generating…" : "AI"}</span>
+          </button>
+        </div>
         <textarea
           id="todo-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={3}
+          rows={6}
           placeholder="Notes, links, context…"
           className="resize-y rounded-lg border border-line-strong bg-card px-3 py-2.5 text-[13px] leading-[1.55] placeholder:text-faint hover:border-line-emphasis focus:border-line-emphasis"
         />
-      </Field>
+        {aiError && (
+          <p className="text-[11px] text-danger">{aiError}</p>
+        )}
+      </div>
 
       <Field id="todo-due" label="Due date" optional>
         <div className="flex items-center gap-2">
@@ -471,59 +543,62 @@ function FormBody({
         </div>
       </Field>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         <span className="text-xs text-muted">
-          Labels <span className="text-faint">(one at a time)</span>
+          Labels <span className="text-faint">(tap to toggle)</span>
         </span>
-        {labels.length > 0 && (
+        {pickerLabels.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {labels.map((l) => {
-              const exiting = exitingLabels.includes(l);
+            {pickerLabels.map(({ name, color }) => {
+              const swatch = swatchFor(color);
+              const isSelected = selectedKeys.has(name.toLowerCase());
               return (
-                <span
-                  key={l}
-                  className={
-                    "tag-pill items-center gap-1 overflow-hidden " +
-                    (exiting ? "animate-chip-out" : "animate-chip-in")
+                <button
+                  key={name.toLowerCase()}
+                  type="button"
+                  onClick={() => toggleLabel(name)}
+                  aria-pressed={isSelected}
+                  className="tag-pill items-center transition-all active:scale-[0.96]"
+                  style={
+                    isSelected
+                      ? {
+                          color: swatch.fg,
+                          backgroundColor: swatch.bg,
+                          border: `1px solid ${swatch.fg}33`,
+                          textTransform: "none",
+                        }
+                      : {
+                          color: swatch.fg,
+                          backgroundColor: "transparent",
+                          border: `1px dashed ${swatch.fg}66`,
+                          opacity: 0.75,
+                          textTransform: "none",
+                        }
                   }
-                  style={tagPillStyle(l, labelRegistry)}
                 >
-                  {l}
-                  <button
-                    type="button"
-                    aria-label={`Remove ${l}`}
-                    onClick={() => removeLabel(l)}
-                    className="ml-0.5 inline-flex items-center justify-center rounded-full opacity-70 hover:opacity-100"
-                  >
-                    <XIcon size={9} stroke={3.5} />
-                  </button>
-                </span>
+                  {name}
+                </button>
               );
             })}
           </div>
+        ) : (
+          <p className="text-[12px] text-faint">
+            No labels yet. Create one below.
+          </p>
         )}
-        <NewLabelRow
-          existingNames={
-            new Set(labels.map((l) => l.toLowerCase()))
-          }
-          onAdd={addLabelWithColor}
-          onNameChange={setLabelDraft}
-          placeholder="Add a label, press Enter"
-        />
-        {suggestions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {suggestions.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => addLabel(s)}
-                className="rounded-full border border-line bg-card px-2.5 py-1 text-[11px] text-muted hover:border-line-strong hover:text-fg"
-              >
-                #{s}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="border-t border-line pt-3">
+          <span className="mb-2 block text-xs text-muted">
+            Or create a new label
+          </span>
+          <NewLabelRow
+            existingNames={
+              new Set(pickerLabels.map((l) => l.name.toLowerCase()))
+            }
+            onAdd={addLabelWithColor}
+            onNameChange={setLabelDraft}
+            placeholder="New label name…"
+          />
+        </div>
       </div>
     </form>
   );
@@ -581,6 +656,37 @@ function AlertCircleIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="12" cy="12" r="10" />
       <path d="M12 8v4M12 16h.01" />
+    </svg>
+  );
+}
+function SparkleIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M12 2l2.39 6.36L20.5 10.5l-6.11 2.14L12 19l-2.39-6.36L3.5 10.5l6.11-2.14L12 2z" />
+      <path d="M18.5 15l.92 2.43L21.5 18l-2.08.57L18.5 21l-.92-2.43L15.5 18l2.08-.57L18.5 15z" />
+    </svg>
+  );
+}
+function SpinnerIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      aria-hidden
+      className="animate-spin"
+    >
+      <circle cx="12" cy="12" r="9" strokeDasharray="40 60" opacity={0.9} />
     </svg>
   );
 }

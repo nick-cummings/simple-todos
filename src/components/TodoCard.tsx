@@ -66,17 +66,6 @@ export default function TodoCard({
           {todo.title}
         </span>
 
-        {todo.description && (
-          <span
-            className={
-              "mt-1 line-clamp-3 text-[13px] leading-[1.55] " +
-              (todo.completed ? "text-faint" : "text-muted")
-            }
-          >
-            {todo.description}
-          </span>
-        )}
-
         {todo.labels.length > 0 && (
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {todo.labels.map((l) => (
