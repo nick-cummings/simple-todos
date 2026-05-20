@@ -6,13 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:test": "PORT=4321 next start",
+    "start:test": "PLAYWRIGHT=1 PORT=4321 next dev",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "verify": "npm run typecheck && npm run lint && npm run test:run",
+    "verify": "npm run typecheck && npm run lint && npm run test:run && npm run test:e2e",
     "prepare": "husky"
   },
   "dependencies": {

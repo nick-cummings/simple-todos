@@ -17,6 +17,10 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // Hide the Next.js dev indicator portal during Playwright runs so it
+  // can't intercept clicks on the mobile viewport. Only suppressed when
+  // PLAYWRIGHT=1 (set by the `start:test` script).
+  devIndicators: process.env.PLAYWRIGHT === "1" ? false : undefined,
   async headers() {
     return [
       {

@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
     // Throwaway design mockups — also excluded from tests.
     "src/components/mockups/**",
     "src/app/mockups/**",
+    // Playwright artifacts.
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

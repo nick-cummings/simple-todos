@@ -55,3 +55,9 @@ TESTING_PLAN.md
 # Husky-generated internal scripts (the actual hook files live next to
 # this directory, e.g. .husky/pre-push).
 .husky/_
+
+# Playwright artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
