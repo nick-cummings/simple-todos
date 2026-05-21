@@ -32,12 +32,17 @@ const SEED: Todo[] = [
 ];
 
 const UNDO_MS = 5000;
+// Matches --motion-base in globals.css; keep in sync with the
+// animate-pop-out duration so we don't unmount mid-animation.
+const EXIT_MS = 220;
 
 export default function UndoToastMock() {
   const [todos, setTodos] = useState<Todo[]>(SEED);
   const [pending, setPending] = useState<Todo | null>(null);
+  const [closing, setClosing] = useState(false);
   const [remaining, setRemaining] = useState(UNDO_MS);
   const timerRef = useRef<null | number>(null);
+  const exitRef = useRef<null | number>(null);
   const startedAt = useRef(0);
 
   function clearTimer() {
@@ -47,7 +52,30 @@ export default function UndoToastMock() {
     }
   }
 
+  function clearExit() {
+    if (exitRef.current !== null) {
+      window.clearTimeout(exitRef.current);
+      exitRef.current = null;
+    }
+  }
+
+  // Play the exit animation, then unmount.
+  function dismiss() {
+    clearTimer();
+    setClosing(true);
+    clearExit();
+    exitRef.current = window.setTimeout(() => {
+      setPending(null);
+      setClosing(false);
+      exitRef.current = null;
+    }, EXIT_MS);
+  }
+
   function startUndoWindow(todo: Todo) {
+    // Cancel any in-flight exit so a fast second delete doesn't get
+    // swallowed by the previous toast's unmount timer.
+    clearExit();
+    setClosing(false);
     setPending(todo);
     setRemaining(UNDO_MS);
     startedAt.current = Date.now();
@@ -57,8 +85,7 @@ export default function UndoToastMock() {
       const left = Math.max(0, UNDO_MS - elapsed);
       setRemaining(left);
       if (left === 0) {
-        setPending(null);
-        clearTimer();
+        dismiss();
       }
     }, 50);
   }
@@ -71,11 +98,16 @@ export default function UndoToastMock() {
   function handleUndo() {
     if (!pending) return;
     setTodos((prev) => [pending, ...prev]);
-    setPending(null);
-    clearTimer();
+    dismiss();
   }
 
-  useEffect(() => clearTimer, []);
+  useEffect(
+    () => () => {
+      clearTimer();
+      clearExit();
+    },
+    [],
+  );
 
   const progress = (remaining / UNDO_MS) * 100;
 
@@ -120,7 +152,11 @@ export default function UndoToastMock() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-x-0 bottom-6 z-50 mx-auto flex max-w-md items-center gap-3 overflow-hidden rounded-xl border border-line bg-card px-4 py-3 shadow-pop animate-pop-in"
+          className={
+            `fixed inset-x-0 bottom-6 z-50 mx-auto flex max-w-md items-center gap-3 overflow-hidden rounded-xl border border-line bg-card px-4 py-3 shadow-pop ${
+              closing ? "animate-pop-out" : "animate-pop-in"
+            }`
+          }
           style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >
           <span
