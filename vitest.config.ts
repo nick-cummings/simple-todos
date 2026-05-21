@@ -26,9 +26,9 @@ export default defineConfig({
       // Per-layer thresholds. Hard fail in CI + pre-push.
       // Repo-wide floor is the top-level entry; specific paths override.
       thresholds: {
-        branches: 75,
-        functions: 80,
-        lines: 80,
+        branches: 78,
+        functions: 84,
+        lines: 85,
         "src/app/api/**": {
           branches: 90,
           functions: 95,
@@ -36,27 +36,27 @@ export default defineConfig({
           statements: 95,
         },
         "src/components/**": {
-          branches: 65,
-          functions: 70,
-          lines: 70,
-          statements: 70,
+          branches: 76,
+          functions: 86,
+          lines: 88,
+          statements: 84,
         },
         "src/lib/**": {
           branches: 90,
-          functions: 95,
-          lines: 95,
-          statements: 95,
+          functions: 96,
+          lines: 98,
+          statements: 96,
         },
         "src/lib/use*.ts": {
           // Branches here include SSR guards (isBrowser()) whose `false`
           // case can't be hit without simulating Node-side rendering;
           // the rest of the file targets stay tight.
           branches: 75,
-          functions: 85,
-          lines: 85,
-          statements: 85,
+          functions: 90,
+          lines: 95,
+          statements: 90,
         },
-        statements: 80,
+        statements: 88,
       },
     },
     css: false,
