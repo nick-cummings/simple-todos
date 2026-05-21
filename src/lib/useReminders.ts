@@ -8,7 +8,7 @@ import { isBrowser } from "./runtime";
 
 const BROWSER_ID_KEY = "simple-todos:browserId";
 const PERMISSION_PROMPTED_KEY = "simple-todos:reminders:prompted";
-// Cron is daily at 14:00 UTC, so reminders are sent at the next
+// Cron is daily at 15:00 UTC, so reminders are sent at the next
 // cron run on/after the dueDate. We register fireAt = midnight UTC
 // of the dueDate, which causes the cron to pick it up on the dueDate
 // itself.
@@ -45,7 +45,7 @@ export interface UseRemindersResult {
 /**
  * Compute the epoch ms at which the cron may fire a reminder for the
  * given dueDate. We anchor at midnight UTC of the dueDate so the
- * 14:00 UTC cron run picks it up on that day.
+ * 15:00 UTC cron run picks it up on that day.
  */
 export function fireAtForDueDate(dueDate: string | undefined): null | number {
   if (!dueDate) return null;

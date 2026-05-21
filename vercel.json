@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/push/notify-cron",
-      "schedule": "0 14 * * *"
+      "schedule": "0 15 * * *"
     }
   ],
   "headers": [
