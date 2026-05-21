@@ -270,4 +270,41 @@ describe("<TodoModal>", () => {
       screen.getByRole("button", { name: "work", pressed: false }),
     ).toBeInTheDocument();
   });
+
+  it("plumbs the chosen Repeat preset through to onSubmit", async () => {
+    const onSubmit = vi.fn();
+    const { user } = await renderModal({ onSubmit });
+    await user.type(
+      screen.getByPlaceholderText(/what needs doing/i),
+      "Water plants",
+    );
+    await user.click(screen.getByRole("button", { name: /^Daily$/i }));
+    const submit = [...document.querySelectorAll("button")].find(
+      (b) => b.type === "submit" && /^(Add|Save)$/i.test(b.textContent ?? ""),
+    )! as HTMLButtonElement;
+    await user.click(submit);
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recurrence: { every: 1, unit: "day" },
+        title: "Water plants",
+      }),
+    );
+  });
+
+  it("hydrates the Repeat preset from an existing todo's recurrence", async () => {
+    const { user } = await renderModal({
+      initial: {
+        recurrence: { every: 2, unit: "week" },
+        title: "Trash day",
+      },
+    });
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    // Custom preset is pressed because every=2 isn't a named preset.
+    expect(
+      screen.getByRole("button", { name: /^Custom…$/, pressed: true }),
+    ).toBeInTheDocument();
+    // The numeric input shows 2 and the unit shows weeks.
+    expect(screen.getByLabelText(/every \(number\)/i)).toHaveValue(2);
+    expect(screen.getByLabelText(/every \(unit\)/i)).toHaveValue("week");
+  });
 });

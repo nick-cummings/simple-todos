@@ -84,4 +84,31 @@ describe("<TodoCard>", () => {
     // relativeTime returns "now", "Xm ago", etc.
     expect(screen.getByText(/now|ago|just/i)).toBeInTheDocument();
   });
+
+  it("renders the recurrence badge when recurrence is set", () => {
+    const todo = makeTodo({
+      recurrence: { every: 1, unit: "week" },
+      title: "Take out trash",
+    });
+    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+    expect(screen.getByText(/^Weekly$/)).toBeInTheDocument();
+  });
+
+  it("renders an Every-N label for custom recurrence", () => {
+    const todo = makeTodo({
+      recurrence: { every: 3, unit: "day" },
+      title: "Stretch",
+    });
+    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+    expect(screen.getByText(/Every 3 days/i)).toBeInTheDocument();
+  });
+
+  it("does not render the recurrence badge when recurrence is undefined", () => {
+    const todo = makeTodo({ recurrence: undefined, title: "One-off" });
+    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+    expect(
+      screen.queryByText(/^(Daily|Weekly|Monthly)$/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Every \d+/)).not.toBeInTheDocument();
+  });
 });

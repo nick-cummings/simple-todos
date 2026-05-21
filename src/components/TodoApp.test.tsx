@@ -5,12 +5,46 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Label, LABELS_STORAGE_KEY } from "@/lib/labels";
 import { STORAGE_KEY, type Todo } from "@/lib/todos";
 
+// Controllable stub for useReminders so we can assert on the
+// TodoApp ↔ reminders seam without mocking Notification + serviceWorker
+// at the integration level. Tests mutate `reminderState` before
+// rendering; the component reads it via `useReminders()` on each render.
+const reminderState = {
+  active: false,
+  disable: vi.fn<() => Promise<void>>(),
+  enable: vi.fn<() => Promise<boolean>>(),
+  needsAttention: false,
+  permission: "prompt" as "denied" | "granted" | "prompt" | "unsupported",
+  syncTodoReminder: vi.fn<(t: Todo) => Promise<void>>(),
+};
+
+vi.mock("@/lib/useReminders", () => ({
+  fireAtForDueDate: (iso: string | undefined): null | number => {
+    if (!iso) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return Date.UTC(y, m - 1, d, 0, 0, 0);
+  },
+  useReminders: () => reminderState,
+}));
+
 async function renderApp() {
   vi.resetModules();
   const mod = await import("./TodoApp");
   const TodoApp = mod.default;
   return { user: userEvent.setup(), ...render(<TodoApp />) };
 }
+function resetReminderMock() {
+  reminderState.active = false;
+  reminderState.permission = "prompt";
+  reminderState.needsAttention = false;
+  reminderState.syncTodoReminder = vi.fn<(t: Todo) => Promise<void>>();
+  reminderState.enable = vi
+    .fn<() => Promise<boolean>>()
+    .mockResolvedValue(true);
+  reminderState.disable = vi.fn<() => Promise<void>>();
+}
+
 function seedLabels(labels: Label[]) {
   localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
 }
@@ -21,6 +55,7 @@ function seedTodos(todos: Todo[]) {
 
 beforeEach(() => {
   localStorage.clear();
+  resetReminderMock();
 });
 
 afterEach(() => {
@@ -205,5 +240,254 @@ describe("<TodoApp> — undo toast", () => {
     // Click Undo — todo comes back.
     await user.click(within(toast).getByRole("button", { name: /undo/i }));
     expect(screen.getByText("todo to delete")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Integration tests for the TodoApp ↔ useReminders seam. These cover
+ * scenarios that the unit tests for useReminders alone can't catch —
+ * specifically, that TodoApp invokes syncTodoReminder with the
+ * correct todo state on every mutation, and that an active state on
+ * mount triggers a sync for every existing todo.
+ *
+ * Two real bugs would have been caught here:
+ *  1. handleSubmit used a stale `todos` closure to look up the new
+ *     todo after add(), so newly-added todos never got registered.
+ *  2. Enabling reminders didn't walk existing todos, so any todo
+ *     created before enabling was silently skipped.
+ */
+describe("<TodoApp> — labels integration", () => {
+  it("registers new label names in the label registry on submit", async () => {
+    const { user } = await renderApp();
+    await user.click(screen.getByRole("button", { name: /add todo/i }));
+    const dialog = await screen.findByRole("dialog", { name: /new todo/i });
+    await user.type(
+      within(dialog).getByPlaceholderText(/what needs doing/i),
+      "Email Bob",
+    );
+    // Add a new label inline via the label-create row inside the modal.
+    await user.type(
+      within(dialog).getByPlaceholderText(/new label name/i),
+      "client-work",
+    );
+    const labelAddBtn = within(dialog)
+      .getAllByRole("button", { name: /^add$/i })
+      .find((b) => (b as HTMLButtonElement).type === "button")!;
+    await user.click(labelAddBtn);
+    await user.click(
+      within(dialog)
+        .getAllByRole("button", { name: /^add$/i })
+        .find((b) => (b as HTMLButtonElement).type === "submit")!,
+    );
+
+    // After submit, ensureLabelsExist should have written the new
+    // label to the registry. We assert on the persistence side-effect
+    // since that's the public contract of the seam.
+    await waitFor(() => {
+      const raw = localStorage.getItem(LABELS_STORAGE_KEY) ?? "[]";
+      const labels = JSON.parse(raw) as Label[];
+      expect(labels.map((l) => l.name.toLowerCase())).toContain("client-work");
+    });
+  });
+});
+
+describe("<TodoApp> — reminders integration", () => {
+  function makeSeedTodo(over: Partial<Todo> = {}): Todo {
+    return {
+      completed: false,
+      createdAt: Date.now(),
+      id: `t-${Math.random().toString(36).slice(2, 8)}`,
+      labels: [],
+      title: "seeded",
+      updatedAt: Date.now(),
+      ...over,
+    };
+  }
+
+  it("registers reminders for every existing todo when active on mount (Bug 2)", async () => {
+    reminderState.active = true;
+    reminderState.permission = "granted";
+    seedTodos([
+      makeSeedTodo({ dueDate: "2027-01-15", id: "a", title: "Pay rent" }),
+      makeSeedTodo({ dueDate: "2027-01-20", id: "b", title: "Renew passport" }),
+      makeSeedTodo({
+        id: "c",
+        title:
+          "Buy milk" /* no due date — still gets a sync call which DELETEs server-side */,
+      }),
+    ]);
+    await renderApp();
+    await waitFor(() => {
+      expect(reminderState.syncTodoReminder).toHaveBeenCalledTimes(3);
+    });
+    const ids = reminderState.syncTodoReminder.mock.calls.map(
+      ([t]) => (t as Todo).id,
+    );
+    expect(ids.toSorted()).toEqual(["a", "b", "c"]);
+  });
+
+  it("syncs the new todo after add() (Bug 1)", async () => {
+    reminderState.active = true;
+    reminderState.permission = "granted";
+    const { user } = await renderApp();
+    // Initial mount with no todos → one sync pass with zero calls.
+    reminderState.syncTodoReminder.mockClear();
+
+    await user.click(screen.getByRole("button", { name: /add todo/i }));
+    const dialog = await screen.findByRole("dialog", { name: /new todo/i });
+    await user.type(
+      within(dialog).getByPlaceholderText(/what needs doing/i),
+      "Take out trash",
+    );
+    await user.click(
+      within(dialog)
+        .getAllByRole("button", { name: /^add$/i })
+        .find((b) => (b as HTMLButtonElement).type === "submit")!,
+    );
+
+    await waitFor(() => {
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled();
+    });
+    // The most recent call should be the newly-added todo.
+    const lastCall = reminderState.syncTodoReminder.mock.calls.at(-1);
+    expect((lastCall?.[0] as Todo | undefined)?.title).toBe("Take out trash");
+  });
+
+  it("re-syncs when a todo's dueDate changes via update()", async () => {
+    reminderState.active = true;
+    reminderState.permission = "granted";
+    seedTodos([
+      makeSeedTodo({ dueDate: "2027-01-15", id: "t1", title: "Pay rent" }),
+    ]);
+    const { user } = await renderApp();
+    // Drain the initial-mount sync calls.
+    await waitFor(() =>
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled(),
+    );
+    reminderState.syncTodoReminder.mockClear();
+
+    // Open + edit the todo, change its due date.
+    await user.click(screen.getByText("Pay rent"));
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+    const due = screen.getByLabelText(/due date/i) as HTMLInputElement;
+    await user.clear(due);
+    await user.type(due, "2027-02-01");
+    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0]);
+
+    await waitFor(() => {
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled();
+    });
+    const calls = reminderState.syncTodoReminder.mock.calls;
+    const last = calls.at(-1)?.[0] as Todo | undefined;
+    expect(last?.id).toBe("t1");
+    expect(last?.dueDate).toBe("2027-02-01");
+  });
+
+  it("explicitly unregisters the reminder on delete (todo drops out of list)", async () => {
+    reminderState.active = true;
+    reminderState.permission = "granted";
+    seedTodos([
+      makeSeedTodo({
+        dueDate: "2027-01-15",
+        id: "doomed",
+        title: "Delete me",
+      }),
+    ]);
+    const { user } = await renderApp();
+    await waitFor(() =>
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled(),
+    );
+    reminderState.syncTodoReminder.mockClear();
+
+    await user.click(screen.getByText("Delete me"));
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled();
+    });
+    // handleDelete forces completed:true so the server-side handler
+    // takes the DELETE branch.
+    const arg = reminderState.syncTodoReminder.mock.calls.at(-1)?.[0] as
+      | Todo
+      | undefined;
+    expect(arg?.id).toBe("doomed");
+    expect(arg?.completed).toBe(true);
+  });
+
+  it("re-syncs when a todo is toggled complete (reminder should unregister)", async () => {
+    reminderState.active = true;
+    reminderState.permission = "granted";
+    seedTodos([
+      makeSeedTodo({ dueDate: "2027-01-15", id: "t1", title: "Walk dog" }),
+    ]);
+    const { user } = await renderApp();
+    await waitFor(() =>
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled(),
+    );
+    reminderState.syncTodoReminder.mockClear();
+
+    await user.click(screen.getByRole("checkbox", { name: /mark as done/i }));
+    await waitFor(() => {
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled();
+    });
+    const arg = reminderState.syncTodoReminder.mock.calls.at(-1)?.[0] as
+      | Todo
+      | undefined;
+    expect(arg?.id).toBe("t1");
+    expect(arg?.completed).toBe(true);
+  });
+
+  it("does not sync when reminders are inactive (effect is a no-op shape)", async () => {
+    // active=false: the effect still calls syncTodoReminder (the hook
+    // itself short-circuits internally), but with inactive state the
+    // wiring should still call once per todo on mount.
+    reminderState.active = false;
+    reminderState.permission = "prompt";
+    seedTodos([makeSeedTodo({ dueDate: "2027-01-15", id: "a", title: "x" })]);
+    await renderApp();
+    // The wiring is the same regardless of activation — the *hook*
+    // decides whether to actually fetch. Verifying the call happens
+    // here documents that we don't conditionally skip the effect.
+    await waitFor(() => {
+      expect(reminderState.syncTodoReminder).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("clicking the gate's Enable button calls the hook's enable()", async () => {
+    reminderState.needsAttention = true;
+    const { user } = await renderApp();
+    await user.click(screen.getByRole("button", { name: /enable reminders/i }));
+    expect(reminderState.enable).toHaveBeenCalledTimes(1);
+  });
+
+  it("recurring-todo completion respawns and re-syncs with the new dueDate", async () => {
+    reminderState.active = true;
+    reminderState.permission = "granted";
+    seedTodos([
+      makeSeedTodo({
+        dueDate: "2027-01-15",
+        id: "r1",
+        recurrence: { every: 1, unit: "day" },
+        title: "Water plants",
+      }),
+    ]);
+    const { user } = await renderApp();
+    await waitFor(() =>
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled(),
+    );
+    reminderState.syncTodoReminder.mockClear();
+
+    await user.click(screen.getByRole("checkbox", { name: /mark as done/i }));
+    await waitFor(() => {
+      expect(reminderState.syncTodoReminder).toHaveBeenCalled();
+    });
+    const arg = reminderState.syncTodoReminder.mock.calls.at(-1)?.[0] as
+      | Todo
+      | undefined;
+    expect(arg?.id).toBe("r1");
+    // toggle() on a recurring todo advances the dueDate and keeps
+    // completed=false.
+    expect(arg?.completed).toBe(false);
+    expect(arg?.dueDate).toBe("2027-01-16");
   });
 });
