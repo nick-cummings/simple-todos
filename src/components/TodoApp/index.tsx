@@ -67,6 +67,19 @@ export default function TodoApp() {
   const [pendingUndo, setPendingUndo] = useState<null | Todo>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // Reconcile reminders with the current todo list. Runs on every
+  // change to `todos` and whenever `syncTodoReminder` re-binds (i.e.
+  // when reminders flip from inactive → active). syncTodoReminder is
+  // idempotent server-side: it POSTs a reminder for due+open todos
+  // and DELETEs for everything else, so reposting on every render is
+  // safe even if a bit chatty. Volume is tiny (single user, dozens
+  // of todos).
+  useEffect(() => {
+    for (const t of todos) {
+      void syncTodoReminder(t);
+    }
+  }, [todos, syncTodoReminder]);
+
   // ⌘K / Ctrl+K focuses search.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -115,16 +128,10 @@ export default function TodoApp() {
       if (editing) update(editing.id, input);
       else add(input);
     });
-    // Re-sync the reminder for this todo whenever it's saved. We
-    // re-read from `todos` after the mutation has flushed by reading
-    // post-state in a microtask; if we're editing, we have the id, if
-    // we're adding, we need to scan for the new todo by title.
-    queueMicrotask(() => {
-      const target = editing
-        ? (todos.find((t) => t.id === editing.id) ?? null)
-        : (todos.find((t) => t.title === input.title.trim()) ?? null);
-      if (target) void syncTodoReminder({ ...target, ...input });
-    });
+    // Note: reminders sync via the effect below — no per-mutation
+    // dispatch here. Adding via the closure would miss new todos
+    // (the captured `todos` is stale) and edits via the closure
+    // would race the external-store flush; the effect handles both.
   }
   function handleDelete() {
     if (!editing) return;
@@ -133,7 +140,8 @@ export default function TodoApp() {
       remove(todo.id);
     });
     setPendingUndo(todo);
-    // Drop any pending reminder for the deleted todo.
+    // Deleted todos drop out of `todos` so the effect won't see
+    // them — fire an explicit unregister now.
     void syncTodoReminder({ ...todo, completed: true });
   }
   function handleUndo() {
@@ -143,15 +151,12 @@ export default function TodoApp() {
     withViewTransition(() => {
       restore(todo);
     });
-    void syncTodoReminder(todo);
+    // The effect picks up the restore once `todos` re-includes it;
+    // no manual sync needed here.
   }
   function handleToggle(id: string) {
     withViewTransition(() => {
       toggle(id);
-    });
-    queueMicrotask(() => {
-      const t = todos.find((todo) => todo.id === id);
-      if (t) void syncTodoReminder({ ...t, completed: !t.completed });
     });
   }
   function toggleLabelFilter(label: string) {

@@ -183,8 +183,16 @@ export function useReminders(
     [active, permission],
   );
 
+  // Surface the gate when:
+  //  - permission is "prompt" and the user hasn't been asked yet (onboarding), OR
+  //  - permission is "denied" (always — gives them a way to retry after granting
+  //    via the OS prompt or after installing the PWA on iOS, which is required
+  //    for push permission to even be available).
   const needsAttention =
-    Boolean(vapidPublicKey) && permission === "prompt" && !hasBeenPrompted();
+    Boolean(vapidPublicKey) &&
+    !active &&
+    (permission === "denied" ||
+      (permission === "prompt" && !hasBeenPrompted()));
 
   return {
     active,
