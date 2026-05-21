@@ -28,8 +28,9 @@ jobs:
 
       # Warms next dev's per-route compilation between runs so Playwright
       # doesn't pay cold-compile cost on every navigation. Key on the
-      # lockfile so dep changes invalidate; restore-keys lets us fall
-      # back to the latest compatible cache when source files change.
+      # lockfile + source-file hash so dep or source changes invalidate;
+      # restore-keys lets us fall back to a partial cache when only
+      # source files changed.
       - name: Cache .next/cache
         uses: actions/cache@v5
         with:
