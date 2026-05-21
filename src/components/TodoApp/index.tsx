@@ -14,10 +14,12 @@ import {
   TodoInput,
 } from "@/lib/todos";
 import { useLabels } from "@/lib/useLabels";
+import { useReminders } from "@/lib/useReminders";
 import { useTodos } from "@/lib/useTodos";
 import { withViewTransition } from "@/lib/viewTransition";
 
 import LabelsManager from "../LabelsManager";
+import RemindersGate from "../RemindersGate";
 import ThemeToggle from "../ThemeToggle";
 import TodoCard from "../TodoCard";
 import TodoModal from "../TodoModal";
@@ -40,6 +42,13 @@ export default function TodoApp() {
     update,
   } = useTodos();
   const { ensureLabelsExist, labels: labelRegistry } = useLabels();
+  const {
+    enable: enableReminders,
+    needsAttention,
+    syncTodoReminder,
+  } = useReminders({
+    vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+  });
 
   const [sort, setSort] = useState<SortKey>("createdDesc");
   const [activeLabels, setActiveLabels] = useState<string[]>([]);
@@ -106,6 +115,16 @@ export default function TodoApp() {
       if (editing) update(editing.id, input);
       else add(input);
     });
+    // Re-sync the reminder for this todo whenever it's saved. We
+    // re-read from `todos` after the mutation has flushed by reading
+    // post-state in a microtask; if we're editing, we have the id, if
+    // we're adding, we need to scan for the new todo by title.
+    queueMicrotask(() => {
+      const target = editing
+        ? (todos.find((t) => t.id === editing.id) ?? null)
+        : (todos.find((t) => t.title === input.title.trim()) ?? null);
+      if (target) void syncTodoReminder({ ...target, ...input });
+    });
   }
   function handleDelete() {
     if (!editing) return;
@@ -114,6 +133,8 @@ export default function TodoApp() {
       remove(todo.id);
     });
     setPendingUndo(todo);
+    // Drop any pending reminder for the deleted todo.
+    void syncTodoReminder({ ...todo, completed: true });
   }
   function handleUndo() {
     if (!pendingUndo) return;
@@ -122,10 +143,15 @@ export default function TodoApp() {
     withViewTransition(() => {
       restore(todo);
     });
+    void syncTodoReminder(todo);
   }
   function handleToggle(id: string) {
     withViewTransition(() => {
       toggle(id);
+    });
+    queueMicrotask(() => {
+      const t = todos.find((todo) => todo.id === id);
+      if (t) void syncTodoReminder({ ...t, completed: !t.completed });
     });
   }
   function toggleLabelFilter(label: string) {
@@ -195,6 +221,8 @@ export default function TodoApp() {
           </div>
           <ThemeToggle />
         </header>
+
+        {needsAttention && <RemindersGate onEnable={enableReminders} />}
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">

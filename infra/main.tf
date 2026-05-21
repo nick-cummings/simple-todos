@@ -3,6 +3,8 @@ locals {
   has_domain            = var.custom_domain != ""
   has_anthropic_api_key = var.anthropic_api_key != ""
   has_upstash_creds     = var.upstash_email != "" && var.upstash_api_key != ""
+  has_vapid             = var.vapid_public_key != "" && var.vapid_private_key != ""
+  has_cron_secret       = var.cron_secret != ""
 }
 
 resource "vercel_project" "app" {
@@ -77,6 +79,49 @@ resource "vercel_project_environment_variable" "upstash_redis_rest_token" {
   project_id = vercel_project.app.id
   key        = "UPSTASH_REDIS_REST_TOKEN"
   value      = upstash_redis_database.ratelimit[0].rest_token
+  target     = ["production", "preview"]
+  sensitive  = true
+}
+
+# VAPID keys for Web Push reminders. Generated locally via
+# `node scripts/generate-vapid-keys.mjs`; the public key is shipped
+# to the browser (via NEXT_PUBLIC_*), the private key never leaves
+# the function runtime. Rotating these invalidates every active
+# push subscription.
+resource "vercel_project_environment_variable" "vapid_public_key" {
+  count      = local.has_vapid ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "NEXT_PUBLIC_VAPID_PUBLIC_KEY"
+  value      = var.vapid_public_key
+  target     = ["production", "preview"]
+}
+
+resource "vercel_project_environment_variable" "vapid_private_key" {
+  count      = local.has_vapid ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "VAPID_PRIVATE_KEY"
+  value      = var.vapid_private_key
+  target     = ["production", "preview"]
+  sensitive  = true
+}
+
+resource "vercel_project_environment_variable" "vapid_subject" {
+  count      = local.has_vapid ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "VAPID_SUBJECT"
+  value      = var.vapid_subject
+  target     = ["production", "preview"]
+}
+
+# Shared secret used to gate /api/push/notify-cron. Vercel Cron
+# automatically attaches `Authorization: Bearer $CRON_SECRET` when
+# this env var is set in the project, so the cron handler can
+# reject random unauthenticated hits.
+resource "vercel_project_environment_variable" "cron_secret" {
+  count      = local.has_cron_secret ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "CRON_SECRET"
+  value      = var.cron_secret
   target     = ["production", "preview"]
   sensitive  = true
 }

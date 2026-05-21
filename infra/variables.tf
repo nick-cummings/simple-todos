@@ -59,3 +59,29 @@ variable "upstash_redis_region" {
   type        = string
   default     = "us-east-1"
 }
+
+variable "vapid_public_key" {
+  description = "Web Push VAPID public key. Generate with `node scripts/generate-vapid-keys.mjs`. Shipped to the client as NEXT_PUBLIC_VAPID_PUBLIC_KEY. Leave empty to skip provisioning (the reminders feature degrades gracefully)."
+  type        = string
+  default     = ""
+}
+
+variable "vapid_private_key" {
+  description = "Web Push VAPID private key. Stored as a sensitive Vercel env var; never leaves the server. Rotating this invalidates every active push subscription."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "vapid_subject" {
+  description = "VAPID contact (mailto: or https://) advertised to push services. Used by web-push when sending notifications."
+  type        = string
+  default     = "mailto:nickcummings21@gmail.com"
+}
+
+variable "cron_secret" {
+  description = "Random 32+ char secret. /api/push/notify-cron rejects any request without `Authorization: Bearer $CRON_SECRET`. Vercel Cron injects this header automatically when CRON_SECRET is set in the project env."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
