@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit:
-    name: typecheck + lint + vitest
+  verify:
+    name: typecheck + lint + vitest + playwright
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -25,33 +25,23 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # Warms next dev's per-route compilation between runs so Playwright
+      # doesn't pay cold-compile cost on every navigation. Key on the
+      # lockfile so dep changes invalidate; restore-keys lets us fall
+      # back to the latest compatible cache when source files change.
+      - name: Cache .next/cache
+        uses: actions/cache@v5
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**/*.{ts,tsx,css}') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            nextjs-${{ runner.os }}-
 
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:run
-
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage
-          path: coverage/
-          retention-days: 14
-
-  e2e:
-    name: playwright
-    runs-on: ubuntu-latest
-    # Playwright is slow; run only after the cheaper checks pass.
-    needs: unit
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-
-      - run: npm ci
 
       - name: Resolve Playwright version
         id: pw
@@ -76,6 +66,14 @@ jobs:
         run: npx playwright install-deps chromium webkit
 
       - run: npm run test:e2e
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
 
       - name: Upload Playwright report
         if: failure()
