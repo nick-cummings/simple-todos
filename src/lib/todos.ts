@@ -163,7 +163,8 @@ function isTodo(v: unknown): v is Todo {
   ) {
     return false;
   }
-  if (o.description !== undefined && typeof o.description !== "string") return false;
+  if (o.description !== undefined && typeof o.description !== "string")
+    return false;
   if (o.dueDate !== undefined && typeof o.dueDate !== "string") return false;
   return true;
 }

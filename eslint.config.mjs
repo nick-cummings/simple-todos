@@ -1,5 +1,6 @@
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import prettierConfig from "eslint-config-prettier";
 import perfectionist from "eslint-plugin-perfectionist";
 import security from "eslint-plugin-security";
 import sonarjs from "eslint-plugin-sonarjs";
@@ -49,6 +50,10 @@ const eslintConfig = defineConfig([
         { allowBoolean: true, allowNumber: true },
       ],
       eqeqeq: ["error", "always"],
+      "max-lines": [
+        "error",
+        { max: 500, skipBlankLines: true, skipComments: true },
+      ],
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-implicit-coercion": "error",
       "no-nested-ternary": "error",
@@ -107,11 +112,7 @@ const eslintConfig = defineConfig([
 
   // Test files need more freedom: mocks, unsafe casts, magic strings.
   {
-    files: [
-      "**/*.test.{ts,tsx}",
-      "tests/**/*.{ts,tsx}",
-      "src/test-utils/**/*",
-    ],
+    files: ["**/*.test.{ts,tsx}", "tests/**/*.{ts,tsx}", "src/test-utils/**/*"],
     rules: {
       "@typescript-eslint/no-confusing-void-expression": "off",
       "@typescript-eslint/no-empty-function": "off",
@@ -171,6 +172,12 @@ const eslintConfig = defineConfig([
       "unicorn/import-style": "off",
     },
   },
+
+  // MUST be last: turns off any ESLint rules that conflict with
+  // Prettier's formatting. Prettier itself runs as a separate command
+  // (`npm run format` / `format:check`); we don't shell out to it
+  // through ESLint because that pattern is no longer recommended.
+  prettierConfig,
 
   globalIgnores([
     ".next/**",

@@ -58,9 +58,7 @@ export default function RootLayout({
     >
       <head>
         {/* Set theme class before paint so the page never flashes the wrong scheme. */}
-        <script
-          dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col bg-bg text-fg">
         {children}

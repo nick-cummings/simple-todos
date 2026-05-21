@@ -141,7 +141,9 @@ describe("priorityOf", () => {
     expect(priorityOf({ completed: true, dueDate: "2026-05-15" })).toBe("low");
   });
   it("high when overdue and not completed", () => {
-    expect(priorityOf({ completed: false, dueDate: "2026-05-19" })).toBe("high");
+    expect(priorityOf({ completed: false, dueDate: "2026-05-19" })).toBe(
+      "high",
+    );
   });
   it("medium when due within 3 days", () => {
     expect(priorityOf({ completed: false, dueDate: "2026-05-22" })).toBe(
@@ -177,7 +179,11 @@ describe("dueGroupOf / groupByDue", () => {
   });
   it("groupByDue omits empty groups", () => {
     expect(groupByDue([{ dueDate: "2026-05-22", id: "a" }])).toEqual([
-      { items: [{ dueDate: "2026-05-22", id: "a" }], key: "this-week", label: "This week" },
+      {
+        items: [{ dueDate: "2026-05-22", id: "a" }],
+        key: "this-week",
+        label: "This week",
+      },
     ]);
   });
 });

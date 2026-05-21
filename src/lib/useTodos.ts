@@ -23,8 +23,7 @@ export type TodoPatch = Partial<
 
 export function useTodos() {
   const todos = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const hydrated =
-    todos !== EMPTY || (isBrowser() && cache !== null);
+  const hydrated = todos !== EMPTY || (isBrowser() && cache !== null);
 
   const add = useCallback((input: TodoInput) => {
     if (!input.title.trim()) return;

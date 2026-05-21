@@ -132,14 +132,24 @@ describe("sortTodos", () => {
     ]);
   });
   it("titleAsc orders alphabetically", () => {
-    expect(
-      sortTodos([c, a, b], "titleAsc").map((t) => t.title),
-    ).toEqual(["Alpha", "Beta", "Gamma"]);
+    expect(sortTodos([c, a, b], "titleAsc").map((t) => t.title)).toEqual([
+      "Alpha",
+      "Beta",
+      "Gamma",
+    ]);
   });
   it("completed orders open before done; ties broken by createdDesc", () => {
-    const t1 = makeTodo({ completed: false, createdAt: 100, title: "open-old" });
+    const t1 = makeTodo({
+      completed: false,
+      createdAt: 100,
+      title: "open-old",
+    });
     const t2 = makeTodo({ completed: true, createdAt: 300, title: "done-new" });
-    const t3 = makeTodo({ completed: false, createdAt: 200, title: "open-new" });
+    const t3 = makeTodo({
+      completed: false,
+      createdAt: 200,
+      title: "open-new",
+    });
     expect(sortTodos([t2, t1, t3], "completed").map((t) => t.title)).toEqual([
       "open-new",
       "open-old",
@@ -189,9 +199,7 @@ describe("filterTodos", () => {
   describe("status filter", () => {
     const set = (...s: StatusFilter[]) => new Set<StatusFilter>(s);
     it("empty Set shows everything", () => {
-      expect(
-        filterTodos([open1, done1], [], "", set()).length,
-      ).toBe(2);
+      expect(filterTodos([open1, done1], [], "", set()).length).toBe(2);
     });
     it("both statuses shows everything", () => {
       expect(
@@ -199,14 +207,10 @@ describe("filterTodos", () => {
       ).toBe(2);
     });
     it("open-only hides completed todos", () => {
-      expect(
-        filterTodos([open1, done1], [], "", set("open")),
-      ).toEqual([open1]);
+      expect(filterTodos([open1, done1], [], "", set("open"))).toEqual([open1]);
     });
     it("done-only shows only completed todos", () => {
-      expect(
-        filterTodos([open1, done1], [], "", set("done")),
-      ).toEqual([done1]);
+      expect(filterTodos([open1, done1], [], "", set("done"))).toEqual([done1]);
     });
   });
 
@@ -230,9 +234,10 @@ describe("filterTodos", () => {
       expect(filterTodos([open1, open2], ["errands"], "")).toEqual([open1]);
     });
     it("OR-matches multiple labels (todo with ANY of them passes)", () => {
-      expect(
-        filterTodos([open1, open2], ["errands", "books"], ""),
-      ).toEqual([open1, open2]);
+      expect(filterTodos([open1, open2], ["errands", "books"], "")).toEqual([
+        open1,
+        open2,
+      ]);
     });
     it("is case-insensitive on both sides", () => {
       const t = makeTodo({ labels: ["Work"] });

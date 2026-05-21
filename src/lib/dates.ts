@@ -33,21 +33,26 @@ export function formatDueDate(iso: string): string {
 
 export function groupByDue<T extends { dueDate?: string }>(
   items: T[],
-): { items: T[]; key: DueGroup; label: string; }[] {
+): { items: T[]; key: DueGroup; label: string }[] {
   const week: T[] = [];
   const later: T[] = [];
   for (const t of items) {
     if (dueGroupOf(t) === "this-week") week.push(t);
     else later.push(t);
   }
-  const out: { items: T[]; key: DueGroup; label: string; }[] = [];
-  if (week.length > 0) out.push({ items: week, key: "this-week", label: "This week" });
-  if (later.length > 0) out.push({ items: later, key: "later", label: "Later" });
+  const out: { items: T[]; key: DueGroup; label: string }[] = [];
+  if (week.length > 0)
+    out.push({ items: week, key: "this-week", label: "This week" });
+  if (later.length > 0)
+    out.push({ items: later, key: "later", label: "Later" });
   return out;
 }
 
 /** True if `epochMs` falls within the past 7 days. */
-export function isCompletedThisWeek(epochMs: number, now: number = Date.now()): boolean {
+export function isCompletedThisWeek(
+  epochMs: number,
+  now: number = Date.now(),
+): boolean {
   return now - epochMs <= 7 * DAY_MS;
 }
 
@@ -57,7 +62,10 @@ export function isDueSoon(iso: string | undefined): boolean {
   return d >= 0 && d <= 3;
 }
 
-export function isOverdue(iso: string | undefined, completed: boolean): boolean {
+export function isOverdue(
+  iso: string | undefined,
+  completed: boolean,
+): boolean {
   if (!iso || completed) return false;
   return daysFromToday(iso) < 0;
 }
@@ -69,12 +77,15 @@ export function priorityOf(input: {
   if (!input.dueDate) return "none";
   if (input.completed) return "low";
   const d = daysFromToday(input.dueDate);
-  if (d < 0) return "high";       // overdue
-  if (d <= 3) return "medium";    // due soon
-  return "low";                    // upcoming
+  if (d < 0) return "high"; // overdue
+  if (d <= 3) return "medium"; // due soon
+  return "low"; // upcoming
 }
 
-export function relativeTime(epochMs: number, now: number = Date.now()): string {
+export function relativeTime(
+  epochMs: number,
+  now: number = Date.now(),
+): string {
   const diff = Math.max(0, now - epochMs);
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return "just now";
@@ -93,7 +104,9 @@ export function relativeTime(epochMs: number, now: number = Date.now()): string 
 export function shortWeekday(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short" });
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: "short",
+  });
 }
 
 export function todayISO(): string {

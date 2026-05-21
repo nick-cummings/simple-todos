@@ -16,66 +16,66 @@ All live as CSS variables on `:root` (light) and `.dark`. Switch is class-based 
 
 #### Surfaces
 
-| Variable          | Tailwind utility                 | Dark value                        | Use                                              |
-| ----------------- | -------------------------------- | --------------------------------- | ------------------------------------------------ |
-| `--bg`            | `bg-bg`                          | `#0B0C10`                         | App background                                   |
-| `--card`          | `bg-card`                        | `#14161C`                         | Resting cards, inputs, modal body                |
-| `--card-hover`    | `bg-card-hover`                  | `#1A1D26`                         | Hovered cards, focused inputs                    |
-| `--subtle`        | `bg-subtle`                      | `rgba(255,255,255,0.04)`          | Chips, ghost-button hover, theme-toggle pill     |
-| `--subtle-hover`  | `bg-subtle-hover`                | `rgba(255,255,255,0.07)`          | Chip hover                                       |
-| `--overlay`       | `bg-overlay`                     | `rgba(0,0,0,0.65)`                | Modal backdrop                                   |
+| Variable         | Tailwind utility  | Dark value               | Use                                          |
+| ---------------- | ----------------- | ------------------------ | -------------------------------------------- |
+| `--bg`           | `bg-bg`           | `#0B0C10`                | App background                               |
+| `--card`         | `bg-card`         | `#14161C`                | Resting cards, inputs, modal body            |
+| `--card-hover`   | `bg-card-hover`   | `#1A1D26`                | Hovered cards, focused inputs                |
+| `--subtle`       | `bg-subtle`       | `rgba(255,255,255,0.04)` | Chips, ghost-button hover, theme-toggle pill |
+| `--subtle-hover` | `bg-subtle-hover` | `rgba(255,255,255,0.07)` | Chip hover                                   |
+| `--overlay`      | `bg-overlay`      | `rgba(0,0,0,0.65)`       | Modal backdrop                               |
 
 The body also carries a single very-faint radial gradient from the top using `--primary-glow` — see Accent, below. This is the only gradient in the system.
 
 #### Text
 
-| Variable          | Tailwind utility   | Dark value | Use                                           |
-| ----------------- | ------------------ | ---------- | --------------------------------------------- |
-| `--fg`            | `text-fg`          | `#ECEDEE`  | Body text, card titles                        |
-| `--muted`         | `text-muted`       | `#9CA3AE`  | Descriptions, field labels, secondary info    |
-| `--faint`         | `text-faint`       | `#6B7280`  | Placeholders, metadata, section dividers      |
+| Variable  | Tailwind utility | Dark value | Use                                        |
+| --------- | ---------------- | ---------- | ------------------------------------------ |
+| `--fg`    | `text-fg`        | `#ECEDEE`  | Body text, card titles                     |
+| `--muted` | `text-muted`     | `#9CA3AE`  | Descriptions, field labels, secondary info |
+| `--faint` | `text-faint`     | `#6B7280`  | Placeholders, metadata, section dividers   |
 
 #### Lines
 
-| Variable          | Tailwind utility           | Dark value                  | Use                                          |
-| ----------------- | -------------------------- | --------------------------- | -------------------------------------------- |
-| `--line`          | `border-line`              | `rgba(255,255,255,0.06)`    | Default borders, resting card edges          |
-| `--line-strong`   | `border-line-strong`       | `rgba(255,255,255,0.12)`    | Inputs, hovered cards, sort button           |
-| `--line-emphasis` | `border-line-emphasis`     | `rgba(255,255,255,0.20)`    | Checkbox ring, focused inputs                |
+| Variable          | Tailwind utility       | Dark value               | Use                                 |
+| ----------------- | ---------------------- | ------------------------ | ----------------------------------- |
+| `--line`          | `border-line`          | `rgba(255,255,255,0.06)` | Default borders, resting card edges |
+| `--line-strong`   | `border-line-strong`   | `rgba(255,255,255,0.12)` | Inputs, hovered cards, sort button  |
+| `--line-emphasis` | `border-line-emphasis` | `rgba(255,255,255,0.20)` | Checkbox ring, focused inputs       |
 
 #### Accent (warm amber)
 
 The single chromatic identity of the app. Use **only** for: primary CTA, FAB, active filter chip, focus ring, medium-priority indicator, the small status dot in the header, and the subtle page-top glow.
 
-| Variable                | Tailwind utility           | Value                        | Use                                       |
-| ----------------------- | -------------------------- | ---------------------------- | ----------------------------------------- |
-| `--primary`             | `bg-primary text-primary`  | `#F5A66B`                    | FAB, active chip text/border, glyphs      |
-| `--primary-hover`       | `bg-primary-hover`         | `#F8B987`                    | FAB hover, button hover                   |
-| `--on-primary`          | `text-on-primary`          | `#1A0E03`                    | Foreground on filled `--primary` surfaces |
-| `--primary-bg`          | `bg-primary-bg`            | `rgba(245,166,107,0.10)`     | Active chip fill, checkbox-hover fill     |
-| `--primary-bg-strong`   | `bg-primary-bg-strong`     | `rgba(245,166,107,0.18)`     | Pressed states                            |
-| `--primary-border`      | `border-primary-border`    | `rgba(245,166,107,0.22)`     | Active chip border                        |
-| `--primary-glow`        | (used in body bg)          | `rgba(245,166,107,0.04)`     | Page-top radial gradient — set-and-forget |
-| `--ring`                | `ring-ring`                | `rgba(245,166,107,0.45)`     | Focus ring (handled globally)             |
+| Variable              | Tailwind utility          | Value                    | Use                                       |
+| --------------------- | ------------------------- | ------------------------ | ----------------------------------------- |
+| `--primary`           | `bg-primary text-primary` | `#F5A66B`                | FAB, active chip text/border, glyphs      |
+| `--primary-hover`     | `bg-primary-hover`        | `#F8B987`                | FAB hover, button hover                   |
+| `--on-primary`        | `text-on-primary`         | `#1A0E03`                | Foreground on filled `--primary` surfaces |
+| `--primary-bg`        | `bg-primary-bg`           | `rgba(245,166,107,0.10)` | Active chip fill, checkbox-hover fill     |
+| `--primary-bg-strong` | `bg-primary-bg-strong`    | `rgba(245,166,107,0.18)` | Pressed states                            |
+| `--primary-border`    | `border-primary-border`   | `rgba(245,166,107,0.22)` | Active chip border                        |
+| `--primary-glow`      | (used in body bg)         | `rgba(245,166,107,0.04)` | Page-top radial gradient — set-and-forget |
+| `--ring`              | `ring-ring`               | `rgba(245,166,107,0.45)` | Focus ring (handled globally)             |
 
 #### Status
 
-| Variable      | Tailwind utility               | Value                       | Use                                           |
-| ------------- | ------------------------------ | --------------------------- | --------------------------------------------- |
-| `--danger`    | `text-danger` / `bg-danger`    | `#F87171`                   | Destructive actions, overdue, high priority   |
-| `--danger-bg` | `bg-danger-bg`                 | `rgba(248,113,113,0.10)`    | Destructive button hover                      |
-| `--success`   | `text-success`                 | `#4ADE80`                   | Completed-this-week stat, success toasts      |
+| Variable      | Tailwind utility            | Value                    | Use                                         |
+| ------------- | --------------------------- | ------------------------ | ------------------------------------------- |
+| `--danger`    | `text-danger` / `bg-danger` | `#F87171`                | Destructive actions, overdue, high priority |
+| `--danger-bg` | `bg-danger-bg`              | `rgba(248,113,113,0.10)` | Destructive button hover                    |
+| `--success`   | `text-success`              | `#4ADE80`                | Completed-this-week stat, success toasts    |
 
 #### Semantic tag colors
 
 Each tag category gets a dedicated low-opacity background + matching saturated foreground. Pills are **never** generic gray — the color is the whole point. Add new tag categories here, don't improvise.
 
-| Tag           | Tailwind utility group     | FG / BG                                                       |
-| ------------- | -------------------------- | ------------------------------------------------------------- |
-| bill          | `tag-bill`                 | `#F87171` on `rgba(248,113,113,0.10)`                         |
-| dinner        | `tag-dinner`               | `#FB923C` on `rgba(251,146,60,0.10)`                          |
-| judith        | `tag-judith`               | `#F472B6` on `rgba(244,114,182,0.10)`                         |
-| subscription  | `tag-subscription`         | `#60A5FA` on `rgba(96,165,250,0.10)`                          |
+| Tag          | Tailwind utility group | FG / BG                               |
+| ------------ | ---------------------- | ------------------------------------- |
+| bill         | `tag-bill`             | `#F87171` on `rgba(248,113,113,0.10)` |
+| dinner       | `tag-dinner`           | `#FB923C` on `rgba(251,146,60,0.10)`  |
+| judith       | `tag-judith`           | `#F472B6` on `rgba(244,114,182,0.10)` |
+| subscription | `tag-subscription`     | `#60A5FA` on `rgba(96,165,250,0.10)`  |
 
 Unknown tags fall back to `bg-subtle text-muted`. New tag types added to the data model **must** add a token row here; do not let unknown tags ship as gray.
 
@@ -85,8 +85,8 @@ Unknown tags fall back to `bg-subtle text-muted`. New tag types added to the dat
 
 Vary radius by element to create implicit hierarchy — don't make everything the same size:
 
-| Element       | Radius          |
-| ------------- | --------------- |
+| Element                           | Radius         |
+| --------------------------------- | -------------- |
 | Tag pill, chip, FAB, theme toggle | `rounded-full` |
 | Input, sort button, search bar    | `rounded-lg`   |
 | Todo card                         | `rounded-xl`   |
@@ -95,12 +95,12 @@ Vary radius by element to create implicit hierarchy — don't make everything th
 
 ### Shadow
 
-| Utility        | Use                              |
-| -------------- | -------------------------------- |
-| `shadow-soft`  | Resting cards (very subtle)      |
-| `shadow-card`  | Hovered / elevated cards         |
-| `shadow-pop`   | Modal dialog                     |
-| `shadow-fab`   | FAB — layered: inner ring + accent-tinted drop + neutral drop |
+| Utility       | Use                                                           |
+| ------------- | ------------------------------------------------------------- |
+| `shadow-soft` | Resting cards (very subtle)                                   |
+| `shadow-card` | Hovered / elevated cards                                      |
+| `shadow-pop`  | Modal dialog                                                  |
+| `shadow-fab`  | FAB — layered: inner ring + accent-tinted drop + neutral drop |
 
 `shadow-fab` is the only place we use a colored shadow; it ties the FAB visually to the accent.
 
@@ -110,15 +110,15 @@ Vary radius by element to create implicit hierarchy — don't make everything th
 - Stylistic sets: `font-feature-settings: "ss01", "cv11"` applied at body root for Geist's preferred glyph variants.
 - Size & weight scale, with letter-spacing baked in:
 
-| Use                     | Class chain                                  |
-| ----------------------- | -------------------------------------------- |
-| Page title              | `text-5xl font-semibold tracking-[-0.045em]` |
-| Card title              | `text-[15px] font-medium tracking-[-0.005em]` |
-| Body text / inputs      | `text-sm`                                    |
-| Description / muted     | `text-[13px] leading-[1.55]`                 |
-| Metadata, kbd           | `text-[11px] font-medium`                    |
+| Use                                    | Class chain                                                        |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| Page title                             | `text-5xl font-semibold tracking-[-0.045em]`                       |
+| Card title                             | `text-[15px] font-medium tracking-[-0.005em]`                      |
+| Body text / inputs                     | `text-sm`                                                          |
+| Description / muted                    | `text-[13px] leading-[1.55]`                                       |
+| Metadata, kbd                          | `text-[11px] font-medium`                                          |
 | Section header (UPPERCASE — only here) | `text-[10px] font-semibold uppercase tracking-[0.14em] text-faint` |
-| Tag pill text           | `text-[10px] font-semibold tracking-[0.04em] font-mono` |
+| Tag pill text                          | `text-[10px] font-semibold tracking-[0.04em] font-mono`            |
 
 Tight tracking on display sizes is non-negotiable — Geist gets airy fast at large weights without it.
 
@@ -128,28 +128,28 @@ Motion exists to **explain change**. Short durations, easing that lands gently.
 
 ### Tokens
 
-| Var              | Value                                  | Use                                |
-| ---------------- | -------------------------------------- | ---------------------------------- |
-| `--motion-fast`  | 120ms                                  | Hover / state colour shifts        |
-| `--motion-base`  | 200ms                                  | Enters, transforms, card hover lift |
-| `--motion-slow`  | 320ms                                  | Larger surface transitions         |
-| `--ease-smooth`  | `cubic-bezier(0.22, 1, 0.36, 1)`       | Default                            |
-| `--ease-spring`  | `cubic-bezier(0.34, 1.56, 0.64, 1)`    | FAB, "pop-in" affordances          |
+| Var             | Value                               | Use                                 |
+| --------------- | ----------------------------------- | ----------------------------------- |
+| `--motion-fast` | 120ms                               | Hover / state colour shifts         |
+| `--motion-base` | 200ms                               | Enters, transforms, card hover lift |
+| `--motion-slow` | 320ms                               | Larger surface transitions          |
+| `--ease-smooth` | `cubic-bezier(0.22, 1, 0.36, 1)`    | Default                             |
+| `--ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | FAB, "pop-in" affordances           |
 
 ### Animations
 
-| Utility              | Effect                              | Where                |
-| -------------------- | ----------------------------------- | -------------------- |
-| `animate-fade-in`    | opacity 0→1                         | Modal backdrop       |
-| `animate-pop-in`     | scale + slide with spring easing    | Dialog, FAB on mount |
-| `animate-slide-up`   | translateY(8px) → 0, fade-in        | New items, sections  |
-| `animate-chip-in`    | scale(0.85) + fade                  | Label chips on add   |
-| `animate-check`      | scale(0.6) → 1 + spring             | Checkbox tick        |
+| Utility            | Effect                           | Where                |
+| ------------------ | -------------------------------- | -------------------- |
+| `animate-fade-in`  | opacity 0→1                      | Modal backdrop       |
+| `animate-pop-in`   | scale + slide with spring easing | Dialog, FAB on mount |
+| `animate-slide-up` | translateY(8px) → 0, fade-in     | New items, sections  |
+| `animate-chip-in`  | scale(0.85) + fade               | Label chips on add   |
+| `animate-check`    | scale(0.6) → 1 + spring          | Checkbox tick        |
 
 ### Hover / press
 
 - Buttons, chips, list items, cards get `transition-all` with `--motion-fast` or `--motion-base` (cards) on `--ease-smooth`.
-- Card hover lifts `-translate-y-px` and shifts to `bg-card-hover` + `border-line-strong`. This is the canonical "hover affordance" pattern — every interactive surface should do *something* on hover.
+- Card hover lifts `-translate-y-px` and shifts to `bg-card-hover` + `border-line-strong`. This is the canonical "hover affordance" pattern — every interactive surface should do _something_ on hover.
 - Press feedback: `active:scale-95` on FAB, `active:scale-[0.98]` on dialog buttons. Use sparingly.
 
 ## Components
@@ -215,6 +215,7 @@ Motion exists to **explain change**. Short durations, easing that lands gently.
 A horizontal row at the bottom of a card, `text-[11px] font-medium text-faint`, gap-3.5, with small (12px) leading icons. Each item is `inline-flex items-center gap-1.5`.
 
 Color variants:
+
 - Default → `text-faint` (e.g. "5d ago", "Created Mon")
 - Due soon (≤3 days) → `text-primary`
 - Overdue → `text-danger`

@@ -5,16 +5,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTodo } from "@/test-utils/factories";
 
 function getSubmitButton(): HTMLButtonElement {
-  return [...document.querySelectorAll("button")]
-    .find((b) => b.type === "submit" && /^(Add|Save)$/i.test(b.textContent ?? ""))!;
+  return [...document.querySelectorAll("button")].find(
+    (b) => b.type === "submit" && /^(Add|Save)$/i.test(b.textContent ?? ""),
+  )!;
 }
 
-async function renderModal(props: {
-  initial?: Parameters<typeof makeTodo>[0];
-  onClose?: () => void;
-  onDelete?: () => void;
-  onSubmit?: (input: import("@/lib/todos").TodoInput) => void;
-} = {}) {
+async function renderModal(
+  props: {
+    initial?: Parameters<typeof makeTodo>[0];
+    onClose?: () => void;
+    onDelete?: () => void;
+    onSubmit?: (input: import("@/lib/todos").TodoInput) => void;
+  } = {},
+) {
   vi.resetModules();
   const mod = await import("./TodoModal");
   const TodoModal = mod.default;
@@ -56,11 +59,7 @@ describe("<TodoModal>", () => {
     const mod = await import("./TodoModal");
     const TodoModal = mod.default;
     const { container } = render(
-      <TodoModal
-        onClose={() => {}}
-        onSubmit={() => {}}
-        open={false}
-      />,
+      <TodoModal onClose={() => {}} onSubmit={() => {}} open={false} />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -180,14 +179,15 @@ describe("<TodoModal>", () => {
   });
 
   it("calls /api/generate-description and writes the result into the description", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        Response.json({ description: "Generated text." }, {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json(
+        { description: "Generated text." },
+        {
           headers: { "Content-Type": "application/json" },
           status: 200,
-        }),
-      );
+        },
+      ),
+    );
     // Geolocation might be undefined in happy-dom — explicitly stub.
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
@@ -201,7 +201,9 @@ describe("<TodoModal>", () => {
     await user.click(
       screen.getByRole("button", { name: /generate description with ai/i }),
     );
-    const textarea = screen.getByPlaceholderText(/notes, links/i) as HTMLTextAreaElement;
+    const textarea = screen.getByPlaceholderText(
+      /notes, links/i,
+    ) as HTMLTextAreaElement;
     await waitFor(() => expect(textarea.value).toBe("Generated text."));
     expect(fetchSpy).toHaveBeenCalledWith(
       "/api/generate-description",
@@ -231,9 +233,7 @@ describe("<TodoModal>", () => {
     await user.click(
       screen.getByRole("button", { name: /generate description with ai/i }),
     );
-    expect(
-      await screen.findByText(/rate limit reached/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/rate limit reached/i)).toBeInTheDocument();
   });
 
   it("shows a generic AI error when the fetch throws", async () => {
@@ -243,10 +243,7 @@ describe("<TodoModal>", () => {
       value: undefined,
     });
     const { user } = await renderModal();
-    await user.type(
-      screen.getByPlaceholderText(/what needs doing/i),
-      "x",
-    );
+    await user.type(screen.getByPlaceholderText(/what needs doing/i), "x");
     await user.click(
       screen.getByRole("button", { name: /generate description with ai/i }),
     );
@@ -264,11 +261,13 @@ describe("<TodoModal>", () => {
       initial: { labels: ["work"], title: "x" },
     });
     await user.click(screen.getByRole("button", { name: /^edit$/i }));
-    const labelBtn = screen.getByRole("button", { name: "work", pressed: true });
+    const labelBtn = screen.getByRole("button", {
+      name: "work",
+      pressed: true,
+    });
     await user.click(labelBtn);
     expect(
       screen.getByRole("button", { name: "work", pressed: false }),
     ).toBeInTheDocument();
   });
 });
-

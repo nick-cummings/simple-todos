@@ -1,0 +1,20 @@
+# Build / generated artifacts
+.next/
+out/
+build/
+coverage/
+playwright-report/
+test-results/
+node_modules/
+
+# Lockfiles (managed by their tools)
+package-lock.json
+
+# Throwaway design mockups — not part of the formatted surface.
+src/components/mockups/
+src/app/mockups/
+
+# Terraform state etc.
+infra/.terraform/
+infra/terraform.tfstate
+infra/terraform.tfstate.backup

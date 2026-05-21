@@ -26,18 +26,21 @@ function chunk(type, data) {
 
 function crc32(buf) {
   let c;
-  const table = crc32.table || (crc32.table = (() => {
-    const t = new Uint32Array(256);
-    for (let n = 0; n < 256; n++) {
-      c = n;
-      for (let k = 0; k < 8; k++) c = c & 1 ? 0xED_B8_83_20 ^ (c >>> 1) : c >>> 1;
-      t[n] = c >>> 0;
-    }
-    return t;
-  })());
-  c = 0xFF_FF_FF_FF;
-  for (const byte of buf) c = table[(c ^ byte) & 0xFF] ^ (c >>> 8);
-  return (c ^ 0xFF_FF_FF_FF) >>> 0;
+  const table =
+    crc32.table ||
+    (crc32.table = (() => {
+      const t = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        c = n;
+        for (let k = 0; k < 8; k++)
+          c = c & 1 ? 0xed_b8_83_20 ^ (c >>> 1) : c >>> 1;
+        t[n] = c >>> 0;
+      }
+      return t;
+    })());
+  c = 0xff_ff_ff_ff;
+  for (const byte of buf) c = table[(c ^ byte) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xff_ff_ff_ff) >>> 0;
 }
 
 // Draws a rounded-square background with a stylized check mark.
@@ -84,7 +87,9 @@ function encodePng(width, height, pixels) {
   const raw = Buffer.alloc(height * (1 + width * 4));
   for (let y = 0; y < height; y++) {
     raw[y * (1 + width * 4)] = 0;
-    for (const [i, b] of pixels.subarray(y * width * 4, (y + 1) * width * 4).entries()) {
+    for (const [i, b] of pixels
+      .subarray(y * width * 4, (y + 1) * width * 4)
+      .entries()) {
       raw[y * (1 + width * 4) + 1 + i] = b;
     }
   }

@@ -21,9 +21,12 @@ let cache: Label[] | null = null;
 const listeners = new Set<() => void>();
 
 export function useLabels() {
-  const labels = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const hydrated =
-    labels !== EMPTY || (isBrowser() && cache !== null);
+  const labels = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
+  const hydrated = labels !== EMPTY || (isBrowser() && cache !== null);
 
   const addLabel = useCallback(
     (name: string, color: LabelColor = DEFAULT_COLOR): Label | null => {
@@ -49,7 +52,8 @@ export function useLabels() {
     mutate((prev) => {
       // Reject if a *different* label with the new name already exists.
       const collision = prev.find(
-        (l) => l.name.toLowerCase() === newKey && l.name.toLowerCase() !== oldKey,
+        (l) =>
+          l.name.toLowerCase() === newKey && l.name.toLowerCase() !== oldKey,
       );
       if (collision) return prev;
       let changed = 0;
@@ -76,18 +80,13 @@ export function useLabels() {
     });
   }, []);
 
-  const recolorLabel = useCallback(
-    (name: string, color: LabelColor) => {
-      const key = normalizeLabelName(name).toLowerCase();
-      if (!key) return;
-      mutate((prev) =>
-        prev.map((l) =>
-          l.name.toLowerCase() === key ? { ...l, color } : l,
-        ),
-      );
-    },
-    [],
-  );
+  const recolorLabel = useCallback((name: string, color: LabelColor) => {
+    const key = normalizeLabelName(name).toLowerCase();
+    if (!key) return;
+    mutate((prev) =>
+      prev.map((l) => (l.name.toLowerCase() === key ? { ...l, color } : l)),
+    );
+  }, []);
 
   const deleteLabel = useCallback((name: string) => {
     const key = normalizeLabelName(name).toLowerCase();
@@ -199,9 +198,7 @@ function rewriteTodoLabels(updater: (todoLabels: string[]) => string[]) {
   // Same-tab listeners on useTodos won't fire on programmatic
   // localStorage writes, so dispatch a fake storage event so the
   // cache invalidates.
-  globalThis.dispatchEvent(
-    new StorageEvent("storage", { key: STORAGE_KEY }),
-  );
+  globalThis.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }));
 }
 
 function subscribe(listener: () => void): () => void {

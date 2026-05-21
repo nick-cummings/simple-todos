@@ -23,9 +23,11 @@ function mockMatchMedia(matches: boolean) {
   const state = { matches };
   const listeners: ((e: { matches: boolean }) => void)[] = [];
   const mql = {
-    addEventListener: vi.fn((_: string, cb: (e: { matches: boolean }) => void) => {
-      listeners.push(cb);
-    }),
+    addEventListener: vi.fn(
+      (_: string, cb: (e: { matches: boolean }) => void) => {
+        listeners.push(cb);
+      },
+    ),
     addListener: vi.fn(),
     dispatchEvent: vi.fn(),
     get matches() {
@@ -107,7 +109,9 @@ describe("useTheme", () => {
     const { result } = renderHook(() => useTheme());
     act(() => {
       localStorage.setItem(THEME_KEY, "dark");
-      globalThis.dispatchEvent(new StorageEvent("storage", { key: "unrelated" }));
+      globalThis.dispatchEvent(
+        new StorageEvent("storage", { key: "unrelated" }),
+      );
     });
     expect(result.current.theme).toBe("system");
   });

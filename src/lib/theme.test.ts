@@ -73,11 +73,14 @@ describe("resolveTheme", () => {
     expect(resolveTheme("dark")).toBe("dark");
   });
   it("for 'system', defers to systemPrefersDark", () => {
-    vi.spyOn(globalThis, "matchMedia").mockImplementation(() => ({
-      addEventListener: vi.fn(),
-      matches: true,
-      removeEventListener: vi.fn(),
-    }) as unknown as MediaQueryList);
+    vi.spyOn(globalThis, "matchMedia").mockImplementation(
+      () =>
+        ({
+          addEventListener: vi.fn(),
+          matches: true,
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
     expect(resolveTheme("system")).toBe("dark");
   });
 });

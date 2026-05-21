@@ -88,7 +88,17 @@ export default function TodoCard({
 
 function AlertCircleIcon() {
   return (
-    <svg aria-hidden fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="12">
+    <svg
+      aria-hidden
+      fill="none"
+      height="12"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="12"
+    >
       <circle cx="12" cy="12" r="10" />
       <path d="M12 8v4M12 16h.01" />
     </svg>
@@ -108,7 +118,9 @@ function AnimatedCheckbox({
   return (
     <label
       className="relative mt-0.5 inline-flex h-5 w-5 shrink-0 select-none items-center justify-center"
-      onClick={(e) => { e.stopPropagation(); }}
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
     >
       <input
         aria-label={label}
@@ -143,7 +155,17 @@ function AnimatedCheckbox({
 
 function CalendarIcon() {
   return (
-    <svg aria-hidden fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="12">
+    <svg
+      aria-hidden
+      fill="none"
+      height="12"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="12"
+    >
       <rect height="18" rx="2" width="18" x="3" y="4" />
       <path d="M16 2v4M8 2v4M3 10h18" />
     </svg>
@@ -151,13 +173,23 @@ function CalendarIcon() {
 }
 function ClockIcon() {
   return (
-    <svg aria-hidden fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="12">
+    <svg
+      aria-hidden
+      fill="none"
+      height="12"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="12"
+    >
       <circle cx="12" cy="12" r="10" />
       <path d="M12 6v6l4 2" />
     </svg>
   );
 }
-function MetaRow({ overdue, todo }: { overdue: boolean; todo: Todo; }) {
+function MetaRow({ overdue, todo }: { overdue: boolean; todo: Todo }) {
   const hasDue = Boolean(todo.dueDate);
   const hasCreated = Boolean(todo.createdAt);
   if (!hasDue && !hasCreated) return null;
@@ -167,17 +199,14 @@ function MetaRow({ overdue, todo }: { overdue: boolean; todo: Todo; }) {
       {overdue && todo.dueDate && (
         <span className="inline-flex items-center gap-1.5 text-danger">
           <AlertCircleIcon />
-          <span>
-            Overdue · {shortWeekday(todo.dueDate)}
-          </span>
+          <span>Overdue · {shortWeekday(todo.dueDate)}</span>
         </span>
       )}
       {todo.dueDate && !overdue && (
         <span
-          className={
-            `inline-flex items-center gap-1.5 ${ 
-            priorityOf(todo) === "medium" ? "text-primary" : "text-faint"}`
-          }
+          className={`inline-flex items-center gap-1.5 ${
+            priorityOf(todo) === "medium" ? "text-primary" : "text-faint"
+          }`}
         >
           <CalendarIcon />
           <span>{formatDueDate(todo.dueDate)}</span>

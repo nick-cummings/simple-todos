@@ -63,7 +63,9 @@ export function NewLabelRow({
       />
       <input
         className="h-10 min-w-0 flex-1 rounded-lg border border-line-strong bg-card px-3 text-sm placeholder:text-faint hover:border-line-emphasis focus:border-line-emphasis"
-        onChange={(e) => { updateName(e.target.value); }}
+        onChange={(e) => {
+          updateName(e.target.value);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
@@ -160,17 +162,16 @@ export function InlineColorPicker({
       <button
         aria-expanded={open}
         aria-label={ariaLabel}
-        className={
-          `flex shrink-0 items-center justify-center rounded-lg border border-line-strong bg-card hover:border-line-emphasis hover:bg-card-hover ${ 
-          buttonClass}`
-        }
+        className={`flex shrink-0 items-center justify-center rounded-lg border border-line-strong bg-card hover:border-line-emphasis hover:bg-card-hover ${
+          buttonClass
+        }`}
         onClick={togglePopover}
         ref={triggerRef}
         type="button"
       >
         <span
           aria-hidden
-          className={`block rounded-full border border-line ${  dotClass}`}
+          className={`block rounded-full border border-line ${dotClass}`}
           style={{ background: swatchFor(value).fg }}
         />
       </button>
@@ -365,12 +366,11 @@ function CustomSwatch({
         aria-expanded={open}
         aria-label={ariaLabel}
         aria-pressed={active}
-        className={
-          `relative inline-flex h-5 w-5 items-center justify-center rounded-full border transition-transform active:scale-90 ${ 
+        className={`relative inline-flex h-5 w-5 items-center justify-center rounded-full border transition-transform active:scale-90 ${
           active
             ? "border-fg ring-2 ring-offset-2 ring-offset-card"
-            : "border-line hover:scale-110"}`
-        }
+            : "border-line hover:scale-110"
+        }`}
         onClick={togglePopover}
         ref={triggerRef}
         style={{
@@ -444,14 +444,15 @@ function SwatchRow({
           <button
             aria-label={`${ariaPrefix}: ${k}`}
             aria-pressed={active}
-            className={
-              `h-5 w-5 rounded-full border transition-transform active:scale-90 ${ 
+            className={`h-5 w-5 rounded-full border transition-transform active:scale-90 ${
               active
                 ? "border-fg ring-2 ring-offset-2 ring-offset-card"
-                : "border-line hover:scale-110"}`
-            }
+                : "border-line hover:scale-110"
+            }`}
             key={k}
-            onClick={() => { onChange(k); }}
+            onClick={() => {
+              onChange(k);
+            }}
             style={{
               // @ts-expect-error CSS custom property used by the ring
               "--tw-ring-color": SWATCHES[k].fg,

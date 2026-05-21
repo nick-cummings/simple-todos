@@ -21,9 +21,13 @@ export function useTheme() {
   useEffect(() => {
     if (theme !== "system") return;
     const mq = globalThis.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => { applyResolvedTheme(resolveTheme("system")); };
+    const onChange = () => {
+      applyResolvedTheme(resolveTheme("system"));
+    };
     mq.addEventListener("change", onChange);
-    return () => { mq.removeEventListener("change", onChange); };
+    return () => {
+      mq.removeEventListener("change", onChange);
+    };
   }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {

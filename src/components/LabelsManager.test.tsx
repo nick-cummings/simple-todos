@@ -200,7 +200,6 @@ describe("<LabelsManager>", () => {
     await vi.advanceTimersByTimeAsync(250);
     expect(onClose).toHaveBeenCalled();
   });
-
 });
 
 describe("<LabelsManager> — interactions with sort menu visibility", () => {
@@ -219,4 +218,3 @@ describe("<LabelsManager> — interactions with sort menu visibility", () => {
     ).toBeInTheDocument();
   });
 });
-

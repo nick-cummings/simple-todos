@@ -1,11 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  DEFAULT_COLOR,
-  type Label,
-  LABELS_STORAGE_KEY,
-} from "./labels";
+import { DEFAULT_COLOR, type Label, LABELS_STORAGE_KEY } from "./labels";
 import { STORAGE_KEY, type Todo } from "./todos";
 
 async function importUseLabels() {
@@ -70,7 +66,10 @@ describe("useLabels", () => {
     const persisted = JSON.parse(
       localStorage.getItem(LABELS_STORAGE_KEY) ?? "[]",
     );
-    expect(persisted.map((l: Label) => l.name).toSorted()).toEqual(["home", "work"]);
+    expect(persisted.map((l: Label) => l.name).toSorted()).toEqual([
+      "home",
+      "work",
+    ]);
   });
 
   it("addLabel adds and persists a new label", async () => {
@@ -221,7 +220,9 @@ describe("useLabels", () => {
         LABELS_STORAGE_KEY,
         JSON.stringify([{ color: "red", createdAt: 9, name: "external" }]),
       );
-      globalThis.dispatchEvent(new StorageEvent("storage", { key: "unrelated" }));
+      globalThis.dispatchEvent(
+        new StorageEvent("storage", { key: "unrelated" }),
+      );
     });
     // Cache unchanged — still the seeded "work" label.
     expect(result.current.labels.map((l) => l.name)).toEqual(["work"]);

@@ -76,7 +76,10 @@ export async function POST(request: Request) {
   }
 
   if (!body || typeof body !== "object") {
-    return NextResponse.json({ error: "Body must be an object." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Body must be an object." },
+      { status: 400 },
+    );
   }
 
   const { location, title } = body as {
@@ -85,10 +88,7 @@ export async function POST(request: Request) {
   };
 
   if (typeof title !== "string" || !title.trim()) {
-    return NextResponse.json(
-      { error: "title is required." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "title is required." }, { status: 400 });
   }
   if (title.length > 500) {
     return NextResponse.json(

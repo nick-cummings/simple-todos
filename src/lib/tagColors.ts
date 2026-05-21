@@ -32,10 +32,7 @@ export function tagPillStyle(
   return { backgroundColor: s.bg, color: s.fg };
 }
 
-function resolveColor(
-  labelName: string,
-  registry: Label[],
-): LabelColor {
+function resolveColor(labelName: string, registry: Label[]): LabelColor {
   const found = findLabelByName(registry, labelName);
   return found ? found.color : DEFAULT_COLOR;
 }

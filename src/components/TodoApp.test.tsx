@@ -119,10 +119,7 @@ describe("<TodoApp> — search + filtering", () => {
 
   it("filters via the search box", async () => {
     const { user } = await renderApp();
-    await user.type(
-      screen.getByPlaceholderText(/search todos/i),
-      "milk",
-    );
+    await user.type(screen.getByPlaceholderText(/search todos/i), "milk");
     expect(screen.getByText("Buy milk")).toBeInTheDocument();
     expect(screen.queryByText("Read book")).not.toBeInTheDocument();
   });
@@ -172,9 +169,7 @@ describe("<TodoApp> — clear completed", () => {
       screen.getByRole("button", { name: /clear completed/i }),
     ).toBeInTheDocument();
     // Click it; todo disappears.
-    await user.click(
-      screen.getByRole("button", { name: /clear completed/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /clear completed/i }));
     expect(screen.queryByText("done todo")).not.toBeInTheDocument();
   });
 });

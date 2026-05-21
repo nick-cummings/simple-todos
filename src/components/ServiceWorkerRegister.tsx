@@ -21,7 +21,9 @@ export default function ServiceWorkerRegister() {
     if (document.readyState === "complete") onLoad();
     else window.addEventListener("load", onLoad, { once: true });
 
-    return () => { window.removeEventListener("load", onLoad); };
+    return () => {
+      window.removeEventListener("load", onLoad);
+    };
   }, []);
 
   return null;

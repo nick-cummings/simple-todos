@@ -9,7 +9,10 @@ const APP_SHELL = ["/", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(APP_SHELL)).then(() => globalThis.skipWaiting()),
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(APP_SHELL))
+      .then(() => globalThis.skipWaiting()),
   );
 });
 
@@ -18,7 +21,9 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))),
+        Promise.all(
+          keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)),
+        ),
       )
       .then(() => globalThis.clients.claim()),
   );
@@ -35,7 +40,10 @@ self.addEventListener("fetch", (event) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          caches
+            .open(CACHE)
+            .then((c) => c.put(req, copy))
+            .catch(() => {});
           return res;
         })
         .catch(() => caches.match(req).then((r) => r || caches.match("/"))),
@@ -47,9 +55,16 @@ self.addEventListener("fetch", (event) => {
     caches.match(req).then((cached) => {
       if (cached) return cached;
       return fetch(req).then((res) => {
-        if (res.ok && (url.pathname.startsWith("/_next/") || url.pathname.startsWith("/icons/"))) {
+        if (
+          res.ok &&
+          (url.pathname.startsWith("/_next/") ||
+            url.pathname.startsWith("/icons/"))
+        ) {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          caches
+            .open(CACHE)
+            .then((c) => c.put(req, copy))
+            .catch(() => {});
         }
         return res;
       });

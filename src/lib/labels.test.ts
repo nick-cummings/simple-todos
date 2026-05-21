@@ -161,7 +161,13 @@ describe("loadLabels / saveLabels", () => {
     const good = makeLabel();
     localStorage.setItem(
       LABELS_STORAGE_KEY,
-      JSON.stringify([good, null, { name: "x" }, "string", { color: 1, createdAt: 1, name: "x" }]),
+      JSON.stringify([
+        good,
+        null,
+        { name: "x" },
+        "string",
+        { color: 1, createdAt: 1, name: "x" },
+      ]),
     );
     expect(loadLabels()).toEqual([good]);
   });

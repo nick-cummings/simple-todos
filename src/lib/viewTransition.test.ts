@@ -19,14 +19,19 @@ describe("withViewTransition", () => {
 
   it("runs the callback synchronously when prefers-reduced-motion is set", () => {
     (
-      document as unknown as { startViewTransition: (cb: () => void) => unknown }
+      document as unknown as {
+        startViewTransition: (cb: () => void) => unknown;
+      }
     ).startViewTransition = vi.fn();
-    vi.spyOn(globalThis, "matchMedia").mockImplementation((q) => ({
-      addEventListener: vi.fn(),
-      matches: q === "(prefers-reduced-motion: reduce)",
-      media: q,
-      removeEventListener: vi.fn(),
-    }) as unknown as MediaQueryList);
+    vi.spyOn(globalThis, "matchMedia").mockImplementation(
+      (q) =>
+        ({
+          addEventListener: vi.fn(),
+          matches: q === "(prefers-reduced-motion: reduce)",
+          media: q,
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
     const cb = vi.fn();
     withViewTransition(cb);
     expect(cb).toHaveBeenCalledTimes(1);
@@ -47,11 +52,14 @@ describe("withViewTransition", () => {
         startViewTransition: (cb: () => void) => unknown;
       }
     ).startViewTransition = startViewTransition;
-    vi.spyOn(globalThis, "matchMedia").mockImplementation(() => ({
-      addEventListener: vi.fn(),
-      matches: false,
-      removeEventListener: vi.fn(),
-    }) as unknown as MediaQueryList);
+    vi.spyOn(globalThis, "matchMedia").mockImplementation(
+      () =>
+        ({
+          addEventListener: vi.fn(),
+          matches: false,
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
     withViewTransition(inner);
     expect(startViewTransition).toHaveBeenCalledTimes(1);
     expect(inner).toHaveBeenCalledTimes(1);

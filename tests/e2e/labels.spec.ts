@@ -19,9 +19,7 @@ test.describe("label management end-to-end", () => {
   test("creates a label from the Labels manager", async ({ page }) => {
     await page.getByRole("button", { name: /manage labels/i }).click();
     const manager = page.getByRole("dialog", { name: /manage labels/i });
-    await manager
-      .getByPlaceholder(/new label name/i)
-      .fill("home");
+    await manager.getByPlaceholder(/new label name/i).fill("home");
     await manager.getByRole("button", { name: /^add$/i }).click();
     // The label now appears in the manager as a pill.
     await expect(manager.getByText("home")).toBeVisible();
@@ -45,7 +43,10 @@ test.describe("label management end-to-end", () => {
 
     // Label pill is visible on the card.
     await expect(
-      page.getByRole("listitem").filter({ hasText: "Email Bob" }).getByText("work"),
+      page
+        .getByRole("listitem")
+        .filter({ hasText: "Email Bob" })
+        .getByText("work"),
     ).toBeVisible();
 
     // Open the Labels manager and rename "work" → "office".
@@ -53,9 +54,7 @@ test.describe("label management end-to-end", () => {
     const manager = page.getByRole("dialog", { name: /manage labels/i });
     await manager.getByRole("button", { name: /edit work/i }).click();
     // The row with data-label-name="work" contains the inline edit input.
-    const editInput = manager
-      .locator('[data-label-name="work"] input')
-      .first();
+    const editInput = manager.locator('[data-label-name="work"] input').first();
     await editInput.fill("office");
     await editInput.press("Enter");
     await manager.getByRole("button", { name: /^done$/i }).click();
@@ -96,9 +95,7 @@ test.describe("label management end-to-end", () => {
     // Trash icon → peek state.
     await manager.getByRole("button", { name: /^delete work$/i }).click();
     // Confirm.
-    await manager
-      .getByRole("button", { name: /confirm delete work/i })
-      .click();
+    await manager.getByRole("button", { name: /confirm delete work/i }).click();
     await manager.getByRole("button", { name: /^done$/i }).click();
 
     // The "work" pill is gone; "urgent" remains.
