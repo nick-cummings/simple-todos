@@ -115,6 +115,51 @@ describe("useTodos", () => {
     );
   });
 
+  it("toggle() on a recurring todo respawns it with the next due date", async () => {
+    const useTodos = await importUseTodos();
+    const { result } = renderHook(() => useTodos());
+    act(() => {
+      result.current.add({
+        dueDate: "2026-05-20",
+        recurrence: { every: 1, unit: "week" },
+        title: "Take out trash",
+      });
+    });
+    const id = result.current.todos[0].id;
+    act(() => {
+      result.current.toggle(id);
+    });
+    // Stays open; dueDate advances by 1 week.
+    expect(result.current.todos[0].completed).toBe(false);
+    expect(result.current.todos[0].dueDate).toBe("2026-05-27");
+  });
+
+  it("toggle() un-completes a recurring todo normally when it's already completed", async () => {
+    const useTodos = await importUseTodos();
+    const { result } = renderHook(() => useTodos());
+    act(() => {
+      result.current.add({
+        dueDate: "2026-05-20",
+        recurrence: { every: 1, unit: "day" },
+        title: "x",
+      });
+    });
+    const id = result.current.todos[0].id;
+    // Manually mark it completed first via update — that's the only
+    // way a recurring todo would be 'completed' (toggle re-opens it).
+    act(() => {
+      result.current.update(id, { completed: true });
+    });
+    expect(result.current.todos[0].completed).toBe(true);
+    const dueBefore = result.current.todos[0].dueDate;
+    act(() => {
+      result.current.toggle(id);
+    });
+    // Un-completing — no date advance.
+    expect(result.current.todos[0].completed).toBe(false);
+    expect(result.current.todos[0].dueDate).toBe(dueBefore);
+  });
+
   it("remove() drops the todo", async () => {
     const useTodos = await importUseTodos();
     const { result } = renderHook(() => useTodos());

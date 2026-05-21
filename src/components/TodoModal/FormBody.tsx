@@ -1,10 +1,13 @@
 import { type SyntheticEvent, useState } from "react";
 
+import type { Recurrence } from "@/lib/todos";
+
 import { type Label, type LabelColor, swatchFor } from "@/lib/labels";
 
 import { NewLabelRow } from "../NewLabelRow";
 import { getLocationBestEffort } from "./getLocationBestEffort";
 import { SparkleIcon, SpinnerIcon } from "./Icons";
+import { RepeatPicker } from "./RepeatPicker";
 
 export function FormBody({
   addLabelWithColor,
@@ -13,9 +16,11 @@ export function FormBody({
   labelRegistry,
   labels,
   onSubmit,
+  recurrence,
   setDescription,
   setDueDate,
   setLabelDraft,
+  setRecurrence,
   setTitle,
   title,
   titleRef,
@@ -27,9 +32,11 @@ export function FormBody({
   labelRegistry: Label[];
   labels: string[];
   onSubmit: (e: SyntheticEvent) => void;
+  recurrence: Recurrence | undefined;
   setDescription: (v: string) => void;
   setDueDate: (v: string) => void;
   setLabelDraft: (v: string) => void;
+  setRecurrence: (r: Recurrence | undefined) => void;
   setTitle: (v: string) => void;
   title: string;
   titleRef: React.RefObject<HTMLInputElement | null>;
@@ -168,6 +175,8 @@ export function FormBody({
           )}
         </div>
       </Field>
+
+      <RepeatPicker onChange={setRecurrence} value={recurrence} />
 
       <div className="flex flex-col gap-3">
         <span className="text-xs text-muted">

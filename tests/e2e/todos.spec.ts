@@ -200,6 +200,38 @@ test.describe("search + sort + clear completed", () => {
   });
 });
 
+test.describe("recurring tasks", () => {
+  test("daily todo respawns with the next due date when completed", async ({
+    page,
+  }) => {
+    // Use today as the due date so the next occurrence is deterministic.
+    const today = new Date();
+    const iso = today.toISOString().slice(0, 10);
+
+    await page.getByRole("button", { name: /add todo/i }).click();
+    const dialog = page.getByRole("dialog", { name: /new todo/i });
+    await dialog.getByPlaceholder(/what needs doing/i).fill("Water plants");
+    // Open the date input and type the value directly.
+    await dialog.getByLabel(/due date/i).fill(iso);
+    // Pick the Daily preset from the new Repeat picker.
+    await dialog.getByRole("button", { name: /^daily$/i }).click();
+    await submitTodoForm(page);
+
+    const card = page.getByRole("listitem").filter({ hasText: "Water plants" });
+    await expect(card).toBeVisible();
+    // Recurrence badge renders on the card.
+    await expect(card.getByText(/Daily/i)).toBeVisible();
+
+    // Complete it — recurring todos respawn instead of completing.
+    await card.getByRole("checkbox", { name: /mark as done/i }).click();
+    // Still visible (not moved to Done) because it respawned.
+    await expect(card).toBeVisible();
+    await expect(
+      card.getByRole("checkbox", { name: /mark as done/i }),
+    ).not.toBeChecked();
+  });
+});
+
 test.describe("keyboard shortcuts", () => {
   test("⌘K (or Ctrl+K) focuses the search input", async ({
     browserName,

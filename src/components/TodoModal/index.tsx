@@ -2,7 +2,7 @@
 
 import { type SyntheticEvent, useEffect, useRef, useState } from "react";
 
-import { normalizeLabel, Todo, TodoInput } from "@/lib/todos";
+import { normalizeLabel, type Recurrence, Todo, TodoInput } from "@/lib/todos";
 import { useLabels } from "@/lib/useLabels";
 
 import { FormBody } from "./FormBody";
@@ -36,6 +36,9 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
   const [labels, setLabels] = useState<string[]>(initial?.labels ?? []);
   const [labelDraft, setLabelDraft] = useState("");
+  const [recurrence, setRecurrence] = useState<Recurrence | undefined>(
+    initial?.recurrence,
+  );
   const [closing, setClosing] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const closingRef = useRef(false);
@@ -127,6 +130,7 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
       description: description || undefined,
       dueDate: dueDate || undefined,
       labels: finalLabels,
+      recurrence,
       title,
     });
     setLabelDraft("");
@@ -217,9 +221,11 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
               labelRegistry={labelRegistry}
               labels={labels}
               onSubmit={handleSubmit}
+              recurrence={recurrence}
               setDescription={setDescription}
               setDueDate={setDueDate}
               setLabelDraft={setLabelDraft}
+              setRecurrence={setRecurrence}
               setTitle={setTitle}
               title={title}
               titleRef={titleRef}

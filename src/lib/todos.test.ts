@@ -9,7 +9,9 @@ import {
   filterTodos,
   labelCounts,
   loadTodos,
+  nextOccurrence,
   normalizeLabel,
+  recurrenceLabel,
   saveTodos,
   sortTodos,
   type StatusFilter,
@@ -351,5 +353,151 @@ describe("loadTodos / saveTodos", () => {
       globalThis.window = originalWindow;
       spy.mockRestore();
     }
+  });
+});
+
+describe("nextOccurrence", () => {
+  it("advances by N days", () => {
+    expect(nextOccurrence("2026-05-20", { every: 1, unit: "day" })).toBe(
+      "2026-05-21",
+    );
+    expect(nextOccurrence("2026-05-20", { every: 10, unit: "day" })).toBe(
+      "2026-05-30",
+    );
+  });
+  it("advances by N weeks", () => {
+    expect(nextOccurrence("2026-05-20", { every: 1, unit: "week" })).toBe(
+      "2026-05-27",
+    );
+    expect(nextOccurrence("2026-05-20", { every: 2, unit: "week" })).toBe(
+      "2026-06-03",
+    );
+  });
+  it("advances by N months and rolls year correctly", () => {
+    expect(nextOccurrence("2026-05-20", { every: 1, unit: "month" })).toBe(
+      "2026-06-20",
+    );
+    expect(nextOccurrence("2026-11-20", { every: 2, unit: "month" })).toBe(
+      "2027-01-20",
+    );
+  });
+  it("returns the input unchanged when the date is malformed", () => {
+    expect(nextOccurrence("not-a-date", { every: 1, unit: "day" })).toBe(
+      "not-a-date",
+    );
+  });
+});
+
+describe("recurrenceLabel", () => {
+  it("collapses every-1 forms to bare adjective", () => {
+    expect(recurrenceLabel({ every: 1, unit: "day" })).toBe("Daily");
+    expect(recurrenceLabel({ every: 1, unit: "week" })).toBe("Weekly");
+    expect(recurrenceLabel({ every: 1, unit: "month" })).toBe("Monthly");
+  });
+  it("formats every-N forms with plural units", () => {
+    expect(recurrenceLabel({ every: 2, unit: "day" })).toBe("Every 2 days");
+    expect(recurrenceLabel({ every: 3, unit: "week" })).toBe("Every 3 weeks");
+    expect(recurrenceLabel({ every: 6, unit: "month" })).toBe("Every 6 months");
+  });
+});
+
+describe("loadTodos (recurrence validation)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("keeps todos whose recurrence shape is valid", () => {
+    const raw: Todo[] = [
+      {
+        completed: false,
+        createdAt: 1,
+        id: "1",
+        labels: [],
+        recurrence: { every: 2, unit: "week" },
+        title: "x",
+        updatedAt: 1,
+      },
+    ];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+    expect(loadTodos()).toEqual(raw);
+  });
+
+  it("rejects todos whose recurrence has a bad unit", () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        {
+          completed: false,
+          createdAt: 1,
+          id: "1",
+          labels: [],
+          recurrence: { every: 1, unit: "year" },
+          title: "x",
+          updatedAt: 1,
+        },
+      ]),
+    );
+    expect(loadTodos()).toEqual([]);
+  });
+
+  it("rejects todos whose recurrence has every < 1", () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        {
+          completed: false,
+          createdAt: 1,
+          id: "1",
+          labels: [],
+          recurrence: { every: 0, unit: "day" },
+          title: "x",
+          updatedAt: 1,
+        },
+      ]),
+    );
+    expect(loadTodos()).toEqual([]);
+  });
+
+  it("rejects todos whose recurrence isn't an object", () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        {
+          completed: false,
+          createdAt: 1,
+          id: "1",
+          labels: [],
+          recurrence: "weekly",
+          title: "x",
+          updatedAt: 1,
+        },
+      ]),
+    );
+    expect(loadTodos()).toEqual([]);
+  });
+});
+
+describe("createTodo (recurrence)", () => {
+  it("accepts a valid recurrence", () => {
+    const t = createTodo({
+      recurrence: { every: 2, unit: "week" },
+      title: "x",
+    });
+    expect(t.recurrence).toEqual({ every: 2, unit: "week" });
+  });
+  it("drops a recurrence with non-positive every", () => {
+    const t = createTodo({
+      recurrence: { every: 0, unit: "day" },
+      title: "x",
+    });
+    expect(t.recurrence).toBeUndefined();
+  });
+  it("drops a recurrence with an unknown unit", () => {
+    const t = createTodo({
+      // @ts-expect-error testing runtime validation
+      recurrence: { every: 1, unit: "year" },
+      title: "x",
+    });
+    expect(t.recurrence).toBeUndefined();
   });
 });

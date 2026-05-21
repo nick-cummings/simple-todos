@@ -2,11 +2,13 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+import { todayISO } from "./dates";
 import { isBrowser } from "./runtime";
 import {
   createTodo,
   dedupeLabels,
   loadTodos,
+  nextOccurrence,
   saveTodos,
   STORAGE_KEY,
   Todo,
@@ -18,7 +20,10 @@ let cache: null | Todo[] = null;
 const listeners = new Set<() => void>();
 
 export type TodoPatch = Partial<
-  Pick<Todo, "completed" | "description" | "dueDate" | "labels" | "title">
+  Pick<
+    Todo,
+    "completed" | "description" | "dueDate" | "labels" | "recurrence" | "title"
+  >
 >;
 
 export function useTodos() {
@@ -47,11 +52,23 @@ export function useTodos() {
 
   const toggle = useCallback((id: string) => {
     mutate((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? { ...t, completed: !t.completed, updatedAt: Date.now() }
-          : t,
-      ),
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const completing = !t.completed;
+        // Recurring todos respawn on completion: advance the due date
+        // (anchored on the current dueDate; today as fallback) and
+        // keep completed = false. This matches Apple Reminders behavior.
+        if (completing && t.recurrence) {
+          const anchor = t.dueDate ?? todayISO();
+          return {
+            ...t,
+            completed: false,
+            dueDate: nextOccurrence(anchor, t.recurrence),
+            updatedAt: Date.now(),
+          };
+        }
+        return { ...t, completed: completing, updatedAt: Date.now() };
+      }),
     );
   }, []);
 

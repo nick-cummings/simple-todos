@@ -1,4 +1,12 @@
+import { toISODate } from "./dates";
 import { isBrowser } from "./runtime";
+
+export interface Recurrence {
+  every: number; // ≥1
+  unit: RecurrenceUnit;
+}
+
+export type RecurrenceUnit = "day" | "month" | "week";
 
 export type SortKey =
   | "completed"
@@ -14,6 +22,7 @@ export interface Todo {
   dueDate?: string; // ISO YYYY-MM-DD
   id: string;
   labels: string[];
+  recurrence?: Recurrence;
   title: string;
   updatedAt: number;
 }
@@ -22,6 +31,7 @@ export interface TodoInput {
   description?: string;
   dueDate?: string;
   labels?: string[];
+  recurrence?: Recurrence;
   title: string;
 }
 
@@ -44,6 +54,7 @@ export function createTodo(input: TodoInput): Todo {
     dueDate: normalizeOptional(input.dueDate),
     id: makeTodoId(now),
     labels: dedupeLabels(input.labels ?? []),
+    recurrence: normalizeRecurrence(input.recurrence),
     title: input.title.trim(),
     updatedAt: now,
   };
@@ -110,10 +121,54 @@ export function loadTodos(): Todo[] {
   }
 }
 
+/**
+ * Compute the next occurrence ISO date given a starting ISO date and
+ * a recurrence rule. Returns YYYY-MM-DD. Month/week math anchors on
+ * the given day-of-month or day-of-week.
+ */
+export function nextOccurrence(iso: string, r: Recurrence): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const date = new Date(y, m - 1, d);
+  switch (r.unit) {
+    case "day": {
+      date.setDate(date.getDate() + r.every);
+      break;
+    }
+    case "month": {
+      date.setMonth(date.getMonth() + r.every);
+      break;
+    }
+    case "week": {
+      date.setDate(date.getDate() + 7 * r.every);
+      break;
+    }
+  }
+  return toISODate(date);
+}
+
 export function normalizeLabel(raw: string): string {
   // Trim and collapse whitespace, but preserve casing — uniqueness
   // is enforced case-insensitively in dedupeLabels.
   return raw.trim().replaceAll(/\s+/g, " ");
+}
+
+/**
+ * Human-readable cadence label, e.g. "Daily", "Every 2 weeks".
+ * Singular every-1 forms are collapsed.
+ */
+export function recurrenceLabel(r: Recurrence): string {
+  if (r.every === 1) {
+    if (r.unit === "day") return "Daily";
+    if (r.unit === "week") return "Weekly";
+    return "Monthly";
+  }
+  const plurals: Record<RecurrenceUnit, string> = {
+    day: "days",
+    month: "months",
+    week: "weeks",
+  };
+  return `Every ${r.every} ${plurals[r.unit]}`;
 }
 
 export function saveTodos(todos: Todo[]): void {
@@ -150,6 +205,14 @@ export function sortTodos(todos: Todo[], sort: SortKey): Todo[] {
   }
 }
 
+function isRecurrence(v: unknown): v is Recurrence {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  if (typeof o.every !== "number" || o.every < 1) return false;
+  if (o.unit !== "day" && o.unit !== "week" && o.unit !== "month") return false;
+  return true;
+}
+
 function isTodo(v: unknown): v is Todo {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
@@ -166,6 +229,7 @@ function isTodo(v: unknown): v is Todo {
   if (o.description !== undefined && typeof o.description !== "string")
     return false;
   if (o.dueDate !== undefined && typeof o.dueDate !== "string") return false;
+  if (o.recurrence !== undefined && !isRecurrence(o.recurrence)) return false;
   return true;
 }
 
@@ -185,4 +249,19 @@ function normalizeOptional(v: string | undefined): string | undefined {
   if (v === undefined) return undefined;
   const t = v.trim();
   return t === "" ? undefined : t;
+}
+
+// Set-based check so callers passing untyped input (form state,
+// localStorage) get runtime validation without tripping
+// no-unnecessary-condition.
+const VALID_UNITS: ReadonlySet<string> = new Set(["day", "month", "week"]);
+
+function normalizeRecurrence(
+  r: Recurrence | undefined,
+): Recurrence | undefined {
+  if (!r) return undefined;
+  const every = Math.floor(r.every);
+  if (!Number.isFinite(every) || every < 1) return undefined;
+  if (!VALID_UNITS.has(r.unit)) return undefined;
+  return { every, unit: r.unit };
 }

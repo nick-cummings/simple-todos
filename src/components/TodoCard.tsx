@@ -8,7 +8,7 @@ import {
   shortWeekday,
 } from "@/lib/dates";
 import { tagPillStyle } from "@/lib/tagColors";
-import { Todo } from "@/lib/todos";
+import { recurrenceLabel, Todo } from "@/lib/todos";
 import { useLabels } from "@/lib/useLabels";
 
 const PRIORITY_BG: Record<string, string> = {
@@ -212,10 +212,37 @@ function MetaRow({ overdue, todo }: { overdue: boolean; todo: Todo }) {
           <span>{formatDueDate(todo.dueDate)}</span>
         </span>
       )}
+      {todo.recurrence && (
+        <span className="inline-flex items-center gap-1.5 text-primary">
+          <RepeatIcon />
+          <span>{recurrenceLabel(todo.recurrence)}</span>
+        </span>
+      )}
       <span className="inline-flex items-center gap-1.5 text-faint">
         <ClockIcon />
         <span>{relativeTime(todo.createdAt)}</span>
       </span>
     </div>
+  );
+}
+
+function RepeatIcon() {
+  return (
+    <svg
+      aria-hidden
+      fill="none"
+      height="12"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="12"
+    >
+      <path d="M17 1l4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="M7 23l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
   );
 }
