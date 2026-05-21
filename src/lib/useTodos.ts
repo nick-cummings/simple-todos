@@ -1,66 +1,30 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+
+import { isBrowser } from "./runtime";
 import {
-  STORAGE_KEY,
-  Todo,
-  TodoInput,
   createTodo,
   dedupeLabels,
   loadTodos,
   saveTodos,
+  STORAGE_KEY,
+  Todo,
+  TodoInput,
 } from "./todos";
 
 const EMPTY: Todo[] = [];
-let cache: Todo[] | null = null;
+let cache: null | Todo[] = null;
 const listeners = new Set<() => void>();
 
-function emit() {
-  for (const l of listeners) l();
-}
-
-function getSnapshot(): Todo[] {
-  if (typeof window === "undefined") return EMPTY;
-  if (cache === null) cache = loadTodos();
-  return cache;
-}
-
-function getServerSnapshot(): Todo[] {
-  return EMPTY;
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  const onStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEY) {
-      cache = loadTodos();
-      emit();
-    }
-  };
-  window.addEventListener("storage", onStorage);
-  return () => {
-    listeners.delete(listener);
-    window.removeEventListener("storage", onStorage);
-  };
-}
-
-function mutate(updater: (prev: Todo[]) => Todo[]) {
-  const prev = getSnapshot();
-  const next = updater(prev);
-  if (next === prev) return;
-  cache = next;
-  saveTodos(next);
-  emit();
-}
-
 export type TodoPatch = Partial<
-  Pick<Todo, "title" | "description" | "dueDate" | "labels" | "completed">
+  Pick<Todo, "completed" | "description" | "dueDate" | "labels" | "title">
 >;
 
 export function useTodos() {
   const todos = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const hydrated =
-    todos !== EMPTY || (typeof window !== "undefined" && cache !== null);
+    todos !== EMPTY || (isBrowser() && cache !== null);
 
   const add = useCallback((input: TodoInput) => {
     if (!input.title.trim()) return;
@@ -100,5 +64,43 @@ export function useTodos() {
     mutate((prev) => prev.filter((t) => !t.completed));
   }, []);
 
-  return { todos, hydrated, add, update, toggle, remove, clearCompleted };
+  return { add, clearCompleted, hydrated, remove, todos, toggle, update };
+}
+
+function emit() {
+  for (const l of listeners) l();
+}
+
+function getServerSnapshot(): Todo[] {
+  return EMPTY;
+}
+
+function getSnapshot(): Todo[] {
+  if (!isBrowser()) return EMPTY;
+  cache ??= loadTodos();
+  return cache;
+}
+
+function mutate(updater: (prev: Todo[]) => Todo[]) {
+  const prev = getSnapshot();
+  const next = updater(prev);
+  if (next === prev) return;
+  cache = next;
+  saveTodos(next);
+  emit();
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) {
+      cache = loadTodos();
+      emit();
+    }
+  };
+  globalThis.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(listener);
+    globalThis.removeEventListener("storage", onStorage);
+  };
 }

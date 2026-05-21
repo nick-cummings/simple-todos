@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 /**
  * E2E for the AI description generator.
@@ -25,11 +25,11 @@ test("populates the description field from a mocked API success", async ({
 }) => {
   await page.route("**/api/generate-description", async (route) => {
     await route.fulfill({
-      status: 200,
-      contentType: "application/json",
       body: JSON.stringify({
         description: "Mocked AI-generated description.",
       }),
+      contentType: "application/json",
+      status: 200,
     });
   });
 
@@ -50,11 +50,11 @@ test("shows an inline error message when the API returns 429", async ({
 }) => {
   await page.route("**/api/generate-description", async (route) => {
     await route.fulfill({
-      status: 429,
-      contentType: "application/json",
       body: JSON.stringify({
         error: "Rate limit reached. Try again in ~5 min.",
       }),
+      contentType: "application/json",
+      status: 429,
     });
   });
 

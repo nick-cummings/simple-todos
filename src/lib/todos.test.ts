@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { makeTodo, resetFactoryCounters } from "@/test-utils/factories";
+
 import {
-  STORAGE_KEY,
   allLabels,
   createTodo,
   dedupeLabels,
@@ -11,9 +13,9 @@ import {
   saveTodos,
   sortTodos,
   type StatusFilter,
+  STORAGE_KEY,
   type Todo,
 } from "./todos";
-import { makeTodo, resetFactoryCounters } from "@/test-utils/factories";
 
 beforeEach(() => {
   resetFactoryCounters();
@@ -53,7 +55,7 @@ describe("dedupeLabels", () => {
 
 describe("createTodo", () => {
   it("trims title and normalizes labels", () => {
-    const t = createTodo({ title: "  Buy milk  ", labels: ["Foo", "foo"] });
+    const t = createTodo({ labels: ["Foo", "foo"], title: "  Buy milk  " });
     expect(t.title).toBe("Buy milk");
     expect(t.labels).toEqual(["Foo"]);
   });
@@ -66,18 +68,18 @@ describe("createTodo", () => {
   });
   it("strips empty description/dueDate to undefined", () => {
     const t = createTodo({
-      title: "X",
       description: "   ",
       dueDate: "",
+      title: "X",
     });
     expect(t.description).toBeUndefined();
     expect(t.dueDate).toBeUndefined();
   });
   it("preserves non-empty description/dueDate (trimmed)", () => {
     const t = createTodo({
-      title: "X",
       description: "  notes  ",
       dueDate: "2026-05-20",
+      title: "X",
     });
     expect(t.description).toBe("notes");
     expect(t.dueDate).toBe("2026-05-20");
@@ -106,12 +108,12 @@ describe("createTodo", () => {
 });
 
 describe("sortTodos", () => {
-  const a = makeTodo({ title: "Alpha", createdAt: 100 });
-  const b = makeTodo({ title: "Beta", createdAt: 200 });
+  const a = makeTodo({ createdAt: 100, title: "Alpha" });
+  const b = makeTodo({ createdAt: 200, title: "Beta" });
   const c = makeTodo({
-    title: "Gamma",
-    createdAt: 300,
     completed: true,
+    createdAt: 300,
+    title: "Gamma",
   });
   const list = [a, b, c];
 
@@ -135,9 +137,9 @@ describe("sortTodos", () => {
     ).toEqual(["Alpha", "Beta", "Gamma"]);
   });
   it("completed orders open before done; ties broken by createdDesc", () => {
-    const t1 = makeTodo({ title: "open-old", completed: false, createdAt: 100 });
-    const t2 = makeTodo({ title: "done-new", completed: true, createdAt: 300 });
-    const t3 = makeTodo({ title: "open-new", completed: false, createdAt: 200 });
+    const t1 = makeTodo({ completed: false, createdAt: 100, title: "open-old" });
+    const t2 = makeTodo({ completed: true, createdAt: 300, title: "done-new" });
+    const t3 = makeTodo({ completed: false, createdAt: 200, title: "open-new" });
     expect(sortTodos([t2, t1, t3], "completed").map((t) => t.title)).toEqual([
       "open-new",
       "open-old",
@@ -145,10 +147,10 @@ describe("sortTodos", () => {
     ]);
   });
   it("dueDate sorts by ISO string ascending; missing due dates go to end", () => {
-    const due1 = makeTodo({ title: "due-soon", dueDate: "2026-05-01" });
-    const due2 = makeTodo({ title: "due-later", dueDate: "2026-06-01" });
-    const noDue1 = makeTodo({ title: "no-due-1", createdAt: 100 });
-    const noDue2 = makeTodo({ title: "no-due-2", createdAt: 200 });
+    const due1 = makeTodo({ dueDate: "2026-05-01", title: "due-soon" });
+    const due2 = makeTodo({ dueDate: "2026-06-01", title: "due-later" });
+    const noDue1 = makeTodo({ createdAt: 100, title: "no-due-1" });
+    const noDue2 = makeTodo({ createdAt: 200, title: "no-due-2" });
     expect(
       sortTodos([noDue1, due2, noDue2, due1], "dueDate").map((t) => t.title),
     ).toEqual(["due-soon", "due-later", "no-due-2", "no-due-1"]);
@@ -162,18 +164,18 @@ describe("sortTodos", () => {
 
 describe("filterTodos", () => {
   const open1 = makeTodo({
-    title: "Buy milk",
     labels: ["errands", "groceries"],
+    title: "Buy milk",
   });
   const open2 = makeTodo({
-    title: "Read chapter 4",
     description: "Highlight quotes",
     labels: ["books"],
+    title: "Read chapter 4",
   });
   const done1 = makeTodo({
-    title: "Call insurance",
     completed: true,
     labels: ["admin"],
+    title: "Call insurance",
   });
 
   it("returns all todos when filters are empty", () => {
@@ -271,7 +273,7 @@ describe("labelCounts", () => {
     const todos = [
       makeTodo({ labels: ["a"] }),
       makeTodo({ labels: ["a", "b"] }),
-      makeTodo({ labels: ["a"], completed: true }),
+      makeTodo({ completed: true, labels: ["a"] }),
     ];
     const counts = labelCounts(todos);
     expect(counts.get("a")).toBe(2);

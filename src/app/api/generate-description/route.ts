@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { NextResponse } from "next/server";
+
 import {
-  GENERATE_DESCRIPTION_SYSTEM_PROMPT,
   buildUserMessage,
+  GENERATE_DESCRIPTION_SYSTEM_PROMPT,
   isValidLocation,
 } from "@/lib/prompts/generateDescription";
 
@@ -27,59 +28,16 @@ const upstashLimiter = (() => {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
   return new Ratelimit({
-    redis: new Redis({ url, token }),
-    limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
     analytics: false,
+    limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
     prefix: "rl:generate-description",
+    redis: new Redis({ token, url }),
   });
 })();
 
 // In-memory fallback (leaky — see note in security audit). Used only
 // when Upstash isn't configured.
 const buckets = new Map<string, { count: number; reset: number }>();
-function inMemoryLimit(ip: string): {
-  allowed: boolean;
-  retryAfterSec: number;
-} {
-  const now = Date.now();
-  const b = buckets.get(ip);
-  if (!b || b.reset < now) {
-    buckets.set(ip, { count: 1, reset: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true, retryAfterSec: 0 };
-  }
-  if (b.count >= RATE_LIMIT_MAX) {
-    return {
-      allowed: false,
-      retryAfterSec: Math.ceil((b.reset - now) / 1000),
-    };
-  }
-  b.count += 1;
-  return { allowed: true, retryAfterSec: 0 };
-}
-
-async function checkRateLimit(
-  ip: string,
-): Promise<{ allowed: boolean; retryAfterSec: number }> {
-  if (upstashLimiter) {
-    const res = await upstashLimiter.limit(ip);
-    if (res.success) return { allowed: true, retryAfterSec: 0 };
-    return {
-      allowed: false,
-      retryAfterSec: Math.max(1, Math.ceil((res.reset - Date.now()) / 1000)),
-    };
-  }
-  return inMemoryLimit(ip);
-}
-
-function clientIp(request: Request): string {
-  // Vercel sets x-forwarded-for; first value is the client IP.
-  const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  const real = request.headers.get("x-real-ip");
-  if (real) return real.trim();
-  return "unknown";
-}
-
 /**
  * Server-side proxy that calls Claude Haiku 4.5 to generate a description
  * for a todo title. The Anthropic API key stays on the server — the
@@ -104,8 +62,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: `Rate limit reached. Try again in ~${minutes} min.` },
       {
-        status: 429,
         headers: { "Retry-After": String(limit.retryAfterSec) },
+        status: 429,
       },
     );
   }
@@ -121,9 +79,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Body must be an object." }, { status: 400 });
   }
 
-  const { title, location } = body as {
-    title?: unknown;
+  const { location, title } = body as {
     location?: unknown;
+    title?: unknown;
   };
 
   if (typeof title !== "string" || !title.trim()) {
@@ -155,22 +113,22 @@ export async function POST(request: Request) {
     // one server-side sampling loop, and capping here prevents a
     // crafted title from running up the bill via runaway tool chains.
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
       max_tokens: 600,
-      system: [
-        {
-          type: "text",
-          text: GENERATE_DESCRIPTION_SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
       messages: [
         {
+          content: buildUserMessage({ location: validatedLocation, title }),
           role: "user",
-          content: buildUserMessage({ title, location: validatedLocation }),
         },
       ],
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      model: "claude-sonnet-4-6",
+      system: [
+        {
+          cache_control: { type: "ephemeral" },
+          text: GENERATE_DESCRIPTION_SYSTEM_PROMPT,
+          type: "text",
+        },
+      ],
+      tools: [{ name: "web_search", type: "web_search_20250305" }],
     });
 
     const text = response.content
@@ -212,4 +170,47 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+async function checkRateLimit(
+  ip: string,
+): Promise<{ allowed: boolean; retryAfterSec: number }> {
+  if (upstashLimiter) {
+    const res = await upstashLimiter.limit(ip);
+    if (res.success) return { allowed: true, retryAfterSec: 0 };
+    return {
+      allowed: false,
+      retryAfterSec: Math.max(1, Math.ceil((res.reset - Date.now()) / 1000)),
+    };
+  }
+  return inMemoryLimit(ip);
+}
+
+function clientIp(request: Request): string {
+  // Vercel sets x-forwarded-for; first value is the client IP.
+  const fwd = request.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  const real = request.headers.get("x-real-ip");
+  if (real) return real.trim();
+  return "unknown";
+}
+
+function inMemoryLimit(ip: string): {
+  allowed: boolean;
+  retryAfterSec: number;
+} {
+  const now = Date.now();
+  const b = buckets.get(ip);
+  if (!b || b.reset < now) {
+    buckets.set(ip, { count: 1, reset: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, retryAfterSec: 0 };
+  }
+  if (b.count >= RATE_LIMIT_MAX) {
+    return {
+      allowed: false,
+      retryAfterSec: Math.ceil((b.reset - now) / 1000),
+    };
+  }
+  b.count += 1;
+  return { allowed: true, retryAfterSec: 0 };
 }

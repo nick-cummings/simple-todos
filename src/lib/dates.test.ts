@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
 import {
   daysFromToday,
   dueGroupOf,
@@ -44,7 +45,7 @@ describe("relativeTime", () => {
     expect(relativeTime(epoch, now)).toBe(expected);
   });
   it("clamps future times to 'just now'", () => {
-    expect(relativeTime(now + 5_000, now)).toBe("just now");
+    expect(relativeTime(now + 5000, now)).toBe("just now");
   });
 });
 
@@ -137,18 +138,18 @@ describe("priorityOf", () => {
     expect(priorityOf({ completed: false })).toBe("none");
   });
   it("low when completed (regardless of due date)", () => {
-    expect(priorityOf({ dueDate: "2026-05-15", completed: true })).toBe("low");
+    expect(priorityOf({ completed: true, dueDate: "2026-05-15" })).toBe("low");
   });
   it("high when overdue and not completed", () => {
-    expect(priorityOf({ dueDate: "2026-05-19", completed: false })).toBe("high");
+    expect(priorityOf({ completed: false, dueDate: "2026-05-19" })).toBe("high");
   });
   it("medium when due within 3 days", () => {
-    expect(priorityOf({ dueDate: "2026-05-22", completed: false })).toBe(
+    expect(priorityOf({ completed: false, dueDate: "2026-05-22" })).toBe(
       "medium",
     );
   });
   it("low when due later than 3 days out", () => {
-    expect(priorityOf({ dueDate: "2026-06-01", completed: false })).toBe("low");
+    expect(priorityOf({ completed: false, dueDate: "2026-06-01" })).toBe("low");
   });
 });
 
@@ -164,19 +165,19 @@ describe("dueGroupOf / groupByDue", () => {
   });
   it("groupByDue splits items and labels them", () => {
     const items = [
-      { id: "a", dueDate: "2026-05-22" },
-      { id: "b", dueDate: "2026-06-01" },
+      { dueDate: "2026-05-22", id: "a" },
+      { dueDate: "2026-06-01", id: "b" },
       { id: "c" },
     ];
     const groups = groupByDue(items);
     expect(groups).toEqual([
-      { key: "this-week", label: "This week", items: [items[0]] },
-      { key: "later", label: "Later", items: [items[1], items[2]] },
+      { items: [items[0]], key: "this-week", label: "This week" },
+      { items: [items[1], items[2]], key: "later", label: "Later" },
     ]);
   });
   it("groupByDue omits empty groups", () => {
-    expect(groupByDue([{ id: "a", dueDate: "2026-05-22" }])).toEqual([
-      { key: "this-week", label: "This week", items: [{ id: "a", dueDate: "2026-05-22" }] },
+    expect(groupByDue([{ dueDate: "2026-05-22", id: "a" }])).toEqual([
+      { items: [{ dueDate: "2026-05-22", id: "a" }], key: "this-week", label: "This week" },
     ]);
   });
 });

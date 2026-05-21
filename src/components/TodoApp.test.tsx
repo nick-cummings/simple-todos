@@ -2,20 +2,21 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LABELS_STORAGE_KEY, type Label } from "@/lib/labels";
+import { type Label, LABELS_STORAGE_KEY } from "@/lib/labels";
 import { STORAGE_KEY, type Todo } from "@/lib/todos";
 
-function seedTodos(todos: Todo[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+async function renderApp() {
+  vi.resetModules();
+  const mod = await import("./TodoApp");
+  const TodoApp = mod.default;
+  return { user: userEvent.setup(), ...render(<TodoApp />) };
 }
 function seedLabels(labels: Label[]) {
   localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
 }
 
-async function renderApp() {
-  vi.resetModules();
-  const TodoApp = (await import("./TodoApp")).default;
-  return { user: userEvent.setup(), ...render(<TodoApp />) };
+function seedTodos(todos: Todo[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
 }
 
 beforeEach(() => {
@@ -38,11 +39,11 @@ describe("<TodoApp> — empty state", () => {
   it("shows 'Nothing matches' when filters hide everything", async () => {
     seedTodos([
       {
-        id: "1",
-        title: "buy milk",
         completed: true, // completed, but default filter is open-only
-        labels: [],
         createdAt: Date.now(),
+        id: "1",
+        labels: [],
+        title: "buy milk",
         updatedAt: Date.now(),
       },
     ]);
@@ -71,11 +72,11 @@ describe("<TodoApp> — todo CRUD via the FAB and modal", () => {
   it("toggles a todo's completed state via its checkbox", async () => {
     seedTodos([
       {
-        id: "1",
-        title: "todo a",
         completed: false,
-        labels: [],
         createdAt: Date.now(),
+        id: "1",
+        labels: [],
+        title: "todo a",
         updatedAt: Date.now(),
       },
     ]);
@@ -94,25 +95,25 @@ describe("<TodoApp> — search + filtering", () => {
   beforeEach(() => {
     seedTodos([
       {
-        id: "1",
-        title: "Buy milk",
         completed: false,
-        labels: ["shopping"],
         createdAt: Date.now(),
+        id: "1",
+        labels: ["shopping"],
+        title: "Buy milk",
         updatedAt: Date.now(),
       },
       {
-        id: "2",
-        title: "Read book",
         completed: false,
-        labels: ["leisure"],
         createdAt: Date.now(),
+        id: "2",
+        labels: ["leisure"],
+        title: "Read book",
         updatedAt: Date.now(),
       },
     ]);
     seedLabels([
-      { name: "shopping", color: "blue", createdAt: 1 },
-      { name: "leisure", color: "green", createdAt: 2 },
+      { color: "blue", createdAt: 1, name: "shopping" },
+      { color: "green", createdAt: 2, name: "leisure" },
     ]);
   });
 
@@ -152,11 +153,11 @@ describe("<TodoApp> — clear completed", () => {
   it("shows the 'Clear completed' control only when a completed todo is visible", async () => {
     seedTodos([
       {
-        id: "1",
-        title: "done todo",
         completed: true,
-        labels: [],
         createdAt: Date.now(),
+        id: "1",
+        labels: [],
+        title: "done todo",
         updatedAt: Date.now(),
       },
     ]);

@@ -1,16 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 async function submitTodoForm(page: Page) {
   await page.locator('button[form="todo-form"]').click();
-}
-
-async function addTodo(page: Page, title: string) {
-  await page.getByRole("button", { name: /add todo/i }).click();
-  await page
-    .getByRole("dialog")
-    .getByPlaceholder(/what needs doing/i)
-    .fill(title);
-  await submitTodoForm(page);
 }
 
 test.beforeEach(async ({ page }) => {

@@ -2,22 +2,23 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LABELS_STORAGE_KEY, type Label } from "@/lib/labels";
+import { type Label, LABELS_STORAGE_KEY } from "@/lib/labels";
 import { STORAGE_KEY, type Todo } from "@/lib/todos";
-
-function seedLabels(labels: Label[]) {
-  localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
-}
-function seedTodos(todos: Todo[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-}
 
 async function renderManager(opts: { onClose?: () => void } = {}) {
   vi.resetModules();
-  const LabelsManager = (await import("./LabelsManager")).default;
+  const mod = await import("./LabelsManager");
+  const LabelsManager = mod.default;
   const onClose = opts.onClose ?? vi.fn();
-  const utils = render(<LabelsManager open onClose={onClose} />);
-  return { user: userEvent.setup(), onClose, ...utils };
+  const utils = render(<LabelsManager onClose={onClose} open />);
+  return { onClose, user: userEvent.setup(), ...utils };
+}
+function seedLabels(labels: Label[]) {
+  localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
+}
+
+function seedTodos(todos: Todo[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
 }
 
 beforeEach(() => {
@@ -31,9 +32,10 @@ afterEach(() => {
 describe("<LabelsManager>", () => {
   it("renders nothing when not open", async () => {
     vi.resetModules();
-    const LabelsManager = (await import("./LabelsManager")).default;
+    const mod = await import("./LabelsManager");
+    const LabelsManager = mod.default;
     const { container } = render(
-      <LabelsManager open={false} onClose={() => {}} />,
+      <LabelsManager onClose={() => {}} open={false} />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -49,24 +51,24 @@ describe("<LabelsManager>", () => {
 
   it("renders existing labels with their todo counts", async () => {
     seedLabels([
-      { name: "work", color: "blue", createdAt: 1 },
-      { name: "home", color: "red", createdAt: 2 },
+      { color: "blue", createdAt: 1, name: "work" },
+      { color: "red", createdAt: 2, name: "home" },
     ]);
     seedTodos([
       {
-        id: "1",
-        title: "x",
         completed: false,
-        labels: ["work", "home"],
         createdAt: 1,
+        id: "1",
+        labels: ["work", "home"],
+        title: "x",
         updatedAt: 1,
       },
       {
-        id: "2",
-        title: "y",
         completed: false,
-        labels: ["work"],
         createdAt: 1,
+        id: "2",
+        labels: ["work"],
+        title: "y",
         updatedAt: 1,
       },
     ]);
@@ -107,12 +109,12 @@ describe("<LabelsManager>", () => {
     await user.click(screen.getByRole("button", { name: /^add$/i }));
     expect(screen.getByText("Errands")).toBeInTheDocument();
     // And it persisted to localStorage.
-    const stored = JSON.parse(localStorage.getItem(LABELS_STORAGE_KEY) || "[]");
+    const stored = JSON.parse(localStorage.getItem(LABELS_STORAGE_KEY) ?? "[]");
     expect(stored.map((l: Label) => l.name)).toContain("Errands");
   });
 
   it("renames a label via Edit → input → Enter", async () => {
-    seedLabels([{ name: "work", color: "blue", createdAt: 1 }]);
+    seedLabels([{ color: "blue", createdAt: 1, name: "work" }]);
     const { user } = await renderManager();
     await user.click(screen.getByRole("button", { name: /edit work/i }));
     const editInput = screen.getByDisplayValue("work");
@@ -123,7 +125,7 @@ describe("<LabelsManager>", () => {
   });
 
   it("reverts the rename on Escape", async () => {
-    seedLabels([{ name: "work", color: "blue", createdAt: 1 }]);
+    seedLabels([{ color: "blue", createdAt: 1, name: "work" }]);
     const { user } = await renderManager();
     await user.click(screen.getByRole("button", { name: /edit work/i }));
     const editInput = screen.getByDisplayValue("work");
@@ -135,7 +137,7 @@ describe("<LabelsManager>", () => {
   });
 
   it("does not rename when the field is empty (commit guard)", async () => {
-    seedLabels([{ name: "work", color: "blue", createdAt: 1 }]);
+    seedLabels([{ color: "blue", createdAt: 1, name: "work" }]);
     const { user } = await renderManager();
     await user.click(screen.getByRole("button", { name: /edit work/i }));
     const editInput = screen.getByDisplayValue("work");
@@ -147,7 +149,7 @@ describe("<LabelsManager>", () => {
 
   it("triggers delete via the trash icon → 'Delete' peek button", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    seedLabels([{ name: "work", color: "blue", createdAt: 1 }]);
+    seedLabels([{ color: "blue", createdAt: 1, name: "work" }]);
     const { user } = await renderManager();
     // First click of the row trash icon enters "peek" state.
     await user.click(screen.getByRole("button", { name: /^delete work$/i }));
@@ -164,9 +166,9 @@ describe("<LabelsManager>", () => {
 
   it("sorts labels alphabetically when Name is chosen", async () => {
     seedLabels([
-      { name: "zeta", color: "blue", createdAt: 3 },
-      { name: "alpha", color: "red", createdAt: 1 },
-      { name: "mu", color: "green", createdAt: 2 },
+      { color: "blue", createdAt: 3, name: "zeta" },
+      { color: "red", createdAt: 1, name: "alpha" },
+      { color: "green", createdAt: 2, name: "mu" },
     ]);
     const { user } = await renderManager();
     const select = screen.getByRole("combobox", { name: /sort labels by/i });
@@ -210,7 +212,7 @@ describe("<LabelsManager> — interactions with sort menu visibility", () => {
   });
 
   it("shows the Sort menu once at least one label exists", async () => {
-    seedLabels([{ name: "x", color: "gray", createdAt: 1 }]);
+    seedLabels([{ color: "gray", createdAt: 1, name: "x" }]);
     await renderManager();
     expect(
       screen.getByRole("combobox", { name: /sort labels by/i }),

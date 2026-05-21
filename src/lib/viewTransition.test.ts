@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { withViewTransition } from "./viewTransition";
 
 afterEach(() => {
@@ -20,10 +21,10 @@ describe("withViewTransition", () => {
     (
       document as unknown as { startViewTransition: (cb: () => void) => unknown }
     ).startViewTransition = vi.fn();
-    vi.spyOn(window, "matchMedia").mockImplementation((q) => ({
+    vi.spyOn(globalThis, "matchMedia").mockImplementation((q) => ({
+      addEventListener: vi.fn(),
       matches: q === "(prefers-reduced-motion: reduce)",
       media: q,
-      addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     }) as unknown as MediaQueryList);
     const cb = vi.fn();
@@ -46,9 +47,9 @@ describe("withViewTransition", () => {
         startViewTransition: (cb: () => void) => unknown;
       }
     ).startViewTransition = startViewTransition;
-    vi.spyOn(window, "matchMedia").mockImplementation(() => ({
-      matches: false,
+    vi.spyOn(globalThis, "matchMedia").mockImplementation(() => ({
       addEventListener: vi.fn(),
+      matches: false,
       removeEventListener: vi.fn(),
     }) as unknown as MediaQueryList);
     withViewTransition(inner);

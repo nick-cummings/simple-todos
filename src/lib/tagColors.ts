@@ -1,9 +1,10 @@
 import type { CSSProperties } from "react";
+
 import {
-  type Label,
-  type LabelColor,
   DEFAULT_COLOR,
   findLabelByName,
+  type Label,
+  type LabelColor,
   swatchFor,
 } from "./labels";
 
@@ -14,12 +15,12 @@ import {
  * the default named color (gray).
  */
 
-function resolveColor(
+/** Inline style for a filter-chip leading dot. */
+export function tagDotStyle(
   labelName: string,
   registry: Label[],
-): LabelColor {
-  const found = findLabelByName(registry, labelName);
-  return found ? found.color : DEFAULT_COLOR;
+): CSSProperties {
+  return { backgroundColor: swatchFor(resolveColor(labelName, registry)).fg };
 }
 
 /** Inline style for a tag pill (foreground + tinted background). */
@@ -28,13 +29,13 @@ export function tagPillStyle(
   registry: Label[],
 ): CSSProperties {
   const s = swatchFor(resolveColor(labelName, registry));
-  return { color: s.fg, backgroundColor: s.bg };
+  return { backgroundColor: s.bg, color: s.fg };
 }
 
-/** Inline style for a filter-chip leading dot. */
-export function tagDotStyle(
+function resolveColor(
   labelName: string,
   registry: Label[],
-): CSSProperties {
-  return { backgroundColor: swatchFor(resolveColor(labelName, registry)).fg };
+): LabelColor {
+  const found = findLabelByName(registry, labelName);
+  return found ? found.color : DEFAULT_COLOR;
 }

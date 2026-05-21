@@ -1,51 +1,52 @@
-export type Todo = {
-  id: string;
-  title: string;
+import { isBrowser } from "./runtime";
+
+export type SortKey =
+  | "completed"
+  | "createdAsc"
+  | "createdDesc"
+  | "dueDate"
+  | "titleAsc";
+
+export interface Todo {
+  completed: boolean;
+  createdAt: number;
   description?: string;
   dueDate?: string; // ISO YYYY-MM-DD
-  completed: boolean;
+  id: string;
   labels: string[];
-  createdAt: number;
-  updatedAt: number;
-};
-
-export type TodoInput = {
   title: string;
+  updatedAt: number;
+}
+
+export interface TodoInput {
   description?: string;
   dueDate?: string;
   labels?: string[];
-};
-
-export type SortKey =
-  | "createdDesc"
-  | "createdAsc"
-  | "titleAsc"
-  | "completed"
-  | "dueDate";
+  title: string;
+}
 
 export const STORAGE_KEY = "simple-todos:v1";
+
+export type StatusFilter = "done" | "open";
+
+export function allLabels(todos: Todo[]): string[] {
+  const set = new Set<string>();
+  for (const t of todos) for (const l of t.labels) set.add(l);
+  return [...set].toSorted((a, b) => a.localeCompare(b));
+}
 
 export function createTodo(input: TodoInput): Todo {
   const now = Date.now();
   return {
-    id:
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${now}-${Math.random().toString(36).slice(2, 10)}`,
-    title: input.title.trim(),
+    completed: false,
+    createdAt: now,
     description: normalizeOptional(input.description),
     dueDate: normalizeOptional(input.dueDate),
-    completed: false,
+    id: makeTodoId(now),
     labels: dedupeLabels(input.labels ?? []),
-    createdAt: now,
+    title: input.title.trim(),
     updatedAt: now,
   };
-}
-
-export function normalizeLabel(raw: string): string {
-  // Trim and collapse whitespace, but preserve casing — uniqueness
-  // is enforced case-insensitively in dedupeLabels.
-  return raw.trim().replace(/\s+/g, " ");
 }
 
 export function dedupeLabels(labels: string[]): string[] {
@@ -61,39 +62,6 @@ export function dedupeLabels(labels: string[]): string[] {
   }
   return out;
 }
-
-function normalizeOptional(v: string | undefined): string | undefined {
-  if (v === undefined) return undefined;
-  const t = v.trim();
-  return t === "" ? undefined : t;
-}
-
-export function sortTodos(todos: Todo[], sort: SortKey): Todo[] {
-  const copy = [...todos];
-  switch (sort) {
-    case "createdAsc":
-      return copy.sort((a, b) => a.createdAt - b.createdAt);
-    case "titleAsc":
-      return copy.sort((a, b) => a.title.localeCompare(b.title));
-    case "completed":
-      return copy.sort((a, b) => {
-        if (a.completed === b.completed) return b.createdAt - a.createdAt;
-        return a.completed ? 1 : -1;
-      });
-    case "dueDate":
-      return copy.sort((a, b) => {
-        if (!a.dueDate && !b.dueDate) return b.createdAt - a.createdAt;
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return a.dueDate.localeCompare(b.dueDate);
-      });
-    case "createdDesc":
-    default:
-      return copy.sort((a, b) => b.createdAt - a.createdAt);
-  }
-}
-
-export type StatusFilter = "open" | "done";
 
 export function filterTodos(
   todos: Todo[],
@@ -120,12 +88,6 @@ export function filterTodos(
   });
 }
 
-export function allLabels(todos: Todo[]): string[] {
-  const set = new Set<string>();
-  for (const t of todos) for (const l of t.labels) set.add(l);
-  return [...set].sort();
-}
-
 export function labelCounts(todos: Todo[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const t of todos) {
@@ -136,11 +98,11 @@ export function labelCounts(todos: Todo[]): Map<string, number> {
 }
 
 export function loadTodos(): Todo[] {
-  if (typeof window === "undefined") return [];
+  if (!isBrowser()) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = globalThis.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(isTodo);
   } catch {
@@ -148,9 +110,44 @@ export function loadTodos(): Todo[] {
   }
 }
 
+export function normalizeLabel(raw: string): string {
+  // Trim and collapse whitespace, but preserve casing — uniqueness
+  // is enforced case-insensitively in dedupeLabels.
+  return raw.trim().replaceAll(/\s+/g, " ");
+}
+
 export function saveTodos(todos: Todo[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  if (!isBrowser()) return;
+  globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+}
+
+export function sortTodos(todos: Todo[], sort: SortKey): Todo[] {
+  switch (sort) {
+    case "completed": {
+      return todos.toSorted((a, b) => {
+        if (a.completed === b.completed) return b.createdAt - a.createdAt;
+        return a.completed ? 1 : -1;
+      });
+    }
+    case "createdAsc": {
+      return todos.toSorted((a, b) => a.createdAt - b.createdAt);
+    }
+    case "dueDate": {
+      return todos.toSorted((a, b) => {
+        if (!a.dueDate && !b.dueDate) return b.createdAt - a.createdAt;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      });
+    }
+    case "titleAsc": {
+      return todos.toSorted((a, b) => a.title.localeCompare(b.title));
+    }
+    default: {
+      // "createdDesc" — also the fallback for any unknown key.
+      return todos.toSorted((a, b) => b.createdAt - a.createdAt);
+    }
+  }
 }
 
 function isTodo(v: unknown): v is Todo {
@@ -169,4 +166,22 @@ function isTodo(v: unknown): v is Todo {
   if (o.description !== undefined && typeof o.description !== "string") return false;
   if (o.dueDate !== undefined && typeof o.dueDate !== "string") return false;
   return true;
+}
+
+function makeTodoId(now: number): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  // Non-cryptographic fallback for environments without crypto.randomUUID.
+  // Math.random is sufficient for client-side todo IDs; collisions are
+  // functionally impossible at this scale and security is irrelevant.
+  // eslint-disable-next-line sonarjs/pseudo-random
+  const suffix = Math.random().toString(36).slice(2, 10);
+  return `${now}-${suffix}`;
+}
+
+function normalizeOptional(v: string | undefined): string | undefined {
+  if (v === undefined) return undefined;
+  const t = v.trim();
+  return t === "" ? undefined : t;
 }

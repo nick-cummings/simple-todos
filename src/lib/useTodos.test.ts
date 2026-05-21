@@ -8,7 +8,8 @@ import { STORAGE_KEY, type Todo } from "./todos";
 // bleeds between tests because useTodos keeps cache at module scope.
 async function importUseTodos() {
   vi.resetModules();
-  return (await import("./useTodos")).useTodos;
+  const mod = await import("./useTodos");
+  return mod.useTodos;
 }
 
 beforeEach(() => {
@@ -30,11 +31,11 @@ describe("useTodos", () => {
   it("reads existing todos from localStorage on mount", async () => {
     const seeded: Todo[] = [
       {
-        id: "1",
-        title: "Buy milk",
         completed: false,
-        labels: [],
         createdAt: 100,
+        id: "1",
+        labels: [],
+        title: "Buy milk",
         updatedAt: 100,
       },
     ];
@@ -51,7 +52,7 @@ describe("useTodos", () => {
       result.current.add({ title: "Hello" });
     });
     expect(result.current.todos[0].title).toBe("Hello");
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")[0].title).toBe(
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")[0].title).toBe(
       "Hello",
     );
   });
@@ -74,8 +75,8 @@ describe("useTodos", () => {
     const id = result.current.todos[0].id;
     act(() => {
       result.current.update(id, {
-        title: "X2",
         labels: ["Foo", "foo", "bar"],
+        title: "X2",
       });
     });
     expect(result.current.todos[0].title).toBe("X2");
@@ -86,7 +87,7 @@ describe("useTodos", () => {
     const useTodos = await importUseTodos();
     const { result } = renderHook(() => useTodos());
     act(() => {
-      result.current.add({ title: "X", labels: ["a", "b"] });
+      result.current.add({ labels: ["a", "b"], title: "X" });
     });
     const id = result.current.todos[0].id;
     act(() => {
@@ -151,18 +152,18 @@ describe("useTodos", () => {
     const { result } = renderHook(() => useTodos());
     const next: Todo[] = [
       {
-        id: "9",
-        title: "Should be ignored",
         completed: false,
-        labels: [],
         createdAt: 1,
+        id: "9",
+        labels: [],
+        title: "Should be ignored",
         updatedAt: 1,
       },
     ];
     act(() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       // Different key — should NOT cause a re-read.
-      window.dispatchEvent(
+      globalThis.dispatchEvent(
         new StorageEvent("storage", { key: "some-other-key" }),
       );
     });
@@ -174,17 +175,17 @@ describe("useTodos", () => {
     const { result } = renderHook(() => useTodos());
     const next: Todo[] = [
       {
-        id: "9",
-        title: "External",
         completed: false,
-        labels: [],
         createdAt: 999,
+        id: "9",
+        labels: [],
+        title: "External",
         updatedAt: 999,
       },
     ];
     act(() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      window.dispatchEvent(
+      globalThis.dispatchEvent(
         new StorageEvent("storage", { key: STORAGE_KEY }),
       );
     });

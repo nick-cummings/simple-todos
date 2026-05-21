@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 /**
  * Submit the todo form. There are two "Add" buttons in the new-todo
@@ -179,8 +179,8 @@ test.describe("search + sort + clear completed", () => {
 
 test.describe("keyboard shortcuts", () => {
   test("⌘K (or Ctrl+K) focuses the search input", async ({
-    page,
     browserName,
+    page,
   }) => {
     const meta = browserName === "webkit" ? "Meta" : "Control";
     await page.keyboard.press(`${meta}+KeyK`);

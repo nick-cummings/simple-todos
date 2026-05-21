@@ -21,15 +21,15 @@ const nextConfig: NextConfig = {
   // can't intercept clicks on the mobile viewport. Only suppressed when
   // PLAYWRIGHT=1 (set by the `start:test` script).
   devIndicators: process.env.PLAYWRIGHT === "1" ? false : undefined,
-  async headers() {
-    return [
+  headers() {
+    return Promise.resolve([
       {
+        headers: SECURITY_HEADERS,
         // Apply to every path. Vercel already sets HSTS automatically
         // for HTTPS responses; we only add what's missing.
         source: "/:path*",
-        headers: SECURITY_HEADERS,
       },
-    ];
+    ]);
   },
 };
 

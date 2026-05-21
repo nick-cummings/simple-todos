@@ -4,42 +4,41 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeTodo } from "@/test-utils/factories";
 
+function getSubmitButton(): HTMLButtonElement {
+  return [...document.querySelectorAll("button")]
+    .find((b) => b.type === "submit" && /^(Add|Save)$/i.test(b.textContent ?? ""))!;
+}
+
 async function renderModal(props: {
-  initial?: Parameters<typeof makeTodo>[0] | undefined;
-  knownLabels?: string[];
-  onSubmit?: (input: import("@/lib/todos").TodoInput) => void;
-  onDelete?: () => void;
+  initial?: Parameters<typeof makeTodo>[0];
   onClose?: () => void;
+  onDelete?: () => void;
+  onSubmit?: (input: import("@/lib/todos").TodoInput) => void;
 } = {}) {
   vi.resetModules();
-  const TodoModal = (await import("./TodoModal")).default;
+  const mod = await import("./TodoModal");
+  const TodoModal = mod.default;
   const initialTodo = props.initial ? makeTodo(props.initial) : undefined;
   const onSubmit = props.onSubmit ?? vi.fn();
   const onDelete = props.onDelete ?? vi.fn();
   const onClose = props.onClose ?? vi.fn();
   const utils = render(
     <TodoModal
-      open
       initial={initialTodo}
-      knownLabels={props.knownLabels ?? []}
-      onSubmit={onSubmit}
-      onDelete={onDelete}
       onClose={onClose}
+      onDelete={onDelete}
+      onSubmit={onSubmit}
+      open
     />,
   );
   return {
-    user: userEvent.setup(),
-    onSubmit,
-    onDelete,
-    onClose,
     initial: initialTodo,
+    onClose,
+    onDelete,
+    onSubmit,
+    user: userEvent.setup(),
     ...utils,
   };
-}
-
-function getSubmitButton(): HTMLButtonElement {
-  return Array.from(document.querySelectorAll("button"))
-    .find((b) => b.type === "submit" && /^(Add|Save)$/i.test(b.textContent ?? "")) as HTMLButtonElement;
 }
 
 beforeEach(() => {
@@ -54,13 +53,13 @@ afterEach(() => {
 describe("<TodoModal>", () => {
   it("renders nothing when open=false", async () => {
     vi.resetModules();
-    const TodoModal = (await import("./TodoModal")).default;
+    const mod = await import("./TodoModal");
+    const TodoModal = mod.default;
     const { container } = render(
       <TodoModal
-        open={false}
-        knownLabels={[]}
-        onSubmit={() => {}}
         onClose={() => {}}
+        onSubmit={() => {}}
+        open={false}
       />,
     );
     expect(container.firstChild).toBeNull();
@@ -74,7 +73,7 @@ describe("<TodoModal>", () => {
 
   it("opens an existing todo in view mode and switches to edit on Edit click", async () => {
     const { user } = await renderModal({
-      initial: { title: "existing todo", description: "details" },
+      initial: { description: "details", title: "existing todo" },
     });
     expect(
       screen.getByRole("dialog", { name: /todo details/i }),
@@ -114,8 +113,8 @@ describe("<TodoModal>", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "Buy bread",
         description: "from the bakery",
+        title: "Buy bread",
       }),
     );
   });
@@ -126,8 +125,8 @@ describe("<TodoModal>", () => {
     const onClose = vi.fn();
     const { user } = await renderModal({
       initial: { title: "x" },
-      onDelete,
       onClose,
+      onDelete,
     });
     await user.click(screen.getByRole("button", { name: /^delete$/i }));
     expect(onDelete).toHaveBeenCalledTimes(1);
@@ -170,7 +169,7 @@ describe("<TodoModal>", () => {
 
   it("clears the due date with the 'clear' button", async () => {
     const { user } = await renderModal({
-      initial: { title: "x", dueDate: "2030-01-01" },
+      initial: { dueDate: "2030-01-01", title: "x" },
     });
     // Need to enter edit mode first.
     await user.click(screen.getByRole("button", { name: /^edit$/i }));
@@ -184,9 +183,9 @@ describe("<TodoModal>", () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ description: "Generated text." }), {
-          status: 200,
+        Response.json({ description: "Generated text." }, {
           headers: { "Content-Type": "application/json" },
+          status: 200,
         }),
       );
     // Geolocation might be undefined in happy-dom — explicitly stub.
@@ -207,17 +206,17 @@ describe("<TodoModal>", () => {
     expect(fetchSpy).toHaveBeenCalledWith(
       "/api/generate-description",
       expect.objectContaining({
-        method: "POST",
         headers: { "Content-Type": "application/json" },
+        method: "POST",
       }),
     );
   });
 
   it("shows the AI error message when the server returns one", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ error: "Rate limit reached. Try again later." }),
-        { status: 429, headers: { "Content-Type": "application/json" } },
+      Response.json(
+        { error: "Rate limit reached. Try again later." },
+        { headers: { "Content-Type": "application/json" }, status: 429 },
       ),
     );
     Object.defineProperty(navigator, "geolocation", {
@@ -259,11 +258,10 @@ describe("<TodoModal>", () => {
     // being toggled off the todo.
     localStorage.setItem(
       "simple-todos:labels:v1",
-      JSON.stringify([{ name: "work", color: "blue", createdAt: 1 }]),
+      JSON.stringify([{ color: "blue", createdAt: 1, name: "work" }]),
     );
     const { user } = await renderModal({
-      initial: { title: "x", labels: ["work"] },
-      knownLabels: ["work"],
+      initial: { labels: ["work"], title: "x" },
     });
     await user.click(screen.getByRole("button", { name: /^edit$/i }));
     const labelBtn = screen.getByRole("button", { name: "work", pressed: true });

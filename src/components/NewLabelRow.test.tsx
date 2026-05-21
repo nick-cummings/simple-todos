@@ -19,11 +19,11 @@ function setup(opts: {
     />,
   );
   return {
-    user: userEvent.setup(),
+    addButton: screen.getByRole("button", { name: /^add$/i }),
+    input: screen.getByPlaceholderText(/new label name/i) as HTMLInputElement,
     onAdd,
     onNameChange,
-    input: screen.getByPlaceholderText(/new label name/i) as HTMLInputElement,
-    addButton: screen.getByRole("button", { name: /^add$/i }),
+    user: userEvent.setup(),
   };
 }
 
@@ -35,7 +35,7 @@ describe("<NewLabelRow>", () => {
 
   it("calls onAdd with the trimmed name and default color when Add is clicked", async () => {
     const onAdd = vi.fn();
-    const { user, input, addButton } = setup({ onAdd });
+    const { addButton, input, user } = setup({ onAdd });
     await user.type(input, "  Work  ");
     await user.click(addButton);
     expect(onAdd).toHaveBeenCalledTimes(1);
@@ -44,7 +44,7 @@ describe("<NewLabelRow>", () => {
 
   it("collapses internal whitespace runs", async () => {
     const onAdd = vi.fn();
-    const { user, input, addButton } = setup({ onAdd });
+    const { addButton, input, user } = setup({ onAdd });
     await user.type(input, "side   project");
     await user.click(addButton);
     expect(onAdd).toHaveBeenCalledWith("side project", "gray");
@@ -52,14 +52,14 @@ describe("<NewLabelRow>", () => {
 
   it("submits on Enter", async () => {
     const onAdd = vi.fn();
-    const { user, input } = setup({ onAdd });
+    const { input, user } = setup({ onAdd });
     await user.type(input, "x{Enter}");
     expect(onAdd).toHaveBeenCalledWith("x", "gray");
   });
 
   it("does not call onAdd for duplicate (case-insensitive)", async () => {
     const onAdd = vi.fn();
-    const { user, input, addButton } = setup({
+    const { addButton, input, user } = setup({
       existing: new Set(["work"]),
       onAdd,
     });
@@ -70,7 +70,7 @@ describe("<NewLabelRow>", () => {
 
   it("does not call onAdd for whitespace-only input", async () => {
     const onAdd = vi.fn();
-    const { user, input } = setup({ onAdd });
+    const { input, user } = setup({ onAdd });
     // Cannot click disabled button — try Enter instead.
     await user.type(input, "   {Enter}");
     expect(onAdd).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe("<NewLabelRow>", () => {
 
   it("clears name + resets onNameChange after a successful add", async () => {
     const onNameChange = vi.fn();
-    const { user, input, addButton } = setup({ onNameChange });
+    const { addButton, input, user } = setup({ onNameChange });
     await user.type(input, "foo");
     await user.click(addButton);
     expect(input.value).toBe("");
@@ -88,7 +88,7 @@ describe("<NewLabelRow>", () => {
 
   it("opens the inline color picker and submits with a chosen color", async () => {
     const onAdd = vi.fn();
-    const { user, input, addButton } = setup({ onAdd });
+    const { addButton, input, user } = setup({ onAdd });
     await user.click(screen.getByRole("button", { name: /label color$/i }));
     // The dialog appears in a portal — find it by its dialog role.
     const dialog = await screen.findByRole("dialog", {

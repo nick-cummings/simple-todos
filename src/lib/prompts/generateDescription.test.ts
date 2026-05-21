@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+
 import {
-  GENERATE_DESCRIPTION_SYSTEM_PROMPT,
   buildUserMessage,
+  GENERATE_DESCRIPTION_SYSTEM_PROMPT,
   isValidLocation,
 } from "./generateDescription";
 
@@ -17,8 +18,8 @@ describe("buildUserMessage", () => {
   it("includes the location with 4-decimal precision when given", () => {
     expect(
       buildUserMessage({
-        title: "find a coffee shop",
         location: { latitude: 40.7128, longitude: -74.006 },
+        title: "find a coffee shop",
       }),
     ).toBe(
       "Title: find a coffee shop\nApproximate location: 40.7128, -74.0060",
@@ -27,8 +28,8 @@ describe("buildUserMessage", () => {
   it("rounds to 4 decimals when given more precise coords", () => {
     expect(
       buildUserMessage({
+        location: { latitude: 40.712_828, longitude: -74.006_123 },
         title: "x",
-        location: { latitude: 40.712828, longitude: -74.006123 },
       }),
     ).toBe("Title: x\nApproximate location: 40.7128, -74.0061");
   });
@@ -53,7 +54,7 @@ describe("isValidLocation", () => {
     expect(isValidLocation({ latitude: 0, longitude: -181 })).toBe(false);
   });
   it("rejects NaN / Infinity", () => {
-    expect(isValidLocation({ latitude: NaN, longitude: 0 })).toBe(false);
+    expect(isValidLocation({ latitude: Number.NaN, longitude: 0 })).toBe(false);
     expect(isValidLocation({ latitude: 0, longitude: Infinity })).toBe(false);
   });
   it("rejects wrong shapes", () => {

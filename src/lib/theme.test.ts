@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import {
-  THEME_BOOTSTRAP_SCRIPT,
-  THEME_KEY,
   applyResolvedTheme,
   isTheme,
   readStoredTheme,
   resolveTheme,
   systemPrefersDark,
+  THEME_BOOTSTRAP_SCRIPT,
+  THEME_KEY,
 } from "./theme";
 
 afterEach(() => {
@@ -52,16 +53,16 @@ describe("readStoredTheme", () => {
 
 describe("systemPrefersDark", () => {
   it("returns the matchMedia result for prefers-color-scheme: dark", () => {
-    vi.spyOn(window, "matchMedia").mockImplementation((q) => ({
+    vi.spyOn(globalThis, "matchMedia").mockImplementation((q) => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
       matches: q === "(prefers-color-scheme: dark)",
       media: q,
       onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }) as unknown as MediaQueryList);
+      removeListener: vi.fn(),
+    }));
     expect(systemPrefersDark()).toBe(true);
   });
 });
@@ -72,9 +73,9 @@ describe("resolveTheme", () => {
     expect(resolveTheme("dark")).toBe("dark");
   });
   it("for 'system', defers to systemPrefersDark", () => {
-    vi.spyOn(window, "matchMedia").mockImplementation(() => ({
-      matches: true,
+    vi.spyOn(globalThis, "matchMedia").mockImplementation(() => ({
       addEventListener: vi.fn(),
+      matches: true,
       removeEventListener: vi.fn(),
     }) as unknown as MediaQueryList);
     expect(resolveTheme("system")).toBe("dark");

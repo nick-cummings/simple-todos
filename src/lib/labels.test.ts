@@ -1,24 +1,26 @@
 import { afterEach, describe, expect, it } from "vitest";
+
+import { makeLabel } from "@/test-utils/factories";
+
 import {
   DEFAULT_COLOR,
-  LABELS_STORAGE_KEY,
-  NAMED_COLORS,
-  SWATCHES,
   findLabelByName,
   hexToHsv,
   hexToTintedBg,
   hsvToHex,
   isNamedColor,
+  type Label,
+  LABELS_STORAGE_KEY,
   loadLabels,
   migrateLabelsFromTodos,
+  NAMED_COLORS,
   normalizeLabelName,
   saveLabels,
+  SWATCHES,
   swatchFor,
   tagDotStyle,
   tagPillStyle,
-  type Label,
 } from "./labels";
-import { makeLabel } from "@/test-utils/factories";
 
 describe("isNamedColor", () => {
   it("returns true for each of the named swatches", () => {
@@ -85,9 +87,9 @@ describe("hexToHsv / hsvToHex round-trip", () => {
     // Compare numeric byte values (round-trip can drift by 1 due to
     // floating-point rounding through HSV space).
     const toRgb = (h: string) => [
-      parseInt(h.slice(1, 3), 16),
-      parseInt(h.slice(3, 5), 16),
-      parseInt(h.slice(5, 7), 16),
+      Number.parseInt(h.slice(1, 3), 16),
+      Number.parseInt(h.slice(3, 5), 16),
+      Number.parseInt(h.slice(5, 7), 16),
     ];
     const inRgb = toRgb(hex);
     const outRgb = toRgb(out);
@@ -123,8 +125,8 @@ describe("findLabelByName", () => {
 describe("tagPillStyle / tagDotStyle", () => {
   it("tagPillStyle returns fg+bg for a named color", () => {
     expect(tagPillStyle("blue")).toEqual({
-      color: SWATCHES.blue.fg,
       backgroundColor: SWATCHES.blue.bg,
+      color: SWATCHES.blue.fg,
     });
   });
   it("tagDotStyle returns just backgroundColor", () => {
@@ -159,7 +161,7 @@ describe("loadLabels / saveLabels", () => {
     const good = makeLabel();
     localStorage.setItem(
       LABELS_STORAGE_KEY,
-      JSON.stringify([good, null, { name: "x" }, "string", { name: "x", color: 1, createdAt: 1 }]),
+      JSON.stringify([good, null, { name: "x" }, "string", { color: 1, createdAt: 1, name: "x" }]),
     );
     expect(loadLabels()).toEqual([good]);
   });

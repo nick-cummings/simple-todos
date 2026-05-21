@@ -5,7 +5,8 @@ import { THEME_KEY } from "./theme";
 
 async function importUseTheme() {
   vi.resetModules();
-  return (await import("./useTheme")).useTheme;
+  const mod = await import("./useTheme");
+  return mod.useTheme;
 }
 
 beforeEach(() => {
@@ -20,30 +21,30 @@ afterEach(() => {
 
 function mockMatchMedia(matches: boolean) {
   const state = { matches };
-  const listeners: Array<(e: { matches: boolean }) => void> = [];
+  const listeners: ((e: { matches: boolean }) => void)[] = [];
   const mql = {
+    addEventListener: vi.fn((_: string, cb: (e: { matches: boolean }) => void) => {
+      listeners.push(cb);
+    }),
+    addListener: vi.fn(),
+    dispatchEvent: vi.fn(),
     get matches() {
       return state.matches;
     },
     media: "(prefers-color-scheme: dark)",
-    addEventListener: vi.fn((_: string, cb: (e: { matches: boolean }) => void) => {
-      listeners.push(cb);
-    }),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
     onchange: null,
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn(),
   };
-  vi.spyOn(window, "matchMedia").mockImplementation(
+  vi.spyOn(globalThis, "matchMedia").mockImplementation(
     () => mql as unknown as MediaQueryList,
   );
   return {
-    mql,
     fire: (m: boolean) => {
       state.matches = m;
-      listeners.forEach((cb) => cb({ matches: m }));
+      for (const cb of listeners) cb({ matches: m });
     },
+    mql,
   };
 }
 
@@ -95,7 +96,7 @@ describe("useTheme", () => {
     const { result } = renderHook(() => useTheme());
     act(() => {
       localStorage.setItem(THEME_KEY, "dark");
-      window.dispatchEvent(new StorageEvent("storage", { key: THEME_KEY }));
+      globalThis.dispatchEvent(new StorageEvent("storage", { key: THEME_KEY }));
     });
     expect(result.current.theme).toBe("dark");
   });
@@ -106,7 +107,7 @@ describe("useTheme", () => {
     const { result } = renderHook(() => useTheme());
     act(() => {
       localStorage.setItem(THEME_KEY, "dark");
-      window.dispatchEvent(new StorageEvent("storage", { key: "unrelated" }));
+      globalThis.dispatchEvent(new StorageEvent("storage", { key: "unrelated" }));
     });
     expect(result.current.theme).toBe("system");
   });

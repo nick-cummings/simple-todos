@@ -1,38 +1,40 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTodos } from "@/lib/useTodos";
+
+import { groupByDue, isCompletedThisWeek } from "@/lib/dates";
+import { tagDotStyle } from "@/lib/tagColors";
 import {
-  Todo,
-  SortKey,
-  StatusFilter,
-  TodoInput,
   allLabels,
   filterTodos,
   labelCounts,
+  SortKey,
   sortTodos,
+  StatusFilter,
+  Todo,
+  TodoInput,
 } from "@/lib/todos";
-import { groupByDue, isCompletedThisWeek } from "@/lib/dates";
-import { tagDotStyle } from "@/lib/tagColors";
 import { useLabels } from "@/lib/useLabels";
+import { useTodos } from "@/lib/useTodos";
 import { withViewTransition } from "@/lib/viewTransition";
+
+import LabelsManager from "./LabelsManager";
+import ThemeToggle from "./ThemeToggle";
 import TodoCard from "./TodoCard";
 import TodoModal from "./TodoModal";
-import ThemeToggle from "./ThemeToggle";
-import LabelsManager from "./LabelsManager";
 
 const SORT_LABELS: Record<SortKey, string> = {
-  createdDesc: "Newest",
-  createdAsc: "Oldest",
-  titleAsc: "Title",
-  dueDate: "Due date",
   completed: "Open first",
+  createdAsc: "Oldest",
+  createdDesc: "Newest",
+  dueDate: "Due date",
+  titleAsc: "Title",
 };
 
 export default function TodoApp() {
-  const { todos, hydrated, add, update, toggle, remove, clearCompleted } =
+  const { add, clearCompleted, hydrated, remove, todos, toggle, update } =
     useTodos();
-  const { labels: labelRegistry, ensureLabelsExist } = useLabels();
+  const { ensureLabelsExist, labels: labelRegistry } = useLabels();
 
   const [sort, setSort] = useState<SortKey>("createdDesc");
   const [activeLabels, setActiveLabels] = useState<string[]>([]);
@@ -44,7 +46,7 @@ export default function TodoApp() {
   );
   const [query, setQuery] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Todo | undefined>(undefined);
+  const [editing, setEditing] = useState<Todo | undefined>();
   const [labelsManagerOpen, setLabelsManagerOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -57,8 +59,8 @@ export default function TodoApp() {
         searchRef.current?.select();
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    globalThis.addEventListener("keydown", onKey);
+    return () => { globalThis.removeEventListener("keydown", onKey); };
   }, []);
 
   const labels = useMemo(() => allLabels(todos), [todos]);
@@ -97,36 +99,37 @@ export default function TodoApp() {
   function handleDelete() {
     if (!editing) return;
     const id = editing.id;
-    withViewTransition(() => remove(id));
+    withViewTransition(() => { remove(id); });
   }
   function handleToggle(id: string) {
-    withViewTransition(() => toggle(id));
+    withViewTransition(() => { toggle(id); });
   }
   function toggleLabelFilter(label: string) {
-    withViewTransition(() =>
-      setActiveLabels((prev) =>
-        prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label],
-      ),
-    );
+    function nextLabels(prev: string[]): string[] {
+      return prev.includes(label)
+        ? prev.filter((l) => l !== label)
+        : [...prev, label];
+    }
+    withViewTransition(() => { setActiveLabels(nextLabels); });
   }
   function clearLabelFilters() {
-    withViewTransition(() => setActiveLabels([]));
+    withViewTransition(() => { setActiveLabels([]); });
   }
   function toggleStatusFilter(s: StatusFilter) {
     withViewTransition(() =>
-      setActiveStatuses((prev) => {
+      { setActiveStatuses((prev) => {
         const next = new Set(prev);
         if (next.has(s)) next.delete(s);
         else next.add(s);
         return next;
-      }),
+      }); },
     );
   }
   function handleSort(next: SortKey) {
-    withViewTransition(() => setSort(next));
+    withViewTransition(() => { setSort(next); });
   }
   function handleClearCompleted() {
-    withViewTransition(() => clearCompleted());
+    withViewTransition(() => { clearCompleted(); });
   }
 
   return (
@@ -147,8 +150,7 @@ export default function TodoApp() {
                   }}
                 />
                 <span>
-                  <span className="text-fg">{openCount}</span>{" "}
-                  {openCount === 1 ? "open" : "open"}
+                  <span className="text-fg">{openCount}</span> open
                 </span>
                 {completedThisWeek > 0 && (
                   <>
@@ -165,31 +167,31 @@ export default function TodoApp() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <SearchInput
+              onChange={setQuery}
               ref={searchRef}
               value={query}
-              onChange={setQuery}
             />
-            <SortMenu value={sort} onChange={handleSort} />
+            <SortMenu onChange={handleSort} value={sort} />
           </div>
 
           <StatusChips
-            openCount={openCount}
-            doneCount={doneCount}
             active={activeStatuses}
+            doneCount={doneCount}
             onToggle={toggleStatusFilter}
+            openCount={openCount}
           />
 
           <hr className="border-t border-line" />
 
           <FilterChips
-            labels={labels}
-            counts={counts}
-            allCount={openCount}
             activeLabels={activeLabels}
+            allCount={openCount}
+            counts={counts}
             labelRegistry={labelRegistry}
-            onToggle={toggleLabelFilter}
+            labels={labels}
             onClear={clearLabelFilters}
-            onManage={() => setLabelsManagerOpen(true)}
+            onManage={() => { setLabelsManagerOpen(true); }}
+            onToggle={toggleLabelFilter}
           />
         </div>
 
@@ -199,15 +201,15 @@ export default function TodoApp() {
           )}
 
           {groups.map((g) => (
-            <section key={g.key} className="flex flex-col gap-3">
+            <section className="flex flex-col gap-3" key={g.key}>
               <SectionHeader label={g.label} />
               <ul className="flex flex-col gap-2.5">
                 {g.items.map((t) => (
                   <TodoCard
                     key={t.id}
+                    onOpen={() => { openEdit(t); }}
+                    onToggle={() => { handleToggle(t.id); }}
                     todo={t}
-                    onToggle={() => handleToggle(t.id)}
-                    onOpen={() => openEdit(t)}
                   />
                 ))}
               </ul>
@@ -217,9 +219,9 @@ export default function TodoApp() {
 
         {visible.some((t) => t.completed) && (
           <button
-            type="button"
-            onClick={handleClearCompleted}
             className="self-start text-[11px] font-medium uppercase tracking-[0.14em] text-faint hover:text-fg"
+            onClick={handleClearCompleted}
+            type="button"
           >
             Clear completed
           </button>
@@ -227,34 +229,33 @@ export default function TodoApp() {
       </main>
 
       <button
-        type="button"
-        onClick={openNew}
         aria-label="Add todo (N)"
-        title="New todo (N)"
         className="fixed bottom-8 right-8 z-40 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-primary text-on-primary shadow-fab hover:-translate-y-0.5 hover:bg-primary-hover active:scale-95"
+        onClick={openNew}
         style={{
           marginBottom: "env(safe-area-inset-bottom)",
           transition:
             "transform var(--motion-fast) var(--ease-spring), background-color var(--motion-fast) var(--ease-smooth), box-shadow var(--motion-fast) var(--ease-smooth)",
         }}
+        title="New todo (N)"
+        type="button"
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg aria-hidden fill="none" height="22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="22">
           <path d="M12 5v14M5 12h14" />
         </svg>
       </button>
 
       <TodoModal
-        open={modalOpen}
         initial={editing}
-        knownLabels={labels}
-        onSubmit={handleSubmit}
+        onClose={() => { setModalOpen(false); }}
         onDelete={editing ? handleDelete : undefined}
-        onClose={() => setModalOpen(false)}
+        onSubmit={handleSubmit}
+        open={modalOpen}
       />
 
       <LabelsManager
+        onClose={() => { setLabelsManagerOpen(false); }}
         open={labelsManagerOpen}
-        onClose={() => setLabelsManagerOpen(false)}
       />
     </>
   );
@@ -262,181 +263,18 @@ export default function TodoApp() {
 
 /* ---------- Subcomponents ---------- */
 
-function SearchInput({
-  ref,
-  value,
-  onChange,
-}: {
-  ref?: React.Ref<HTMLInputElement>;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="relative flex min-w-0 flex-1 items-center">
-      <span aria-hidden className="absolute left-3.5 text-faint">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="7" />
-          <path d="M21 21l-4.3-4.3" />
-        </svg>
-      </span>
-      <input
-        ref={ref}
-        aria-label="Search todos"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Search todos…"
-        className="h-11 w-full rounded-lg border border-line-strong bg-card pl-10 pr-14 text-sm placeholder:text-faint hover:border-line-emphasis focus:border-line-emphasis"
-      />
-      <kbd className="absolute right-3 select-none">⌘K</kbd>
-    </div>
-  );
-}
-
-function SortMenu({
-  value,
-  onChange,
-}: {
-  value: SortKey;
-  onChange: (next: SortKey) => void;
-}) {
-  return (
-    <label className="relative inline-flex h-11 items-center gap-2 rounded-lg border border-line-strong bg-card pl-4 pr-3 text-sm hover:border-line-emphasis hover:bg-card-hover">
-      <span className="text-muted">Sort:</span>
-      <span className="font-medium text-fg">{SORT_LABELS[value]}</span>
-      <svg
-        aria-hidden
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-faint"
-      >
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-      <select
-        aria-label="Sort by"
-        value={value}
-        onChange={(e) => onChange(e.target.value as SortKey)}
-        className="absolute inset-0 w-full cursor-pointer opacity-0"
-      >
-        {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-          <option key={k} value={k}>
-            {SORT_LABELS[k]}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function StatusChips({
-  openCount,
-  doneCount,
-  active,
-  onToggle,
-}: {
-  openCount: number;
-  doneCount: number;
-  active: Set<StatusFilter>;
-  onToggle: (s: StatusFilter) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <StatusChip
-        label="Open"
-        count={openCount}
-        active={active.has("open")}
-        onClick={() => onToggle("open")}
-        type="open"
-      />
-      <StatusChip
-        label="Done"
-        count={doneCount}
-        active={active.has("done")}
-        onClick={() => onToggle("done")}
-        type="done"
-      />
-    </div>
-  );
-}
-
-function StatusChip({
-  label,
-  count,
-  active,
-  onClick,
-  type,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-  type: StatusFilter;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-medium active:scale-[0.97] " +
-        (active
-          ? "border-primary-border bg-primary-bg text-primary"
-          : "border-line bg-subtle text-muted hover:bg-subtle-hover hover:text-fg")
-      }
-      style={{
-        transition:
-          "transform var(--motion-fast) var(--ease-spring), background-color var(--motion-fast) var(--ease-smooth), color var(--motion-fast) var(--ease-smooth), border-color var(--motion-fast) var(--ease-smooth)",
-      }}
-    >
-      {type === "open" ? <CircleIcon /> : <CheckCircleIcon />}
-      <span>{label}</span>
-      <span
-        className={
-          "tabular-nums text-[11px] " +
-          (active ? "text-primary opacity-75" : "text-faint")
-        }
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
-function CircleIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="9" />
-    </svg>
-  );
-}
-
 function CheckCircleIcon() {
   return (
     <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
+      aria-hidden
       fill="none"
+      height="12"
       stroke="currentColor"
-      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      aria-hidden
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="12"
     >
       <circle cx="12" cy="12" r="9" />
       <path d="M8 12l3 3 5-6" />
@@ -444,139 +282,21 @@ function CheckCircleIcon() {
   );
 }
 
-function FilterChips({
-  labels,
-  counts,
-  allCount,
-  activeLabels,
-  labelRegistry,
-  onToggle,
-  onClear,
-  onManage,
-}: {
-  labels: string[];
-  counts: Map<string, number>;
-  allCount: number;
-  activeLabels: string[];
-  labelRegistry: import("@/lib/labels").Label[];
-  onToggle: (label: string) => void;
-  onClear: () => void;
-  onManage: () => void;
-}) {
-  const allActive = activeLabels.length === 0;
+function CircleIcon() {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={onManage}
-        aria-label="Manage labels"
-        title="Manage labels"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-line bg-subtle text-muted hover:bg-subtle-hover hover:text-fg"
-      >
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <path d="M12 20h9" />
-          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-        </svg>
-      </button>
-      <FilterChip
-        active={allActive}
-        onClick={onClear}
-        label="All"
-        count={allCount}
-        showPrimaryDot
-      />
-      {labels.map((l) => (
-        <FilterChip
-          key={l}
-          active={activeLabels.includes(l)}
-          onClick={() => onToggle(l)}
-          label={l}
-          count={counts.get(l) ?? 0}
-          tagDotForLabel={l}
-          labelRegistry={labelRegistry}
-        />
-      ))}
-    </div>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  label,
-  count,
-  tagDotForLabel,
-  showPrimaryDot,
-  labelRegistry,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count: number;
-  tagDotForLabel?: string;
-  showPrimaryDot?: boolean;
-  labelRegistry?: import("@/lib/labels").Label[];
-}) {
-  const dotStyle = showPrimaryDot
-    ? { backgroundColor: "var(--primary)" }
-    : tagDotForLabel && labelRegistry
-      ? tagDotStyle(tagDotForLabel, labelRegistry)
-      : undefined;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-medium active:scale-[0.97] " +
-        (active
-          ? "border-primary-border bg-primary-bg text-primary"
-          : "border-line bg-subtle text-muted hover:bg-subtle-hover hover:text-fg")
-      }
-      style={{
-        transition:
-          "transform var(--motion-fast) var(--ease-spring), background-color var(--motion-fast) var(--ease-smooth), color var(--motion-fast) var(--ease-smooth), border-color var(--motion-fast) var(--ease-smooth)",
-      }}
+    <svg
+      aria-hidden
+      fill="none"
+      height="12"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="12"
     >
-      {dotStyle && (
-        <span
-          aria-hidden
-          className="inline-block h-1.5 w-1.5 rounded-full"
-          style={dotStyle}
-        />
-      )}
-      <span>{label}</span>
-      <span
-        className={
-          "tabular-nums text-[11px] " +
-          (active ? "text-primary opacity-75" : "text-faint")
-        }
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
-        {label}
-      </span>
-      <span aria-hidden className="h-px flex-1 bg-line" />
-    </div>
+      <circle cx="12" cy="12" r="9" />
+    </svg>
   );
 }
 
@@ -590,11 +310,11 @@ function EmptyState({
   return (
     <div className="flex flex-col items-center gap-4 py-16 text-center animate-fade-in">
       <span
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-subtle text-faint"
         aria-hidden
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-subtle text-faint"
       >
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="16" rx="2" />
+        <svg fill="none" height="28" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" viewBox="0 0 24 24" width="28">
+          <rect height="16" rx="2" width="18" x="3" y="4" />
           <path d="M9 4v2h6V4M8 11h8M8 15h5" />
         </svg>
       </span>
@@ -610,13 +330,295 @@ function EmptyState({
       </div>
       {!hasAny && (
         <button
-          type="button"
-          onClick={onAdd}
           className="mt-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary-hover"
+          onClick={onAdd}
+          type="button"
         >
           Add your first todo
         </button>
       )}
+    </div>
+  );
+}
+
+function FilterChip({
+  active,
+  count,
+  label,
+  labelRegistry,
+  onClick,
+  showPrimaryDot,
+  tagDotForLabel,
+}: {
+  active: boolean;
+  count: number;
+  label: string;
+  labelRegistry?: import("@/lib/labels").Label[];
+  onClick: () => void;
+  showPrimaryDot?: boolean;
+  tagDotForLabel?: string;
+}) {
+  let dotStyle: import("react").CSSProperties | undefined;
+  if (showPrimaryDot) {
+    dotStyle = { backgroundColor: "var(--primary)" };
+  } else if (tagDotForLabel && labelRegistry) {
+    dotStyle = tagDotStyle(tagDotForLabel, labelRegistry);
+  }
+
+  return (
+    <button
+      aria-pressed={active}
+      className={
+        `inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-medium active:scale-[0.97] ${ 
+        active
+          ? "border-primary-border bg-primary-bg text-primary"
+          : "border-line bg-subtle text-muted hover:bg-subtle-hover hover:text-fg"}`
+      }
+      onClick={onClick}
+      style={{
+        transition:
+          "transform var(--motion-fast) var(--ease-spring), background-color var(--motion-fast) var(--ease-smooth), color var(--motion-fast) var(--ease-smooth), border-color var(--motion-fast) var(--ease-smooth)",
+      }}
+      type="button"
+    >
+      {dotStyle && (
+        <span
+          aria-hidden
+          className="inline-block h-1.5 w-1.5 rounded-full"
+          style={dotStyle}
+        />
+      )}
+      <span>{label}</span>
+      <span
+        className={
+          `tabular-nums text-[11px] ${ 
+          active ? "text-primary opacity-75" : "text-faint"}`
+        }
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function FilterChips({
+  activeLabels,
+  allCount,
+  counts,
+  labelRegistry,
+  labels,
+  onClear,
+  onManage,
+  onToggle,
+}: {
+  activeLabels: string[];
+  allCount: number;
+  counts: Map<string, number>;
+  labelRegistry: import("@/lib/labels").Label[];
+  labels: string[];
+  onClear: () => void;
+  onManage: () => void;
+  onToggle: (label: string) => void;
+}) {
+  const allActive = activeLabels.length === 0;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        aria-label="Manage labels"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-line bg-subtle text-muted hover:bg-subtle-hover hover:text-fg"
+        onClick={onManage}
+        title="Manage labels"
+        type="button"
+      >
+        <svg
+          aria-hidden
+          fill="none"
+          height="13"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+          width="13"
+        >
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+        </svg>
+      </button>
+      <FilterChip
+        active={allActive}
+        count={allCount}
+        label="All"
+        onClick={onClear}
+        showPrimaryDot
+      />
+      {labels.map((l) => (
+        <FilterChip
+          active={activeLabels.includes(l)}
+          count={counts.get(l) ?? 0}
+          key={l}
+          label={l}
+          labelRegistry={labelRegistry}
+          onClick={() => { onToggle(l); }}
+          tagDotForLabel={l}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SearchInput({
+  onChange,
+  ref,
+  value,
+}: {
+  onChange: (v: string) => void;
+  ref?: React.Ref<HTMLInputElement>;
+  value: string;
+}) {
+  return (
+    <div className="relative flex min-w-0 flex-1 items-center">
+      <span aria-hidden className="absolute left-3.5 text-faint">
+        <svg fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="14">
+          <circle cx="11" cy="11" r="7" />
+          <path d="M21 21l-4.3-4.3" />
+        </svg>
+      </span>
+      <input
+        aria-label="Search todos"
+        className="h-11 w-full rounded-lg border border-line-strong bg-card pl-10 pr-14 text-sm placeholder:text-faint hover:border-line-emphasis focus:border-line-emphasis"
+        onChange={(e) => { onChange(e.target.value); }}
+        placeholder="Search todos…"
+        ref={ref}
+        value={value}
+      />
+      <kbd className="absolute right-3 select-none">⌘K</kbd>
+    </div>
+  );
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
+        {label}
+      </span>
+      <span aria-hidden className="h-px flex-1 bg-line" />
+    </div>
+  );
+}
+
+function SortMenu({
+  onChange,
+  value,
+}: {
+  onChange: (next: SortKey) => void;
+  value: SortKey;
+}) {
+  return (
+    <label className="relative inline-flex h-11 items-center gap-2 rounded-lg border border-line-strong bg-card pl-4 pr-3 text-sm hover:border-line-emphasis hover:bg-card-hover">
+      <span className="text-muted">Sort:</span>
+      <span className="font-medium text-fg">{SORT_LABELS[value]}</span>
+      <svg
+        aria-hidden
+        className="text-faint"
+        fill="none"
+        height="14"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+        width="14"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+      <select
+        aria-label="Sort by"
+        className="absolute inset-0 w-full cursor-pointer opacity-0"
+        onChange={(e) => { onChange(e.target.value as SortKey); }}
+        value={value}
+      >
+        {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+          <option key={k} value={k}>
+            {SORT_LABELS[k]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function StatusChip({
+  active,
+  count,
+  label,
+  onClick,
+  type,
+}: {
+  active: boolean;
+  count: number;
+  label: string;
+  onClick: () => void;
+  type: StatusFilter;
+}) {
+  return (
+    <button
+      aria-pressed={active}
+      className={
+        `inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-medium active:scale-[0.97] ${ 
+        active
+          ? "border-primary-border bg-primary-bg text-primary"
+          : "border-line bg-subtle text-muted hover:bg-subtle-hover hover:text-fg"}`
+      }
+      onClick={onClick}
+      style={{
+        transition:
+          "transform var(--motion-fast) var(--ease-spring), background-color var(--motion-fast) var(--ease-smooth), color var(--motion-fast) var(--ease-smooth), border-color var(--motion-fast) var(--ease-smooth)",
+      }}
+      type="button"
+    >
+      {type === "open" ? <CircleIcon /> : <CheckCircleIcon />}
+      <span>{label}</span>
+      <span
+        className={
+          `tabular-nums text-[11px] ${ 
+          active ? "text-primary opacity-75" : "text-faint"}`
+        }
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function StatusChips({
+  active,
+  doneCount,
+  onToggle,
+  openCount,
+}: {
+  active: Set<StatusFilter>;
+  doneCount: number;
+  onToggle: (s: StatusFilter) => void;
+  openCount: number;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <StatusChip
+        active={active.has("open")}
+        count={openCount}
+        label="Open"
+        onClick={() => { onToggle("open"); }}
+        type="open"
+      />
+      <StatusChip
+        active={active.has("done")}
+        count={doneCount}
+        label="Done"
+        onClick={() => { onToggle("done"); }}
+        type="done"
+      />
     </div>
   );
 }

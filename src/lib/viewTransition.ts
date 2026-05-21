@@ -2,18 +2,9 @@
 
 import { flushSync } from "react-dom";
 
+import { isBrowser } from "./runtime";
+
 type StartViewTransition = (cb: () => void) => { finished: Promise<void> };
-
-function supported(): boolean {
-  if (typeof document === "undefined") return false;
-  return typeof (document as unknown as { startViewTransition?: unknown })
-    .startViewTransition === "function";
-}
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 /**
  * Runs a state update inside a View Transition so the browser animates
@@ -34,4 +25,15 @@ export function withViewTransition(callback: () => void): void {
       // browser captures the "new" snapshot.
       flushSync(callback);
     });
+}
+
+function prefersReducedMotion(): boolean {
+  if (!isBrowser()) return false;
+  return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function supported(): boolean {
+  if (!isBrowser()) return false;
+  return typeof (document as unknown as { startViewTransition?: unknown })
+    .startViewTransition === "function";
 }

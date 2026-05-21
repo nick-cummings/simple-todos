@@ -1,46 +1,48 @@
 import type { Metadata, Viewport } from "next";
+
 import { Geist, Geist_Mono } from "next/font/google";
+
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
   subsets: ["latin"],
+  variable: "--font-geist-sans",
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
   subsets: ["latin"],
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Simple Todos",
-  description: "Minimalist PWA todo app with labels, sorting and filtering.",
-  applicationName: "Simple Todos",
-  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Todos",
   },
+  applicationName: "Simple Todos",
+  description: "Minimalist PWA todo app with labels, sorting and filtering.",
   icons: {
+    apple: [{ sizes: "180x180", url: "/icons/apple-touch-icon.png" }],
     icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { sizes: "192x192", type: "image/png", url: "/icons/icon-192.png" },
+      { sizes: "512x512", type: "image/png", url: "/icons/icon-512.png" },
     ],
-    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
+  manifest: "/manifest.webmanifest",
+  title: "Simple Todos",
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F7F8FA" },
-    { media: "(prefers-color-scheme: dark)", color: "#0B0C10" },
-  ],
-  width: "device-width",
   initialScale: 1,
+  themeColor: [
+    { color: "#F7F8FA", media: "(prefers-color-scheme: light)" },
+    { color: "#0B0C10", media: "(prefers-color-scheme: dark)" },
+  ],
   viewportFit: "cover",
+  width: "device-width",
 };
 
 export default function RootLayout({
@@ -50,9 +52,9 @@ export default function RootLayout({
 }>) {
   return (
     <html
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
         {/* Set theme class before paint so the page never flashes the wrong scheme. */}

@@ -3,14 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_COLOR,
-  LABELS_STORAGE_KEY,
   type Label,
+  LABELS_STORAGE_KEY,
 } from "./labels";
 import { STORAGE_KEY, type Todo } from "./todos";
 
 async function importUseLabels() {
   vi.resetModules();
-  return (await import("./useLabels")).useLabels;
+  const mod = await import("./useLabels");
+  return mod.useLabels;
+}
+
+function readTodos(): Todo[] {
+  return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
 }
 
 function seedLabels(labels: Label[]) {
@@ -19,10 +24,6 @@ function seedLabels(labels: Label[]) {
 
 function seedTodos(todos: Todo[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-}
-
-function readTodos(): Todo[] {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
 }
 
 beforeEach(() => {
@@ -41,35 +42,35 @@ describe("useLabels", () => {
   });
 
   it("reads existing labels from storage on mount", async () => {
-    seedLabels([{ name: "work", color: "blue", createdAt: 1 }]);
+    seedLabels([{ color: "blue", createdAt: 1, name: "work" }]);
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
     expect(result.current.labels).toEqual([
-      { name: "work", color: "blue", createdAt: 1 },
+      { color: "blue", createdAt: 1, name: "work" },
     ]);
   });
 
   it("first-run migration derives label records from existing todos", async () => {
     const todos: Todo[] = [
       {
-        id: "1",
-        title: "x",
         completed: false,
-        labels: ["work", "home"],
         createdAt: 1,
+        id: "1",
+        labels: ["work", "home"],
+        title: "x",
         updatedAt: 1,
       },
     ];
     seedTodos(todos);
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
-    const names = result.current.labels.map((l) => l.name).sort();
+    const names = result.current.labels.map((l) => l.name).toSorted();
     expect(names).toEqual(["home", "work"]);
     // Migration also persists so subsequent reloads don't re-derive.
     const persisted = JSON.parse(
-      localStorage.getItem(LABELS_STORAGE_KEY) || "[]",
+      localStorage.getItem(LABELS_STORAGE_KEY) ?? "[]",
     );
-    expect(persisted.map((l: Label) => l.name).sort()).toEqual(["home", "work"]);
+    expect(persisted.map((l: Label) => l.name).toSorted()).toEqual(["home", "work"]);
   });
 
   it("addLabel adds and persists a new label", async () => {
@@ -80,11 +81,11 @@ describe("useLabels", () => {
     });
     expect(result.current.labels).toHaveLength(1);
     expect(result.current.labels[0]).toMatchObject({
-      name: "Work",
       color: "blue",
+      name: "Work",
     });
     const persisted = JSON.parse(
-      localStorage.getItem(LABELS_STORAGE_KEY) || "[]",
+      localStorage.getItem(LABELS_STORAGE_KEY) ?? "[]",
     );
     expect(persisted[0].name).toBe("Work");
   });
@@ -114,24 +115,24 @@ describe("useLabels", () => {
   it("renameLabel updates the registry and rewrites todo labels", async () => {
     seedTodos([
       {
-        id: "1",
-        title: "x",
         completed: false,
-        labels: ["work", "other"],
         createdAt: 1,
+        id: "1",
+        labels: ["work", "other"],
+        title: "x",
         updatedAt: 1,
       },
     ]);
     seedLabels([
-      { name: "work", color: "blue", createdAt: 1 },
-      { name: "other", color: "gray", createdAt: 1 },
+      { color: "blue", createdAt: 1, name: "work" },
+      { color: "gray", createdAt: 1, name: "other" },
     ]);
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
     act(() => {
       result.current.renameLabel("work", "Work-renamed");
     });
-    const names = result.current.labels.map((l) => l.name).sort();
+    const names = result.current.labels.map((l) => l.name).toSorted();
     expect(names).toEqual(["Work-renamed", "other"]);
     const todos = readTodos();
     expect(todos[0].labels).toEqual(["Work-renamed", "other"]);
@@ -139,53 +140,53 @@ describe("useLabels", () => {
 
   it("renameLabel is rejected when the new name collides with a different label", async () => {
     seedLabels([
-      { name: "work", color: "blue", createdAt: 1 },
-      { name: "home", color: "red", createdAt: 2 },
+      { color: "blue", createdAt: 1, name: "work" },
+      { color: "red", createdAt: 2, name: "home" },
     ]);
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
     act(() => {
       result.current.renameLabel("work", "home");
     });
-    const names = result.current.labels.map((l) => l.name).sort();
+    const names = result.current.labels.map((l) => l.name).toSorted();
     expect(names).toEqual(["home", "work"]);
   });
 
   it("recolorLabel changes the color in place (case-insensitive name match)", async () => {
-    seedLabels([{ name: "Work", color: "blue", createdAt: 1 }]);
+    seedLabels([{ color: "blue", createdAt: 1, name: "Work" }]);
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
     act(() => {
       result.current.recolorLabel("work", "red");
     });
     expect(result.current.labels[0]).toMatchObject({
-      name: "Work",
       color: "red",
+      name: "Work",
     });
   });
 
   it("deleteLabel removes the label and strips it from every todo", async () => {
     seedTodos([
       {
-        id: "1",
-        title: "x",
         completed: false,
-        labels: ["work", "home"],
         createdAt: 1,
+        id: "1",
+        labels: ["work", "home"],
+        title: "x",
         updatedAt: 1,
       },
       {
-        id: "2",
-        title: "y",
         completed: false,
-        labels: ["home"],
         createdAt: 1,
+        id: "2",
+        labels: ["home"],
+        title: "y",
         updatedAt: 1,
       },
     ]);
     seedLabels([
-      { name: "work", color: "blue", createdAt: 1 },
-      { name: "home", color: "red", createdAt: 2 },
+      { color: "blue", createdAt: 1, name: "work" },
+      { color: "red", createdAt: 2, name: "home" },
     ]);
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
@@ -199,28 +200,28 @@ describe("useLabels", () => {
   });
 
   it("ensureLabelsExist adds missing labels and skips existing ones", async () => {
-    seedLabels([{ name: "work", color: "blue", createdAt: 1 }]);
+    seedLabels([{ color: "blue", createdAt: 1, name: "work" }]);
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
     act(() => {
       result.current.ensureLabelsExist(["work", "home", "WORK", "  ", ""]);
     });
-    const names = result.current.labels.map((l) => l.name).sort();
+    const names = result.current.labels.map((l) => l.name).toSorted();
     expect(names).toEqual(["home", "work"]);
     const home = result.current.labels.find((l) => l.name === "home");
     expect(home?.color).toBe(DEFAULT_COLOR);
   });
 
   it("ignores storage events for unrelated keys", async () => {
-    seedLabels([{ name: "work", color: "blue", createdAt: 1 }]);
+    seedLabels([{ color: "blue", createdAt: 1, name: "work" }]);
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
     act(() => {
       localStorage.setItem(
         LABELS_STORAGE_KEY,
-        JSON.stringify([{ name: "external", color: "red", createdAt: 9 }]),
+        JSON.stringify([{ color: "red", createdAt: 9, name: "external" }]),
       );
-      window.dispatchEvent(new StorageEvent("storage", { key: "unrelated" }));
+      globalThis.dispatchEvent(new StorageEvent("storage", { key: "unrelated" }));
     });
     // Cache unchanged — still the seeded "work" label.
     expect(result.current.labels.map((l) => l.name)).toEqual(["work"]);
@@ -229,10 +230,10 @@ describe("useLabels", () => {
   it("syncs from a cross-tab storage event", async () => {
     const useLabels = await importUseLabels();
     const { result } = renderHook(() => useLabels());
-    const next: Label[] = [{ name: "external", color: "purple", createdAt: 5 }];
+    const next: Label[] = [{ color: "purple", createdAt: 5, name: "external" }];
     act(() => {
       localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(next));
-      window.dispatchEvent(
+      globalThis.dispatchEvent(
         new StorageEvent("storage", { key: LABELS_STORAGE_KEY }),
       );
     });

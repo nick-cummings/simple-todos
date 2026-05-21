@@ -1,5 +1,5 @@
+import type { Label } from "@/lib/labels";
 import type { Todo } from "@/lib/todos";
-import type { Label, LabelColor } from "@/lib/labels";
 
 /**
  * Test data factories. Each call returns a fresh object with sensible
@@ -10,26 +10,26 @@ import type { Label, LabelColor } from "@/lib/labels";
 let todoSeq = 0;
 let labelSeq = 0;
 
-export function makeTodo(overrides: Partial<Todo> = {}): Todo {
-  todoSeq += 1;
-  const now = Date.now();
+export function makeLabel(overrides: Partial<Label> = {}): Label {
+  labelSeq += 1;
   return {
-    id: `todo-${todoSeq}`,
-    title: `Todo ${todoSeq}`,
-    completed: false,
-    labels: [],
-    createdAt: now,
-    updatedAt: now,
+    color: "gray",
+    createdAt: Date.now(),
+    name: `label-${labelSeq}`,
     ...overrides,
   };
 }
 
-export function makeLabel(overrides: Partial<Label> = {}): Label {
-  labelSeq += 1;
+export function makeTodo(overrides: Partial<Todo> = {}): Todo {
+  todoSeq += 1;
+  const now = Date.now();
   return {
-    name: `label-${labelSeq}`,
-    color: "gray" as LabelColor,
-    createdAt: Date.now(),
+    completed: false,
+    createdAt: now,
+    id: `todo-${todoSeq}`,
+    labels: [],
+    title: `Todo ${todoSeq}`,
+    updatedAt: now,
     ...overrides,
   };
 }

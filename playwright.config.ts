@@ -6,23 +6,14 @@ import { defineConfig, devices } from "@playwright/test";
 const BASE_URL = "http://localhost:4321";
 
 export default defineConfig({
-  testDir: "./tests/e2e",
+  forbidOnly: Boolean(process.env.CI),
   fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? "line" : "html",
-  use: {
-    baseURL: BASE_URL,
-    trace: "on-first-retry",
-    video: "retain-on-failure",
-  },
   projects: [
     {
       name: "chromium-desktop",
       use: {
         ...devices["Desktop Chrome"],
-        viewport: { width: 1280, height: 800 },
+        viewport: { height: 800, width: 1280 },
       },
     },
     {
@@ -30,12 +21,21 @@ export default defineConfig({
       use: { ...devices["iPhone 14"] },
     },
   ],
+  reporter: process.env.CI ? "line" : "html",
+  retries: process.env.CI ? 2 : 0,
+  testDir: "./tests/e2e",
+  use: {
+    baseURL: BASE_URL,
+    trace: "on-first-retry",
+    video: "retain-on-failure",
+  },
   webServer: {
     command: "npm run start:test",
-    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    stdout: "ignore",
     stderr: "pipe",
+    stdout: "ignore",
+    timeout: 120_000,
+    url: BASE_URL,
   },
+  workers: process.env.CI ? 1 : undefined,
 });

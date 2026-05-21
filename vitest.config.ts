@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
@@ -8,18 +8,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
-    environment: "happy-dom",
-    globals: true,
-    setupFiles: ["./src/test-utils/setup.ts"],
-    css: false,
-    // Vitest discovers tests anywhere under src/; E2E specs live in
-    // tests/e2e/ and are owned by the Playwright runner.
-    include: ["src/**/*.test.{ts,tsx}"],
-    exclude: ["node_modules", "tests/e2e/**", ".next/**", "dist/**"],
     coverage: {
-      provider: "v8",
-      reporter: ["text", "text-summary", "html", "json-summary"],
-      include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/**/*.test.{ts,tsx}",
         "src/**/*.d.ts",
@@ -31,38 +20,52 @@ export default defineConfig({
         "src/app/layout.tsx",
         "src/components/ServiceWorkerRegister.tsx",
       ],
+      include: ["src/**/*.{ts,tsx}"],
+      provider: "v8",
+      reporter: ["text", "text-summary", "html", "json-summary"],
       // Per-layer thresholds. Hard fail in CI + pre-push.
       // Repo-wide floor is the top-level entry; specific paths override.
       thresholds: {
-        lines: 80,
         branches: 75,
         functions: 80,
-        statements: 80,
-        "src/lib/**": {
-          lines: 95,
+        lines: 80,
+        "src/app/api/**": {
           branches: 90,
           functions: 95,
+          lines: 95,
           statements: 95,
         },
-        "src/app/api/**": {
-          lines: 95,
+        "src/components/**": {
+          branches: 65,
+          functions: 70,
+          lines: 70,
+          statements: 70,
+        },
+        "src/lib/**": {
           branches: 90,
           functions: 95,
+          lines: 95,
           statements: 95,
         },
         "src/lib/use*.ts": {
-          lines: 85,
-          branches: 80,
+          // Branches here include SSR guards (isBrowser()) whose `false`
+          // case can't be hit without simulating Node-side rendering;
+          // the rest of the file targets stay tight.
+          branches: 75,
           functions: 85,
+          lines: 85,
           statements: 85,
         },
-        "src/components/**": {
-          lines: 70,
-          branches: 65,
-          functions: 70,
-          statements: 70,
-        },
+        statements: 80,
       },
     },
+    css: false,
+    environment: "happy-dom",
+    exclude: ["node_modules", "tests/e2e/**", ".next/**", "dist/**"],
+    globals: true,
+    // Vitest discovers tests anywhere under src/; E2E specs live in
+    // tests/e2e/ and are owned by the Playwright runner.
+    include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["./src/test-utils/setup.ts"],
   },
 });

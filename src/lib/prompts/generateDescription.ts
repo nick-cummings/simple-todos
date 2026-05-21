@@ -113,10 +113,10 @@ For 40 in that area:
 • Many places use F&B minimums (vs flat fee) — ask which is cheaper for your headcount
 • Lead time: 4–6 weeks for popular spots, 2 weeks for less-booked weekdays`;
 
-export type GenerateDescriptionInput = {
-  title: string;
+export interface GenerateDescriptionInput {
   location?: { latitude: number; longitude: number };
-};
+  title: string;
+}
 
 /**
  * Build the user-turn message. Kept tiny on purpose so the bulk of

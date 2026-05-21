@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // `vi.hoisted` runs before any module factory, guaranteeing that the
 // spies referenced inside the mocks below are initialized when their
 // factories execute.
-const { mockCreate, mockLimit, errors } = vi.hoisted(() => {
+const { errors, mockCreate, mockLimit } = vi.hoisted(() => {
   class MockAPIError extends Error {
     status: number;
     constructor(message: string, status = 500) {
@@ -14,18 +14,18 @@ const { mockCreate, mockLimit, errors } = vi.hoisted(() => {
   class MockRateLimitError extends MockAPIError {}
   class MockAuthenticationError extends MockAPIError {}
   return {
+    errors: { MockAPIError, MockAuthenticationError, MockRateLimitError },
     mockCreate: vi.fn(),
     mockLimit: vi.fn(),
-    errors: { MockAPIError, MockRateLimitError, MockAuthenticationError },
   };
 });
 
 vi.mock("@anthropic-ai/sdk", () => {
   class MockAnthropic {
-    messages = { create: mockCreate };
     static APIError = errors.MockAPIError;
-    static RateLimitError = errors.MockRateLimitError;
     static AuthenticationError = errors.MockAuthenticationError;
+    static RateLimitError = errors.MockRateLimitError;
+    messages = { create: mockCreate };
   }
   return { default: MockAnthropic };
 });
@@ -49,7 +49,8 @@ const ORIGINAL_ENV = { ...process.env };
 
 async function importPOST() {
   vi.resetModules();
-  return (await import("./route")).POST;
+  const mod = await import("./route");
+  return mod.POST;
 }
 
 function makeRequest(
@@ -57,9 +58,9 @@ function makeRequest(
   headers: Record<string, string> = {},
 ): Request {
   return new Request("http://localhost/api/generate-description", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
+    headers: { "Content-Type": "application/json", ...headers },
+    method: "POST",
   });
 }
 
@@ -91,14 +92,16 @@ describe("POST /api/generate-description — body validation", () => {
     const POST = await importPOST();
     const res = await POST(makeRequest("not valid json"));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/JSON/i);
+    const body = await res.json();
+    expect(body.error).toMatch(/JSON/i);
   });
 
   it("returns 400 for null body", async () => {
     const POST = await importPOST();
     const res = await POST(makeRequest(null));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/object/i);
+    const body = await res.json();
+    expect(body.error).toMatch(/object/i);
   });
 
   it("returns 400 for a non-string title", async () => {
@@ -117,14 +120,15 @@ describe("POST /api/generate-description — body validation", () => {
     const POST = await importPOST();
     const res = await POST(makeRequest({ title: "x".repeat(501) }));
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/too long/i);
+    const body = await res.json();
+    expect(body.error).toMatch(/too long/i);
   });
 });
 
 describe("POST /api/generate-description — successful generation", () => {
   it("returns 200 with description text on success", async () => {
     mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "Detailed description here." }],
+      content: [{ text: "Detailed description here.", type: "text" }],
     });
     const POST = await importPOST();
     const res = await POST(makeRequest({ title: "buy milk" }));
@@ -137,10 +141,10 @@ describe("POST /api/generate-description — successful generation", () => {
   it("concatenates multiple text blocks and ignores non-text blocks", async () => {
     mockCreate.mockResolvedValueOnce({
       content: [
-        { type: "tool_use", id: "x", name: "web_search", input: {} },
-        { type: "text", text: "First part. " },
-        { type: "tool_result", tool_use_id: "x", content: "ignored" },
-        { type: "text", text: "Second part." },
+        { id: "x", input: {}, name: "web_search", type: "tool_use" },
+        { text: "First part. ", type: "text" },
+        { content: "ignored", tool_use_id: "x", type: "tool_result" },
+        { text: "Second part.", type: "text" },
       ],
     });
     const POST = await importPOST();
@@ -153,23 +157,24 @@ describe("POST /api/generate-description — successful generation", () => {
 
   it("returns 502 when the model returns only whitespace", async () => {
     mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "   " }],
+      content: [{ text: "   ", type: "text" }],
     });
     const POST = await importPOST();
     const res = await POST(makeRequest({ title: "x" }));
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toMatch(/empty/i);
+    const body = await res.json();
+    expect(body.error).toMatch(/empty/i);
   });
 
   it("passes title and validated location into the user message", async () => {
     mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "ok" }],
+      content: [{ text: "ok", type: "text" }],
     });
     const POST = await importPOST();
     await POST(
       makeRequest({
-        title: "find coffee",
         location: { latitude: 40.7128, longitude: -74.006 },
+        title: "find coffee",
       }),
     );
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -182,19 +187,19 @@ describe("POST /api/generate-description — successful generation", () => {
     expect(call.system[0].cache_control).toEqual({ type: "ephemeral" });
     // Web search tool should be wired up.
     expect(call.tools).toEqual([
-      { type: "web_search_20250305", name: "web_search" },
+      { name: "web_search", type: "web_search_20250305" },
     ]);
   });
 
   it("ignores an invalid location and still succeeds", async () => {
     mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "ok" }],
+      content: [{ text: "ok", type: "text" }],
     });
     const POST = await importPOST();
     await POST(
       makeRequest({
-        title: "x",
         location: { latitude: 200, longitude: 0 },
+        title: "x",
       }),
     );
     const userMessage = mockCreate.mock.calls[0][0].messages[0].content;
@@ -219,7 +224,8 @@ describe("POST /api/generate-description — typed Anthropic errors", () => {
     const POST = await importPOST();
     const res = await POST(makeRequest({ title: "x" }));
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toMatch(/authentication/i);
+    const body = await res.json();
+    expect(body.error).toMatch(/authentication/i);
   });
 
   it("maps generic APIError to 502 with status in message", async () => {
@@ -229,7 +235,8 @@ describe("POST /api/generate-description — typed Anthropic errors", () => {
     const POST = await importPOST();
     const res = await POST(makeRequest({ title: "x" }));
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toMatch(/503/);
+    const body = await res.json();
+    expect(body.error).toMatch(/503/);
   });
 
   it("maps unknown errors to 500", async () => {
@@ -243,7 +250,7 @@ describe("POST /api/generate-description — typed Anthropic errors", () => {
 describe("POST /api/generate-description — in-memory rate limit", () => {
   it("returns 429 after exhausting the per-IP budget", async () => {
     mockCreate.mockResolvedValue({
-      content: [{ type: "text", text: "ok" }],
+      content: [{ text: "ok", type: "text" }],
     });
     const POST = await importPOST();
     for (let i = 0; i < 20; i++) {
@@ -261,7 +268,7 @@ describe("POST /api/generate-description — in-memory rate limit", () => {
 
   it("isolates buckets by IP", async () => {
     mockCreate.mockResolvedValue({
-      content: [{ type: "text", text: "ok" }],
+      content: [{ text: "ok", type: "text" }],
     });
     const POST = await importPOST();
     // Burn 20 calls from IP A.
@@ -288,11 +295,11 @@ describe("POST /api/generate-description — Upstash rate limit", () => {
 
   it("delegates to Upstash when env is set and allows successful request", async () => {
     mockLimit.mockResolvedValueOnce({
-      success: true,
       reset: Date.now() + 60_000,
+      success: true,
     });
     mockCreate.mockResolvedValueOnce({
-      content: [{ type: "text", text: "ok" }],
+      content: [{ text: "ok", type: "text" }],
     });
     const POST = await importPOST();
     const res = await POST(
@@ -304,14 +311,15 @@ describe("POST /api/generate-description — Upstash rate limit", () => {
 
   it("returns 429 when Upstash denies the request", async () => {
     mockLimit.mockResolvedValueOnce({
-      success: false,
       reset: Date.now() + 5 * 60_000,
+      success: false,
     });
     const POST = await importPOST();
     const res = await POST(makeRequest({ title: "x" }));
     expect(res.status).toBe(429);
     expect(res.headers.get("retry-after")).toBeTruthy();
-    expect((await res.json()).error).toMatch(/rate limit/i);
+    const body = await res.json();
+    expect(body.error).toMatch(/rate limit/i);
   });
 });
 
@@ -321,7 +329,7 @@ describe("POST /api/generate-description — IP extraction", () => {
     process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
     mockLimit.mockResolvedValue({ success: true });
     mockCreate.mockResolvedValue({
-      content: [{ type: "text", text: "ok" }],
+      content: [{ text: "ok", type: "text" }],
     });
   });
 
