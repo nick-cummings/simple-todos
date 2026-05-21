@@ -59,11 +59,31 @@ export function useTodos() {
     mutate((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  // Restore a previously-removed todo verbatim — preserves id,
+  // createdAt, and labels. Used by the undo-toast flow so the
+  // restored todo looks like nothing happened. Inserted at the head
+  // for simplicity; preserving the original position would require
+  // capturing the index at remove time.
+  const restore = useCallback((todo: Todo) => {
+    mutate((prev) =>
+      prev.some((t) => t.id === todo.id) ? prev : [todo, ...prev],
+    );
+  }, []);
+
   const clearCompleted = useCallback(() => {
     mutate((prev) => prev.filter((t) => !t.completed));
   }, []);
 
-  return { add, clearCompleted, hydrated, remove, todos, toggle, update };
+  return {
+    add,
+    clearCompleted,
+    hydrated,
+    remove,
+    restore,
+    todos,
+    toggle,
+    update,
+  };
 }
 
 function emit() {

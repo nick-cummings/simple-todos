@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -171,5 +171,39 @@ describe("<TodoApp> — clear completed", () => {
     // Click it; todo disappears.
     await user.click(screen.getByRole("button", { name: /clear completed/i }));
     expect(screen.queryByText("done todo")).not.toBeInTheDocument();
+  });
+});
+
+describe("<TodoApp> — undo toast", () => {
+  it("shows the undo toast after deletion and restores the todo when Undo is clicked", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: Date.now(),
+        id: "1",
+        labels: ["a"],
+        title: "todo to delete",
+        updatedAt: Date.now(),
+      },
+    ]);
+    const { user } = await renderApp();
+    // Open the todo, delete it through the modal.
+    await user.click(screen.getByText("todo to delete"));
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+    // Toast appears.
+    const toast = await screen.findByRole("status");
+    expect(toast).toHaveTextContent(/Deleted/);
+    expect(toast).toHaveTextContent(/todo to delete/);
+    // Wait for the modal's 220ms exit animation to finish, then the
+    // card is gone from the list. (During the exit animation the
+    // modal's <h3> still shows the title — we want to assert on the
+    // post-close state.)
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/^todo to delete$/)).not.toBeInTheDocument();
+    // Click Undo — todo comes back.
+    await user.click(within(toast).getByRole("button", { name: /undo/i }));
+    expect(screen.getByText("todo to delete")).toBeInTheDocument();
   });
 });

@@ -21,6 +21,7 @@ import LabelsManager from "../LabelsManager";
 import ThemeToggle from "../ThemeToggle";
 import TodoCard from "../TodoCard";
 import TodoModal from "../TodoModal";
+import UndoToast from "../UndoToast";
 import { EmptyState, SectionHeader } from "./EmptyState";
 import { FilterChips } from "./FilterChips";
 import { SearchInput } from "./SearchInput";
@@ -28,8 +29,16 @@ import { SortMenu } from "./SortMenu";
 import { StatusChips } from "./StatusChips";
 
 export default function TodoApp() {
-  const { add, clearCompleted, hydrated, remove, todos, toggle, update } =
-    useTodos();
+  const {
+    add,
+    clearCompleted,
+    hydrated,
+    remove,
+    restore,
+    todos,
+    toggle,
+    update,
+  } = useTodos();
   const { ensureLabelsExist, labels: labelRegistry } = useLabels();
 
   const [sort, setSort] = useState<SortKey>("createdDesc");
@@ -44,6 +53,9 @@ export default function TodoApp() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Todo | undefined>();
   const [labelsManagerOpen, setLabelsManagerOpen] = useState(false);
+  // Single-item undo: most recent deletion. Cleared when the user
+  // undoes or when the toast's window expires.
+  const [pendingUndo, setPendingUndo] = useState<null | Todo>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // ⌘K / Ctrl+K focuses search.
@@ -97,9 +109,18 @@ export default function TodoApp() {
   }
   function handleDelete() {
     if (!editing) return;
-    const id = editing.id;
+    const todo = editing;
     withViewTransition(() => {
-      remove(id);
+      remove(todo.id);
+    });
+    setPendingUndo(todo);
+  }
+  function handleUndo() {
+    if (!pendingUndo) return;
+    const todo = pendingUndo;
+    setPendingUndo(null);
+    withViewTransition(() => {
+      restore(todo);
     });
   }
   function handleToggle(id: string) {
@@ -283,6 +304,14 @@ export default function TodoApp() {
           setLabelsManagerOpen(false);
         }}
         open={labelsManagerOpen}
+      />
+
+      <UndoToast
+        message={pendingUndo ? `Deleted “${pendingUndo.title}”` : null}
+        onExpire={() => {
+          setPendingUndo(null);
+        }}
+        onUndo={handleUndo}
       />
     </>
   );

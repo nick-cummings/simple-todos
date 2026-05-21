@@ -128,6 +128,39 @@ describe("useTodos", () => {
     expect(result.current.todos).toEqual([]);
   });
 
+  it("restore() puts a removed todo back verbatim", async () => {
+    const useTodos = await importUseTodos();
+    const { result } = renderHook(() => useTodos());
+    act(() => {
+      result.current.add({ labels: ["shopping"], title: "Buy milk" });
+    });
+    const original = result.current.todos[0];
+    act(() => {
+      result.current.remove(original.id);
+    });
+    expect(result.current.todos).toEqual([]);
+    act(() => {
+      result.current.restore(original);
+    });
+    expect(result.current.todos).toEqual([original]);
+    // Same id and createdAt — not a fresh todo.
+    expect(result.current.todos[0].id).toBe(original.id);
+    expect(result.current.todos[0].createdAt).toBe(original.createdAt);
+  });
+
+  it("restore() is a no-op when the todo's id already exists", async () => {
+    const useTodos = await importUseTodos();
+    const { result } = renderHook(() => useTodos());
+    act(() => {
+      result.current.add({ title: "Buy milk" });
+    });
+    const original = result.current.todos[0];
+    act(() => {
+      result.current.restore(original);
+    });
+    expect(result.current.todos).toHaveLength(1);
+  });
+
   it("clearCompleted() removes only completed todos", async () => {
     const useTodos = await importUseTodos();
     const { result } = renderHook(() => useTodos());

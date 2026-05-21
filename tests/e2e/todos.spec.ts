@@ -100,7 +100,9 @@ test.describe("todo CRUD", () => {
     ).toBeVisible();
   });
 
-  test("deletes a todo from the edit modal", async ({ page }) => {
+  test("deletes a todo from the edit modal (with undo toast)", async ({
+    page,
+  }) => {
     await page.getByRole("button", { name: /add todo/i }).click();
     await page
       .getByRole("dialog")
@@ -112,8 +114,29 @@ test.describe("todo CRUD", () => {
     await page.getByRole("button", { name: /^delete$/i }).click();
     // Modal exits with a ~220ms animation; wait for it to detach first.
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.getByText("Throwaway todo")).toHaveCount(0);
+    // Undo toast appears with the deleted title; the card is gone
+    // from the list section.
+    const toast = page.getByRole("status");
+    await expect(toast).toContainText("Throwaway todo");
+    await expect(page.getByRole("listitem")).toHaveCount(0);
     await expect(page.getByText(/no todos yet/i)).toBeVisible();
+  });
+
+  test("undo restores a deleted todo via the toast", async ({ page }) => {
+    await page.getByRole("button", { name: /add todo/i }).click();
+    await page
+      .getByRole("dialog")
+      .getByPlaceholder(/what needs doing/i)
+      .fill("Bring back");
+    await submitTodoForm(page);
+
+    await page.getByText("Bring back").click();
+    await page.getByRole("button", { name: /^delete$/i }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.getByRole("button", { name: /undo/i }).click();
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Bring back" }),
+    ).toBeVisible();
   });
 
   test("persists todos across a page reload", async ({ page }) => {
