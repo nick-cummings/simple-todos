@@ -66,18 +66,38 @@ test.describe("todo CRUD", () => {
       .fill("Read book");
     await submitTodoForm(page);
 
-    // Open the todo card to view, then edit.
-    await page.getByText("Read book").click();
+    // Wait for the create modal's exit animation to finish before
+    // interacting with the card — otherwise on webkit the still-present
+    // modal heading swallows the click that's meant for the card.
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // Open the todo via its card button (not arbitrary text — the
+    // modal heading reuses the same string).
+    const card = page.getByRole("listitem").filter({ hasText: "Read book" });
+    await card.getByRole("button", { name: /read book/i }).click();
+
+    await expect(
+      page.getByRole("dialog", { name: /todo details/i }),
+    ).toBeVisible();
     await page.getByRole("button", { name: /^edit$/i }).click();
 
     const titleField = page
       .getByRole("dialog")
       .getByPlaceholder(/what needs doing/i);
+    await expect(titleField).toBeVisible();
     await titleField.fill("Read book (revised)");
     await submitTodoForm(page);
 
-    await expect(page.getByText("Read book (revised)")).toBeVisible();
-    await expect(page.getByText(/^Read book$/)).not.toBeVisible();
+    // After save the modal flips back to view mode and shows the new
+    // title in its <h3>.
+    await expect(
+      page.getByRole("heading", { name: /read book \(revised\)/i }),
+    ).toBeVisible();
+
+    // And the card outside the modal has updated too.
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Read book (revised)" }),
+    ).toBeVisible();
   });
 
   test("deletes a todo from the edit modal", async ({ page }) => {
