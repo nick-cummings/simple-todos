@@ -54,7 +54,10 @@ function renderRow(
 }
 
 function transformX(el: HTMLElement): number {
-  const match = /translateX\((-?\d+(?:\.\d+)?)px\)/.exec(el.style.transform);
+  // LabelRow only writes integer pixel offsets, so we don't need to
+  // match a fractional part. Keeping the regex linear (no nested
+  // quantifiers) silences CodeQL's ReDoS heuristic.
+  const match = /translateX\((-?\d+)px\)/.exec(el.style.transform);
   return match ? Number(match[1]) : 0;
 }
 
