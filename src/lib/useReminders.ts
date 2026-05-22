@@ -58,8 +58,14 @@ export function useReminders(
   opts: UseRemindersOptions = {},
 ): UseRemindersResult {
   const { vapidPublicKey } = opts;
-  const [permission, setPermission] =
-    useState<PermissionState>(initialPermission);
+  // Always start as "unsupported" so the SSR-rendered HTML matches
+  // the first client render (no <RemindersGate /> in either). The
+  // real permission state is picked up in the mount effect below.
+  // Before this, hydration mismatched in production whenever the
+  // VAPID env var was set, and React's recovery re-rendered the
+  // whole tree — visibly stripping the `dark` class transient and
+  // breaking deep links.
+  const [permission, setPermission] = useState<PermissionState>("unsupported");
   const [active, setActive] = useState(false);
 
   // Hydrate `active` from localStorage on mount; the actual
@@ -233,11 +239,6 @@ function ensureBrowserId(): string {
 function hasBeenPrompted(): boolean {
   if (typeof globalThis.window === "undefined") return true;
   return Boolean(globalThis.localStorage.getItem(PERMISSION_PROMPTED_KEY));
-}
-
-function initialPermission(): PermissionState {
-  if (typeof globalThis.window === "undefined") return "unsupported";
-  return currentPermission();
 }
 
 function makeBrowserId(): string {

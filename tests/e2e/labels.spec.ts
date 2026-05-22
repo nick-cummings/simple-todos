@@ -68,6 +68,97 @@ test.describe("label management end-to-end", () => {
     ).toBeVisible();
   });
 
+  test("creates a label via the inline NewLabelRow in the todo modal", async ({
+    page,
+  }) => {
+    // Different creation path than the manager: inline in the todo form.
+    await page.getByRole("button", { name: /add todo/i }).click();
+    const dialog = page.getByRole("dialog", { name: /new todo/i });
+    await dialog.getByPlaceholder(/what needs doing/i).fill("Inline label");
+    await dialog.getByPlaceholder(/new label name/i).fill("just-here");
+    await dialog
+      .locator('button:not([form="todo-form"])')
+      .filter({ hasText: /^Add$/ })
+      .click();
+    await submitTodoForm(page);
+    // The new label is on the todo and registered globally — open the
+    // manager to confirm it shows up there too.
+    await page.getByRole("button", { name: /manage labels/i }).click();
+    const manager = page.getByRole("dialog", { name: /manage labels/i });
+    await expect(
+      manager.locator('[data-label-name="just-here"]'),
+    ).toBeVisible();
+  });
+
+  test("toggling labels on a todo via the picker persists across reopen", async ({
+    page,
+  }) => {
+    // Seed: a todo + an existing label.
+    await page.getByRole("button", { name: /add todo/i }).click();
+    const dialog = page.getByRole("dialog", { name: /new todo/i });
+    await dialog.getByPlaceholder(/what needs doing/i).fill("Picker test");
+    await dialog.getByPlaceholder(/new label name/i).fill("optional");
+    await dialog
+      .locator('button:not([form="todo-form"])')
+      .filter({ hasText: /^Add$/ })
+      .click();
+    await submitTodoForm(page);
+
+    const card = page.getByRole("listitem").filter({ hasText: "Picker test" });
+    await expect(card.getByText("optional")).toBeVisible();
+
+    // Open in view → edit → toggle the label off. The dialog's
+    // aria-label flips to "Edit todo" after the Edit click, so we
+    // re-acquire the dialog locator by the new name.
+    await card.getByRole("button", { name: /^Picker test/ }).click();
+    await page.getByRole("button", { name: /^edit$/i }).click();
+    const editDialog = page.getByRole("dialog", { name: /edit todo/i });
+    await editDialog
+      .getByRole("button", { name: "optional", pressed: true })
+      .click();
+    await submitTodoForm(page);
+
+    // After save the modal flips back to view mode — the body's
+    // labels list no longer contains "optional". Close and confirm
+    // the card's pill is gone too.
+    const view = page.getByRole("dialog", { name: /todo details/i });
+    await view.getByRole("button", { name: /^close$/i }).click();
+    await expect(card.getByText("optional")).not.toBeVisible();
+  });
+
+  test("recolor updates the swatch shown in the manager", async ({ page }) => {
+    // Seed a label.
+    await page.getByRole("button", { name: /manage labels/i }).click();
+    const manager = page.getByRole("dialog", { name: /manage labels/i });
+    await manager.getByPlaceholder(/new label name/i).fill("color-me");
+    await manager.getByRole("button", { name: /^add$/i }).click();
+
+    // Open the row's edit mode and the color picker.
+    await manager.getByRole("button", { name: /edit color-me/i }).click();
+    const swatchTrigger = manager.getByRole("button", {
+      name: /color-me color$/i,
+    });
+    // Snapshot the trigger background before the recolor; the
+    // inner dot's `background` style mirrors the current swatch.
+    const beforeBg = await swatchTrigger
+      .locator("span[aria-hidden]")
+      .getAttribute("style");
+
+    await swatchTrigger.click();
+    const popover = page.getByRole("dialog", {
+      name: /color-me color options/i,
+    });
+    await popover
+      .getByRole("button", { name: /color-me color: blue/i })
+      .click();
+
+    // After picking, the trigger's inner dot reflects the new color
+    // (the picker closes and the row re-renders with the new swatch).
+    await expect(
+      swatchTrigger.locator("span[aria-hidden]"),
+    ).not.toHaveAttribute("style", beforeBg ?? "");
+  });
+
   test("delete in the manager strips the label from every todo", async ({
     page,
   }) => {
