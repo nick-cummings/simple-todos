@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { groupByDue, isCompletedThisWeek } from "@/lib/dates";
@@ -13,6 +15,7 @@ import {
   Todo,
   TodoInput,
 } from "@/lib/todos";
+import { useFilterParams } from "@/lib/useFilterParams";
 import { useLabels } from "@/lib/useLabels";
 import { useReminders } from "@/lib/useReminders";
 import { useTodos } from "@/lib/useTodos";
@@ -50,15 +53,19 @@ export default function TodoApp() {
     vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
   });
 
-  const [sort, setSort] = useState<SortKey>("createdDesc");
-  const [activeLabels, setActiveLabels] = useState<string[]>([]);
-  // Open-only by default: completed todos are noise once they're done,
-  // so the user has to opt in to seeing them by toggling the Done chip.
-  // The chip's filled state still truthfully reflects what's shown.
-  const [activeStatuses, setActiveStatuses] = useState<Set<StatusFilter>>(
-    new Set(["open"]),
-  );
-  const [query, setQuery] = useState("");
+  // Filter state lives in the URL — see useFilterParams for the
+  // ?q / ?l / ?s / ?sort contract. Reload, deep-link, and
+  // back/forward all round-trip the view.
+  const {
+    activeLabels,
+    activeStatuses,
+    query,
+    setActiveLabels,
+    setActiveStatuses,
+    setQuery,
+    setSort,
+    sort,
+  } = useFilterParams();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Todo | undefined>();
   const [labelsManagerOpen, setLabelsManagerOpen] = useState(false);
@@ -66,6 +73,83 @@ export default function TodoApp() {
   // undoes or when the toast's window expires.
   const [pendingUndo, setPendingUndo] = useState<null | Todo>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // ---- notification deep-link (?todo=ID) ----
+  //
+  // Two entry points reach this app from a push notification:
+  //  - notificationclick → openWindow("/?todo=ID") when no client is open
+  //  - notificationclick → focus + postMessage when a client is already open
+  // We handle both: on mount we read ?todo from the URL; in parallel
+  // we listen for the SW message. Either way we open the todo in view
+  // mode and clear the param so a stray refresh doesn't keep re-opening.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const deepLinkId = searchParams.get("todo");
+
+  function clearTodoParam() {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("todo");
+    const q = next.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname);
+  }
+
+  useEffect(() => {
+    if (!hydrated || !deepLinkId) return;
+    const target = todos.find((t) => t.id === deepLinkId);
+    if (target) {
+      // setState-in-effect is the right pattern here: the URL is an
+      // external input (a push-notification deep link), so opening
+      // the modal in response to its arrival is "syncing with an
+      // external system", not derivable state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEditing(target);
+      setModalOpen(true);
+    }
+    // Either way, drop the param so refresh doesn't re-open.
+    clearTodoParam();
+    // clearTodoParam closes over searchParams/router/pathname; including
+    // it in deps would cause an infinite loop because router.replace
+    // returns a new searchParams object on every fire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, deepLinkId, todos]);
+
+  useEffect(() => {
+    // `navigator.serviceWorker` is undefined in non-secure contexts
+    // (http://, file://) and in test environments without SW support;
+    // guard at runtime even though TS's lib.dom types it as always
+    // present.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (!navigator.serviceWorker) return;
+    // Capture the controller reference at mount time so the cleanup
+    // path stays valid even if navigator.serviceWorker is mutated or
+    // removed before unmount (e.g. in tests).
+    const sw = navigator.serviceWorker;
+    function onMessage(event: MessageEvent) {
+      const data = event.data as
+        | null
+        | undefined
+        | { type?: unknown; url?: unknown };
+      if (data?.type !== "reminder-click") return;
+      if (typeof data.url !== "string") return;
+      try {
+        const url = new URL(data.url, globalThis.location.origin);
+        const id = url.searchParams.get("todo");
+        if (!id) return;
+        const target = todos.find((t) => t.id === id);
+        if (target) {
+          setEditing(target);
+          setModalOpen(true);
+        }
+      } catch {
+        // Malformed URL from the SW; nothing to do.
+      }
+    }
+    sw.addEventListener("message", onMessage);
+    return () => {
+      sw.removeEventListener("message", onMessage);
+    };
+  }, [todos]);
 
   // Reconcile reminders with the current todo list. Runs on every
   // change to `todos` and whenever `syncTodoReminder` re-binds (i.e.
@@ -160,13 +244,11 @@ export default function TodoApp() {
     });
   }
   function toggleLabelFilter(label: string) {
-    function nextLabels(prev: string[]): string[] {
-      return prev.includes(label)
-        ? prev.filter((l) => l !== label)
-        : [...prev, label];
-    }
+    const next = activeLabels.includes(label)
+      ? activeLabels.filter((l) => l !== label)
+      : [...activeLabels, label];
     withViewTransition(() => {
-      setActiveLabels(nextLabels);
+      setActiveLabels(next);
     });
   }
   function clearLabelFilters() {
@@ -175,13 +257,11 @@ export default function TodoApp() {
     });
   }
   function toggleStatusFilter(s: StatusFilter) {
+    const next = new Set(activeStatuses);
+    if (next.has(s)) next.delete(s);
+    else next.add(s);
     withViewTransition(() => {
-      setActiveStatuses((prev) => {
-        const next = new Set(prev);
-        if (next.has(s)) next.delete(s);
-        else next.add(s);
-        return next;
-      });
+      setActiveStatuses(next);
     });
   }
   function handleSort(next: SortKey) {
@@ -224,7 +304,29 @@ export default function TodoApp() {
               </div>
             )}
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <Link
+              aria-label="Settings"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-card text-muted hover:bg-card-hover hover:text-fg"
+              href="/settings"
+            >
+              <svg
+                aria-hidden
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                width="18"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </Link>
+            <ThemeToggle />
+          </div>
         </header>
 
         {needsAttention && <RemindersGate onEnable={enableReminders} />}

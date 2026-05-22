@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useSyncExternalStore } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type Label, LABELS_STORAGE_KEY } from "@/lib/labels";
@@ -28,12 +29,65 @@ vi.mock("@/lib/useReminders", () => ({
   useReminders: () => reminderState,
 }));
 
+// Reactive controllable URL state for next/navigation hooks. The
+// production code derives filter state from the URL via useSearchParams,
+// so the mock must trigger re-renders when router.replace runs —
+// otherwise UI assertions after a filter change race the stale render.
+let mockSearchParams = new URLSearchParams();
+const searchParamsSubscribers = new Set<() => void>();
+function emitSearchParamsChange() {
+  for (const fn of searchParamsSubscribers) fn();
+}
+function getSearchParamsSnapshot(): URLSearchParams {
+  return mockSearchParams;
+}
+function subscribeSearchParams(cb: () => void): () => void {
+  searchParamsSubscribers.add(cb);
+  return () => {
+    searchParamsSubscribers.delete(cb);
+  };
+}
+
+const mockRouter = {
+  back: vi.fn(),
+  forward: vi.fn(),
+  prefetch: vi.fn(),
+  push: vi.fn<(href: string) => void>(),
+  refresh: vi.fn(),
+  replace: vi.fn<(href: string) => void>((href: string) => {
+    const queryStart = href.indexOf("?");
+    mockSearchParams =
+      queryStart === -1
+        ? new URLSearchParams()
+        : new URLSearchParams(href.slice(queryStart + 1));
+    emitSearchParamsChange();
+  }),
+};
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => mockRouter,
+  useSearchParams: () =>
+    useSyncExternalStore(
+      subscribeSearchParams,
+      getSearchParamsSnapshot,
+      getSearchParamsSnapshot,
+    ),
+}));
+
 async function renderApp() {
   vi.resetModules();
   const mod = await import("./TodoApp");
   const TodoApp = mod.default;
   return { user: userEvent.setup(), ...render(<TodoApp />) };
 }
+function resetNavigationMock() {
+  mockSearchParams = new URLSearchParams();
+  mockRouter.push.mockClear();
+  mockRouter.replace.mockClear();
+  emitSearchParamsChange();
+}
+
 function resetReminderMock() {
   reminderState.active = false;
   reminderState.permission = "prompt";
@@ -56,6 +110,7 @@ function seedTodos(todos: Todo[]) {
 beforeEach(() => {
   localStorage.clear();
   resetReminderMock();
+  resetNavigationMock();
 });
 
 afterEach(() => {
@@ -489,5 +544,319 @@ describe("<TodoApp> — reminders integration", () => {
     // completed=false.
     expect(arg?.completed).toBe(false);
     expect(arg?.dueDate).toBe("2027-01-16");
+  });
+});
+
+describe("<TodoApp> — notification deep-link (?todo=ID)", () => {
+  it("opens the matching todo in view mode when ?todo is present", async () => {
+    mockSearchParams = new URLSearchParams("todo=t1");
+    seedTodos([
+      {
+        completed: false,
+        createdAt: Date.now(),
+        id: "t1",
+        labels: [],
+        title: "Linked todo",
+        updatedAt: Date.now(),
+      },
+    ]);
+    await renderApp();
+    expect(
+      await screen.findByRole("dialog", { name: /todo details/i }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: /Linked todo/i })).toBeVisible();
+  });
+
+  it("clears the ?todo param after opening (preserves other params)", async () => {
+    mockSearchParams = new URLSearchParams("todo=t1&q=other");
+    seedTodos([
+      {
+        completed: false,
+        createdAt: Date.now(),
+        id: "t1",
+        labels: [],
+        title: "Linked",
+        updatedAt: Date.now(),
+      },
+    ]);
+    await renderApp();
+    await waitFor(() => {
+      expect(mockRouter.replace).toHaveBeenCalled();
+    });
+    const replacedTo = mockRouter.replace.mock.calls.at(-1)?.[0];
+    expect(replacedTo).toBeDefined();
+    // todo param gone, q preserved.
+    const replacedParams = new URLSearchParams(
+      replacedTo!.includes("?") ? replacedTo!.slice(replacedTo!.indexOf("?") + 1) : "",
+    );
+    expect(replacedParams.get("todo")).toBeNull();
+    expect(replacedParams.get("q")).toBe("other");
+  });
+
+  it("does not open anything when ?todo points at a missing id", async () => {
+    mockSearchParams = new URLSearchParams("todo=missing");
+    seedTodos([
+      {
+        completed: false,
+        createdAt: Date.now(),
+        id: "t1",
+        labels: [],
+        title: "Exists",
+        updatedAt: Date.now(),
+      },
+    ]);
+    await renderApp();
+    // Brief settle — useEffect on hydrated runs.
+    await waitFor(() => {
+      expect(mockRouter.replace).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("ignores an empty ?todo param", async () => {
+    mockSearchParams = new URLSearchParams("todo=");
+    seedTodos([
+      {
+        completed: false,
+        createdAt: Date.now(),
+        id: "t1",
+        labels: [],
+        title: "Exists",
+        updatedAt: Date.now(),
+      },
+    ]);
+    await renderApp();
+    // No replace call (no param to clear) and no dialog.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("opens the todo when the service worker posts a reminder-click message", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: Date.now(),
+        id: "from-sw",
+        labels: [],
+        title: "From SW",
+        updatedAt: Date.now(),
+      },
+    ]);
+    // happy-dom doesn't ship a navigator.serviceWorker — stub a
+    // minimal one that lets us dispatch a 'message' event.
+    const listeners: ((event: MessageEvent) => void)[] = [];
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: {
+        addEventListener: (
+          _type: string,
+          handler: (event: MessageEvent) => void,
+        ) => {
+          listeners.push(handler);
+        },
+        removeEventListener: (
+          _type: string,
+          handler: (event: MessageEvent) => void,
+        ) => {
+          const idx = listeners.indexOf(handler);
+          if (idx !== -1) listeners.splice(idx, 1);
+        },
+      },
+      writable: true,
+    });
+    try {
+      await renderApp();
+      // Fire the message — the listener finds the todo and opens it.
+      for (const fn of listeners) fn({
+          data: { type: "reminder-click", url: "/?todo=from-sw" },
+        } as MessageEvent)
+      ;
+      expect(
+        await screen.findByRole("dialog", { name: /todo details/i }),
+      ).toBeVisible();
+    } finally {
+      Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "serviceWorker");
+    }
+  });
+
+  it("ignores SW messages with non-reminder-click types", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: Date.now(),
+        id: "x",
+        labels: [],
+        title: "X",
+        updatedAt: Date.now(),
+      },
+    ]);
+    const listeners: ((event: MessageEvent) => void)[] = [];
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: {
+        addEventListener: (_t: string, fn: (e: MessageEvent) => void) =>
+          listeners.push(fn),
+        removeEventListener: () => undefined,
+      },
+      writable: true,
+    });
+    try {
+      await renderApp();
+      for (const fn of listeners) fn({ data: { type: "something-else" } } as MessageEvent)
+      ;
+      // No dialog opened.
+      await new Promise((r) => setTimeout(r, 30));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    } finally {
+      Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "serviceWorker");
+    }
+  });
+
+  it("ignores SW messages with a malformed url", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: Date.now(),
+        id: "x",
+        labels: [],
+        title: "X",
+        updatedAt: Date.now(),
+      },
+    ]);
+    const listeners: ((event: MessageEvent) => void)[] = [];
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: {
+        addEventListener: (_t: string, fn: (e: MessageEvent) => void) =>
+          listeners.push(fn),
+        removeEventListener: () => undefined,
+      },
+      writable: true,
+    });
+    try {
+      await renderApp();
+      for (const fn of listeners) fn({
+          data: { type: "reminder-click", url: "::not a url::" },
+        } as MessageEvent)
+      ;
+      await new Promise((r) => setTimeout(r, 30));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    } finally {
+      Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "serviceWorker");
+    }
+  });
+});
+
+describe("<TodoApp> — URL state for filters", () => {
+  it("renders filters from the URL on initial load", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: 1,
+        id: "a",
+        labels: ["work"],
+        title: "Apple",
+        updatedAt: 1,
+      },
+      {
+        completed: false,
+        createdAt: 2,
+        id: "b",
+        labels: [],
+        title: "Banana",
+        updatedAt: 2,
+      },
+    ]);
+    mockSearchParams = new URLSearchParams("q=app");
+    await renderApp();
+    // "Apple" matches; "Banana" doesn't.
+    expect(screen.getByText("Apple")).toBeInTheDocument();
+    expect(screen.queryByText("Banana")).not.toBeInTheDocument();
+    // The search input's controlled value is fed from the URL.
+    expect(
+      (screen.getByPlaceholderText(/search todos/i) as HTMLInputElement).value,
+    ).toBe("app");
+  });
+
+  it("typing in the search box writes to the URL", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: 1,
+        id: "a",
+        labels: [],
+        title: "Apple",
+        updatedAt: 1,
+      },
+    ]);
+    const { user } = await renderApp();
+    await user.type(screen.getByPlaceholderText(/search todos/i), "x");
+    await waitFor(() => {
+      expect(mockSearchParams.get("q")).toBe("x");
+    });
+  });
+
+  it("clearing the search box removes ?q from the URL", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: 1,
+        id: "a",
+        labels: [],
+        title: "Apple",
+        updatedAt: 1,
+      },
+    ]);
+    mockSearchParams = new URLSearchParams("q=app");
+    const { user } = await renderApp();
+    const input = screen.getByPlaceholderText(
+      /search todos/i,
+    ) as HTMLInputElement;
+    await user.clear(input);
+    await waitFor(() => {
+      expect(mockSearchParams.has("q")).toBe(false);
+    });
+  });
+
+  it("toggling a status chip writes ?s to the URL", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: 1,
+        id: "a",
+        labels: [],
+        title: "T",
+        updatedAt: 1,
+      },
+    ]);
+    const { user } = await renderApp();
+    // Default is open-only → no `s`. Click Done to add it.
+    await user.click(screen.getByRole("button", { name: /^done\s+0$/i }));
+    await waitFor(() => {
+      expect(mockSearchParams.get("s")).toBe("open,done");
+    });
+  });
+
+  it("changing sort writes ?sort to the URL and dropping back to default removes it", async () => {
+    seedTodos([
+      {
+        completed: false,
+        createdAt: 1,
+        id: "a",
+        labels: [],
+        title: "T",
+        updatedAt: 1,
+      },
+    ]);
+    const { user } = await renderApp();
+    const select = screen.getByLabelText(/sort by/i) as HTMLSelectElement;
+    await user.selectOptions(select, "titleAsc");
+    await waitFor(() => {
+      expect(mockSearchParams.get("sort")).toBe("titleAsc");
+    });
+    await user.selectOptions(select, "createdDesc");
+    await waitFor(() => {
+      expect(mockSearchParams.has("sort")).toBe(false);
+    });
   });
 });

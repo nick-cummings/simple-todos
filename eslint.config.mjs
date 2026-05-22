@@ -131,11 +131,17 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unused-expressions": "off",
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/unbound-method": "off",
+      // Test files frequently group many small integration cases —
+      // splitting them across files is more friction than signal.
+      "max-lines": "off",
       "no-console": "off",
       "security/detect-non-literal-regexp": "off",
       "security/detect-object-injection": "off",
       "sonarjs/cognitive-complexity": "off",
       "sonarjs/different-types-comparison": "off",
+      // Test-only Error Boundary implementations return ReactNode but
+      // SonarJS sees the JSX/children branches as different shapes.
+      "sonarjs/function-return-type": "off",
       "sonarjs/no-alphabetical-sort": "off",
       "sonarjs/no-duplicate-string": "off",
       "sonarjs/no-hardcoded-ip": "off",
