@@ -5,6 +5,8 @@ locals {
   has_upstash_creds     = var.upstash_email != "" && var.upstash_api_key != ""
   has_vapid             = var.vapid_public_key != "" && var.vapid_private_key != ""
   has_cron_secret       = var.cron_secret != ""
+  has_sentry_dsn        = var.sentry_dsn != ""
+  has_sentry_sourcemaps = var.sentry_auth_token != "" && var.sentry_org != "" && var.sentry_project != ""
 }
 
 resource "vercel_project" "app" {
@@ -52,8 +54,8 @@ resource "vercel_project_environment_variable" "anthropic_api_key" {
 # present so a fresh clone without Upstash creds still plans cleanly
 # (the route falls back to an in-memory limiter).
 resource "upstash_redis_database" "ratelimit" {
-  count          = local.has_upstash_creds ? 1 : 0
-  database_name  = "${var.project_name}-ratelimit"
+  count         = local.has_upstash_creds ? 1 : 0
+  database_name = "${var.project_name}-ratelimit"
   # Upstash deprecated single-region "regional" databases in favor of
   # "global" databases that pick a primary + replicas. region="global"
   # tells the API to provision a global DB; primary_region picks the
@@ -124,4 +126,41 @@ resource "vercel_project_environment_variable" "cron_secret" {
   value      = var.cron_secret
   target     = ["production", "preview"]
   sensitive  = true
+}
+
+# Sentry. The DSN ships to the client as NEXT_PUBLIC_SENTRY_DSN so the
+# @sentry/nextjs SDK can initialize in the browser; the auth-token
+# trio is build-time-only for source map upload via withSentryConfig.
+# All four are independently optional — see [ADR 0011].
+resource "vercel_project_environment_variable" "sentry_dsn" {
+  count      = local.has_sentry_dsn ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "NEXT_PUBLIC_SENTRY_DSN"
+  value      = var.sentry_dsn
+  target     = ["production", "preview"]
+}
+
+resource "vercel_project_environment_variable" "sentry_auth_token" {
+  count      = local.has_sentry_sourcemaps ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "SENTRY_AUTH_TOKEN"
+  value      = var.sentry_auth_token
+  target     = ["production", "preview"]
+  sensitive  = true
+}
+
+resource "vercel_project_environment_variable" "sentry_org" {
+  count      = local.has_sentry_sourcemaps ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "SENTRY_ORG"
+  value      = var.sentry_org
+  target     = ["production", "preview"]
+}
+
+resource "vercel_project_environment_variable" "sentry_project" {
+  count      = local.has_sentry_sourcemaps ? 1 : 0
+  project_id = vercel_project.app.id
+  key        = "SENTRY_PROJECT"
+  value      = var.sentry_project
+  target     = ["production", "preview"]
 }

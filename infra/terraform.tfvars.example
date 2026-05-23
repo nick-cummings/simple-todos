@@ -11,3 +11,11 @@
 # upstash_email        = "you@example.com"            # optional, enables real cross-instance rate limit
 # upstash_api_key      = "..."                         # https://console.upstash.com/account/api
 # upstash_redis_region = "us-east-1"                   # default us-east-1 (closer to Vercel iad1 lambdas)
+
+# Sentry — all four optional. Leaving them empty disables Sentry entirely.
+#   sentry_dsn         is the only one needed to turn on error reporting.
+#   The auth_token/org/project trio is build-time only, for source map upload.
+# sentry_dsn        = "https://<key>@oXXXX.ingest.sentry.io/<project-id>"
+# sentry_auth_token = "sntrys_..."                     # https://<org>.sentry.io/settings/auth-tokens/
+# sentry_org        = "your-org-slug"
+# sentry_project    = "simple-todos"
