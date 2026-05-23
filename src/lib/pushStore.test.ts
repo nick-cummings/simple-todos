@@ -7,6 +7,7 @@ import {
   getReminder,
   getSubscription,
   listReminders,
+  markReminderSent,
   type PushSubscriptionRecord,
   type ReminderRecord,
   saveReminder,
@@ -180,5 +181,27 @@ describe("pushStore reminders", () => {
     const list = await listReminders();
     expect(list.map((r) => r.id)).toEqual(["r1"]); // mget returns the record from r2 under r1 key match
     // (The point is we get one record back and don't crash.)
+  });
+});
+
+describe("pushStore markReminderSent", () => {
+  it("writes sentAt onto an existing reminder and preserves the rest", async () => {
+    await saveReminder(REMINDER);
+    const ok = await markReminderSent("r1", 12_345_678);
+    expect(ok).toBe(true);
+    const after = await getReminder("r1");
+    expect(after).toEqual({ ...REMINDER, sentAt: 12_345_678 });
+  });
+
+  it("returns false when the reminder has already been deleted", async () => {
+    const ok = await markReminderSent("never-existed", Date.now());
+    expect(ok).toBe(false);
+  });
+
+  it("overwrites a previous sentAt rather than appending", async () => {
+    await saveReminder({ ...REMINDER, sentAt: 1 });
+    await markReminderSent("r1", 999);
+    const after = await getReminder("r1");
+    expect(after?.sentAt).toBe(999);
   });
 });

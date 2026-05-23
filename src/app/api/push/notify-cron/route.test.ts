@@ -6,6 +6,7 @@ const listReminders = vi.fn();
 const getSubscription = vi.fn();
 const deleteReminder = vi.fn();
 const deleteSubscription = vi.fn();
+const markReminderSent = vi.fn();
 const sendReminderPush = vi.fn();
 
 vi.mock("@/lib/pushStore", () => ({
@@ -13,6 +14,7 @@ vi.mock("@/lib/pushStore", () => ({
   deleteSubscription: (...a: unknown[]) => deleteSubscription(...a),
   getSubscription: (...a: unknown[]) => getSubscription(...a),
   listReminders: (...a: unknown[]) => listReminders(...a),
+  markReminderSent: (...a: unknown[]) => markReminderSent(...a),
 }));
 
 vi.mock("@/lib/webPush", () => ({
@@ -66,6 +68,9 @@ beforeEach(() => {
   deleteReminder.mockReset();
   deleteSubscription.mockReset();
   sendReminderPush.mockReset();
+  markReminderSent.mockReset();
+  // Default markReminderSent to resolve true (record found + updated).
+  markReminderSent.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -114,6 +119,7 @@ describe("GET /api/push/notify-cron — dispatch", () => {
     const res = await GET(makeRequest(`Bearer ${SECRET}`));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      deduped: 0,
       expired: 0,
       failed: 0,
       sent: 0,
@@ -131,6 +137,7 @@ describe("GET /api/push/notify-cron — dispatch", () => {
     const res = await GET(makeRequest(`Bearer ${SECRET}`));
     const body = await res.json();
     expect(body).toEqual({
+      deduped: 0,
       expired: 0,
       failed: 0,
       sent: 0,
@@ -141,7 +148,7 @@ describe("GET /api/push/notify-cron — dispatch", () => {
     expect(deleteReminder).not.toHaveBeenCalled();
   });
 
-  it("sends + deletes a due reminder when subscription exists", async () => {
+  it("sends + marks sent + deletes a due reminder when subscription exists", async () => {
     const r = makeReminder({ id: "r1" });
     listReminders.mockResolvedValueOnce([r]);
     getSubscription.mockResolvedValueOnce({
@@ -158,7 +165,13 @@ describe("GET /api/push/notify-cron — dispatch", () => {
     const body = await res.json();
     expect(body.sent).toBe(1);
     expect(sendReminderPush).toHaveBeenCalledTimes(1);
+    // markReminderSent fires BEFORE deleteReminder so a crash between
+    // the two leaves a recoverable marker for the next cron run.
+    expect(markReminderSent).toHaveBeenCalledWith("r1", expect.any(Number));
     expect(deleteReminder).toHaveBeenCalledWith("r1");
+    const markedOrder = markReminderSent.mock.invocationCallOrder[0]!;
+    const deletedOrder = deleteReminder.mock.invocationCallOrder[0]!;
+    expect(markedOrder).toBeLessThan(deletedOrder);
     expect(deleteSubscription).not.toHaveBeenCalled();
   });
 
@@ -293,5 +306,81 @@ describe("GET /api/push/notify-cron — dispatch", () => {
     expect(sendReminderPush).toHaveBeenCalledTimes(1);
     expect(deleteReminder).toHaveBeenCalledWith("r-a");
     expect(deleteReminder).toHaveBeenCalledWith("r-b");
+  });
+});
+
+describe("GET /api/push/notify-cron — idempotency", () => {
+  it("skips and cleans up a reminder whose sentAt is within the dedupe window", async () => {
+    // sentAt is 1 hour ago — well inside the 6h dedupe window.
+    const recentlySent = makeReminder({
+      id: "r-recent",
+      sentAt: Date.now() - 60 * 60 * 1000,
+    });
+    listReminders.mockResolvedValueOnce([recentlySent]);
+    const { GET } = await importRoute();
+    const res = await GET(makeRequest(`Bearer ${SECRET}`));
+    const body = await res.json();
+    expect(body.deduped).toBe(1);
+    expect(body.sent).toBe(0);
+    expect(sendReminderPush).not.toHaveBeenCalled();
+    expect(markReminderSent).not.toHaveBeenCalled();
+    // Still deletes the marker so it doesn't accumulate.
+    expect(deleteReminder).toHaveBeenCalledWith("r-recent");
+    // Never touched the subscription.
+    expect(getSubscription).not.toHaveBeenCalled();
+  });
+
+  it("re-sends when sentAt is older than the dedupe window", async () => {
+    // sentAt is 24 hours ago — past the 6h dedupe window. Treat as
+    // a brand new delivery (rare path: cron skipped a run AND the
+    // delete failed, so the record outlived its dedupe).
+    const stale = makeReminder({
+      id: "r-stale",
+      sentAt: Date.now() - 24 * 60 * 60 * 1000,
+    });
+    listReminders.mockResolvedValueOnce([stale]);
+    getSubscription.mockResolvedValueOnce({
+      browserId: "b1",
+      createdAt: 0,
+      subscription: {
+        endpoint: "https://x",
+        keys: { auth: "a", p256dh: "p" },
+      },
+    });
+    sendReminderPush.mockResolvedValueOnce({ status: "sent" });
+    const { GET } = await importRoute();
+    const res = await GET(makeRequest(`Bearer ${SECRET}`));
+    const body = await res.json();
+    expect(body.deduped).toBe(0);
+    expect(body.sent).toBe(1);
+    expect(sendReminderPush).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not dedupe a reminder that has never been sent (no sentAt)", async () => {
+    const fresh = makeReminder({ id: "r-fresh" });
+    expect(fresh.sentAt).toBeUndefined();
+    listReminders.mockResolvedValueOnce([fresh]);
+    getSubscription.mockResolvedValueOnce({
+      browserId: "b1",
+      createdAt: 0,
+      subscription: {
+        endpoint: "https://x",
+        keys: { auth: "a", p256dh: "p" },
+      },
+    });
+    sendReminderPush.mockResolvedValueOnce({ status: "sent" });
+    const { GET } = await importRoute();
+    const res = await GET(makeRequest(`Bearer ${SECRET}`));
+    const body = await res.json();
+    expect(body.deduped).toBe(0);
+    expect(body.sent).toBe(1);
+  });
+
+  it("includes a `deduped` counter in the summary", async () => {
+    listReminders.mockResolvedValueOnce([]);
+    const { GET } = await importRoute();
+    const res = await GET(makeRequest(`Bearer ${SECRET}`));
+    const body = await res.json();
+    expect(body).toHaveProperty("deduped", 0);
   });
 });
