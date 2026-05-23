@@ -85,3 +85,33 @@ variable "cron_secret" {
   default     = ""
   sensitive   = true
 }
+
+# ----- Sentry --------------------------------------------------------
+# All four are optional; with none set the @sentry/nextjs SDK silently
+# no-ops in production. Set sentry_dsn to start capturing; add the
+# auth token + org + project trio to get deminified stack traces.
+
+variable "sentry_dsn" {
+  description = "Sentry project DSN (https://docs.sentry.io/concepts/key-terms/dsn-explainer/). Shipped to the client as NEXT_PUBLIC_SENTRY_DSN. Leave empty to disable Sentry reporting entirely."
+  type        = string
+  default     = ""
+}
+
+variable "sentry_auth_token" {
+  description = "Sentry auth token with org-level `project:releases` scope. Used at build time by withSentryConfig to upload source maps. Optional — without it, Sentry events show minified stack traces."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "sentry_org" {
+  description = "Sentry organization slug. Required if sentry_auth_token is set."
+  type        = string
+  default     = ""
+}
+
+variable "sentry_project" {
+  description = "Sentry project slug. Required if sentry_auth_token is set."
+  type        = string
+  default     = ""
+}
