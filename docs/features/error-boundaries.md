@@ -63,12 +63,20 @@ because happy-dom can't render `<html>/<body>` inside a test
 container. The default export still wraps it in the html/body that
 Next requires.
 
-## Where logs go today
+## Where logs go
 
-`console.error` only. Errors in `error.tsx` / `global-error.tsx` log
-themselves on mount but don't go to a remote sink. Production errors
-on the iPhone PWA are silent unless DevTools is attached — which is
-the gap Sentry fills in PR 3.
+Both boundaries call `Sentry.captureException(error, { tags:
+{ boundary: ... } })` on mount, in addition to a `console.error` log
+for in-process DevTools debugging. Sentry events are tagged:
+
+- `boundary: page` for `error.tsx`
+- `boundary: global` for `global-error.tsx`
+- `runtime: browser` is added by the SDK init
+
+Sentry's SDK no-ops if `NEXT_PUBLIC_SENTRY_DSN` is unset, so local
+dev and preview deploys remain zero-cost. See
+[ADR 0011](../decisions/0011-sentry-for-error-reporting.md) and
+[observability.md](../observability.md).
 
 ## References
 
@@ -76,4 +84,5 @@ the gap Sentry fills in PR 3.
 - Tests: `src/app/error.test.tsx`, `src/app/global-error.test.tsx`
 - Next docs:
   `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/error.md`
-- Related: [observability.md](../observability.md) (planned Sentry)
+- Related: [observability.md](../observability.md),
+  [ADR 0011](../decisions/0011-sentry-for-error-reporting.md)

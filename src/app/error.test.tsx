@@ -3,6 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Mock Sentry at the module boundary so we can assert capture
+// without initializing the real SDK in tests. `vi.hoisted` keeps the
+// spy visible to the hoisted `vi.mock` factory.
+const { captureException } = vi.hoisted(() => ({
+  captureException: vi.fn(),
+}));
+vi.mock("@sentry/nextjs", () => ({ captureException }));
+
 import Error from "./error";
 
 // Generic boundary used to wire <Error> up to a child that throws.
@@ -31,6 +39,7 @@ function Boom(): null {
 beforeEach(() => {
   // Silence the expected console.error log from the boundary itself.
   vi.spyOn(console, "error").mockImplementation(() => undefined);
+  captureException.mockClear();
 });
 
 afterEach(() => {
@@ -96,6 +105,14 @@ describe("<Error> — page-level boundary", () => {
     expect(
       screen.getByRole("heading", { name: /something went wrong/i }),
     ).toBeVisible();
+  });
+
+  it("reports the error to Sentry tagged as boundary=page", () => {
+    const error = new globalThis.Error("captured");
+    render(<Error error={error} unstable_retry={vi.fn()} />);
+    expect(captureException).toHaveBeenCalledWith(error, {
+      tags: { boundary: "page" },
+    });
   });
 
   it("calls location.reload when Reload page is clicked", async () => {

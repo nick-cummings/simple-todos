@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
 import {
@@ -74,7 +75,16 @@ export async function GET(request: Request) {
       cache.set(reminder.browserId, Promise.resolve(null));
     } else {
       failed += 1;
-      // Leave failed reminders in place so the next cron retries.
+      // Surface per-push failures to Sentry with enough context to
+      // diagnose. Leave the reminder in place so the next cron retries.
+      Sentry.captureMessage("Web Push delivery failed", {
+        level: "warning",
+        tags: {
+          area: "push-cron",
+          reminderId: reminder.id,
+          statusCode: outcome.statusCode ?? "unknown",
+        },
+      });
     }
   }
 

@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { withSentryConfig } from "@sentry/nextjs";
+
 const SECURITY_HEADERS = [
   // Block being embedded in iframes anywhere — clickjacking defense.
   { key: "X-Frame-Options", value: "DENY" },
@@ -29,4 +31,20 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// `withSentryConfig` augments the build to upload source maps,
+// inject Sentry's instrumentation, and tunnel client SDK requests
+// through a Next route. With no SENTRY_AUTH_TOKEN it's a no-op for
+// source-map upload; the runtime SDK still works (when DSN is set).
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  // Suppress build-time SDK source map warnings in CI when no auth
+  // token is configured — the SDK still functions at runtime.
+  silent: !process.env.CI,
+  // Tunnel client SDK requests through a same-origin route so ad-
+  // blockers don't drop them. Path is arbitrary; pick something
+  // boring that won't clash with our API surface.
+  tunnelRoute: "/monitoring",
+  // The default upload behavior is fine for our single-app project.
+  widenClientFileUpload: true,
+});
