@@ -49,7 +49,9 @@ afterEach(() => {
 describe("<Settings> — reminders section", () => {
   it("hides the Disable button when reminders are off", async () => {
     await renderSettings();
-    expect(screen.queryByRole("button", { name: /disable reminders/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /disable reminders/i }),
+    ).toBeNull();
     expect(screen.getByText(/reminders are off/i)).toBeInTheDocument();
   });
 
@@ -63,7 +65,9 @@ describe("<Settings> — reminders section", () => {
     reminderState.active = true;
     reminderState.permission = "granted";
     const { user } = await renderSettings();
-    await user.click(screen.getByRole("button", { name: /disable reminders/i }));
+    await user.click(
+      screen.getByRole("button", { name: /disable reminders/i }),
+    );
     await waitFor(() => {
       expect(reminderState.disable).toHaveBeenCalledTimes(1);
     });
@@ -178,9 +182,7 @@ describe("<Settings> — backup section", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent(/1 todos and 1 labels/i);
     // User cancels — no write occurs.
-    await user.click(
-      screen.getByRole("button", { name: /^cancel$/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 

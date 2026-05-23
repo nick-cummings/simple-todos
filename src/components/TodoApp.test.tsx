@@ -587,7 +587,9 @@ describe("<TodoApp> — notification deep-link (?todo=ID)", () => {
     expect(replacedTo).toBeDefined();
     // todo param gone, q preserved.
     const replacedParams = new URLSearchParams(
-      replacedTo!.includes("?") ? replacedTo!.slice(replacedTo!.indexOf("?") + 1) : "",
+      replacedTo!.includes("?")
+        ? replacedTo!.slice(replacedTo!.indexOf("?") + 1)
+        : "",
     );
     expect(replacedParams.get("todo")).toBeNull();
     expect(replacedParams.get("q")).toBe("other");
@@ -667,15 +669,18 @@ describe("<TodoApp> — notification deep-link (?todo=ID)", () => {
     try {
       await renderApp();
       // Fire the message — the listener finds the todo and opens it.
-      for (const fn of listeners) fn({
+      for (const fn of listeners)
+        fn({
           data: { type: "reminder-click", url: "/?todo=from-sw" },
-        } as MessageEvent)
-      ;
+        } as MessageEvent);
       expect(
         await screen.findByRole("dialog", { name: /todo details/i }),
       ).toBeVisible();
     } finally {
-      Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "serviceWorker");
+      Reflect.deleteProperty(
+        navigator as unknown as Record<string, unknown>,
+        "serviceWorker",
+      );
     }
   });
 
@@ -702,13 +707,16 @@ describe("<TodoApp> — notification deep-link (?todo=ID)", () => {
     });
     try {
       await renderApp();
-      for (const fn of listeners) fn({ data: { type: "something-else" } } as MessageEvent)
-      ;
+      for (const fn of listeners)
+        fn({ data: { type: "something-else" } } as MessageEvent);
       // No dialog opened.
       await new Promise((r) => setTimeout(r, 30));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     } finally {
-      Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "serviceWorker");
+      Reflect.deleteProperty(
+        navigator as unknown as Record<string, unknown>,
+        "serviceWorker",
+      );
     }
   });
 
@@ -735,14 +743,17 @@ describe("<TodoApp> — notification deep-link (?todo=ID)", () => {
     });
     try {
       await renderApp();
-      for (const fn of listeners) fn({
+      for (const fn of listeners)
+        fn({
           data: { type: "reminder-click", url: "::not a url::" },
-        } as MessageEvent)
-      ;
+        } as MessageEvent);
       await new Promise((r) => setTimeout(r, 30));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     } finally {
-      Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "serviceWorker");
+      Reflect.deleteProperty(
+        navigator as unknown as Record<string, unknown>,
+        "serviceWorker",
+      );
     }
   });
 });

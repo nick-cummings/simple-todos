@@ -33,8 +33,7 @@ const mockReplace = vi.fn((href: string) => {
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useRouter: () => ({ replace: mockReplace }),
-  useSearchParams: () =>
-    useSyncExternalStore(subscribe, snapshot, snapshot),
+  useSearchParams: () => useSyncExternalStore(subscribe, snapshot, snapshot),
 }));
 
 async function importHook() {
@@ -60,7 +59,9 @@ describe("useFilterParams — defaults", () => {
   });
 
   it("parses values when params are pre-populated", async () => {
-    storeParams = new URLSearchParams("q=mail&sort=titleAsc&l=work,urgent&s=done");
+    storeParams = new URLSearchParams(
+      "q=mail&sort=titleAsc&l=work,urgent&s=done",
+    );
     const useFilterParams = await importHook();
     const { result } = renderHook(() => useFilterParams());
     expect(result.current.query).toBe("mail");

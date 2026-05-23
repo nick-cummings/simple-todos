@@ -155,9 +155,9 @@ describe("writeBackupToStorage", () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([{ id: "stale" }]));
     const backup = buildBackup([sampleTodo], [sampleLabel]);
     writeBackupToStorage(backup);
-    const todos = JSON.parse(
-      localStorage.getItem(STORAGE_KEY) ?? "[]",
-    ) as { id: string }[];
+    const todos = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as {
+      id: string;
+    }[];
     expect(todos.map((t) => t.id)).toEqual(["t1"]);
   });
 });

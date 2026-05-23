@@ -32,9 +32,7 @@ export default function Settings() {
 
   const [busy, setBusy] = useState(false);
   const [importMessage, setImportMessage] = useState<
-    | null
-    | { kind: "error"; text: string }
-    | { kind: "success"; text: string }
+    null | { kind: "error"; text: string } | { kind: "success"; text: string }
   >(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [confirmingImport, setConfirmingImport] = useState<null | {
@@ -147,7 +145,9 @@ export default function Settings() {
         <h2 className="text-base font-semibold" id="reminders-heading">
           Reminders
         </h2>
-        <p className="text-[13px] text-muted">{remindersCopy(remindersActive, permission)}</p>
+        <p className="text-[13px] text-muted">
+          {remindersCopy(remindersActive, permission)}
+        </p>
         {remindersActive && (
           <div>
             <button
@@ -172,9 +172,9 @@ export default function Settings() {
           Backup
         </h2>
         <p className="text-[13px] text-muted">
-          Your todos live in this browser&rsquo;s local storage. Export a
-          JSON file periodically — if you clear browser data or switch
-          devices, you&rsquo;ll need it.
+          Your todos live in this browser&rsquo;s local storage. Export a JSON
+          file periodically — if you clear browser data or switch devices,
+          you&rsquo;ll need it.
         </p>
         <div className="flex flex-wrap gap-2">
           <button

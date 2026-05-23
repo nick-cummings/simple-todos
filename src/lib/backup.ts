@@ -77,8 +77,7 @@ export function parseBackup(raw: string): BackupFile {
     throw new BackupParseError("Backup is missing a valid `labels` array.");
   }
   return {
-    exportedAt:
-      typeof parsed.exportedAt === "string" ? parsed.exportedAt : "",
+    exportedAt: typeof parsed.exportedAt === "string" ? parsed.exportedAt : "",
     labels,
     todos,
     version: CURRENT_BACKUP_VERSION,

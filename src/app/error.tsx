@@ -29,9 +29,8 @@ export default function PageErrorBoundary({
         Something went wrong
       </h1>
       <p className="text-muted">
-        The page hit an unexpected error. Your todos are stored in this
-        browser and aren&rsquo;t affected — they&rsquo;ll still be there
-        after a reload.
+        The page hit an unexpected error. Your todos are stored in this browser
+        and aren&rsquo;t affected — they&rsquo;ll still be there after a reload.
       </p>
       {error.digest && (
         <p className="text-faint text-[13px]">

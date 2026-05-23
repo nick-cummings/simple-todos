@@ -119,9 +119,7 @@ test.describe("Settings page", () => {
     await expect(page.getByText("beta")).not.toBeVisible();
     // Reload and confirm the search persists.
     await page.reload();
-    await expect(
-      page.getByPlaceholder(/search todos/i),
-    ).toHaveValue("alp");
+    await expect(page.getByPlaceholder(/search todos/i)).toHaveValue("alp");
     await expect(page.getByText("alpha")).toBeVisible();
     await expect(page.getByText("beta")).not.toBeVisible();
   });
