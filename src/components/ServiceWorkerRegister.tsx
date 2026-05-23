@@ -9,6 +9,11 @@ export default function ServiceWorkerRegister() {
     if (!isBrowser()) return;
     if (!("serviceWorker" in navigator)) return;
     if (process.env.NODE_ENV !== "production") return;
+    // Allow Playwright (running against a production build) to opt
+    // out of SW registration. WebKit's SW + page.route() ordering
+    // makes mocked POSTs unreliable; we test SW logic via dedicated
+    // unit/integration tests instead.
+    if (process.env.NEXT_PUBLIC_DISABLE_SW === "1") return;
 
     const onLoad = () => {
       navigator.serviceWorker

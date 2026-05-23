@@ -26,6 +26,12 @@ export default defineConfig({
   testDir: "./tests/e2e",
   use: {
     baseURL: BASE_URL,
+    // Grant geolocation up-front with a stub fix so the AI feature's
+    // `getCurrentPosition` resolves instantly across browsers, instead
+    // of waiting the 6s in-app timeout. Tests don't care about the
+    // value, only that the call doesn't block.
+    geolocation: { latitude: 37.7749, longitude: -122.4194 },
+    permissions: ["geolocation"],
     trace: "on-first-retry",
     video: "retain-on-failure",
   },

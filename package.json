@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:test": "PLAYWRIGHT=1 PORT=4321 NEXT_PUBLIC_VAPID_PUBLIC_KEY=BNbxGYNMhEIi9zrneh7l_RTPiLLMfS1cN3pXdQXBb3IOmcZdLxR next dev",
+    "start:test": "NEXT_PUBLIC_VAPID_PUBLIC_KEY=BNbxGYNMhEIi9zrneh7l_RTPiLLMfS1cN3pXdQXBb3IOmcZdLxR NEXT_PUBLIC_DISABLE_SW=1 next build && PORT=4321 next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix .",
     "format": "prettier --write . && eslint --fix .",
