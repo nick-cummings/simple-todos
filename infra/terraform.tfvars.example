@@ -17,5 +17,5 @@
 #   The auth_token/org/project trio is build-time only, for source map upload.
 # sentry_dsn        = "https://<key>@oXXXX.ingest.sentry.io/<project-id>"
 # sentry_auth_token = "sntrys_..."                     # https://<org>.sentry.io/settings/auth-tokens/
-# sentry_org        = "your-org-slug"
+# sentry_org        = "your-org-slug"     # the URL slug, not the display name (e.g. "nick-cummings", not "Nick Cummings")
 # sentry_project    = "simple-todos"
