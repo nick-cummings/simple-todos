@@ -61,3 +61,6 @@ TESTING_PLAN.md
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Sentry build artifacts — uploaded source maps shouldn't be served.
+.sentryclirc

@@ -24,6 +24,7 @@ Template: [TEMPLATE.md](./TEMPLATE.md)
 | 0008 | [When a feature splits into "hook + caller", test the seam](./0008-integration-tests-on-the-wiring-seam.md) | accepted |
 | 0009 | [Playwright in CI: 4 workers + official container](./0009-playwright-container-and-workers.md)              | accepted |
 | 0010 | [Disable the service worker in the Playwright test build](./0010-disable-sw-in-playwright.md)               | accepted |
+| 0011 | [Sentry for error reporting](./0011-sentry-for-error-reporting.md)                                          | accepted |
 
 ## Numbering
 

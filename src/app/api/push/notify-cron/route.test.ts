@@ -19,6 +19,11 @@ vi.mock("@/lib/webPush", () => ({
   sendReminderPush: (...a: unknown[]) => sendReminderPush(...a),
 }));
 
+const { captureMessage } = vi.hoisted(() => ({
+  captureMessage: vi.fn(),
+}));
+vi.mock("@sentry/nextjs", () => ({ captureMessage }));
+
 const ORIGINAL_ENV = { ...process.env };
 const SECRET = "test-cron-secret-32-chars-min-xx";
 
@@ -200,6 +205,36 @@ describe("GET /api/push/notify-cron — dispatch", () => {
     const body = await res.json();
     expect(body.failed).toBe(1);
     expect(deleteReminder).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed delivery to Sentry with reminder context", async () => {
+    const r = makeReminder({ id: "r-failed" });
+    listReminders.mockResolvedValueOnce([r]);
+    getSubscription.mockResolvedValueOnce({
+      browserId: "b1",
+      createdAt: 0,
+      subscription: {
+        endpoint: "https://x",
+        keys: { auth: "a", p256dh: "p" },
+      },
+    });
+    sendReminderPush.mockResolvedValueOnce({
+      status: "failed",
+      statusCode: 502,
+    });
+    const { GET } = await importRoute();
+    await GET(makeRequest(`Bearer ${SECRET}`));
+    expect(captureMessage).toHaveBeenCalledWith(
+      "Web Push delivery failed",
+      expect.objectContaining({
+        level: "warning",
+        tags: expect.objectContaining({
+          area: "push-cron",
+          reminderId: "r-failed",
+          statusCode: 502,
+        }),
+      }),
+    );
   });
 
   it("deletes orphan reminders whose subscription is missing", async () => {

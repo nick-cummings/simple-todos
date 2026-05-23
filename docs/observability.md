@@ -1,38 +1,40 @@
 # Observability
 
-> **Status:** partial. This doc describes both what exists today and the
-> planned Sentry + PostHog wiring. Sections marked **(planned)** ship in
-> later PRs.
-
 ## What we have today
 
-| Source                  | Sink             | What it captures                                |
-| ----------------------- | ---------------- | ----------------------------------------------- |
-| Client `console.error`  | Browser console  | Anything that throws, including React renders.  |
-| `error.tsx`             | Browser console  | Page-level boundary catches; logged on mount.   |
-| `global-error.tsx`      | Browser console  | Root-layout boundary catches; logged on mount.  |
-| Server `console.error`  | Vercel logs      | API route exceptions, cron handler errors.      |
-| Vercel platform metrics | Vercel dashboard | Build, deploy, function durations, error rates. |
+| Source                  | Sink             | What it captures                                                  |
+| ----------------------- | ---------------- | ----------------------------------------------------------------- |
+| Sentry — browser SDK    | Sentry           | Client-side unhandled errors, including React render boundaries.  |
+| Sentry — Node SDK       | Sentry           | API route exceptions via Next's `onRequestError` instrumentation. |
+| Sentry — explicit calls | Sentry           | Page-level + root-layout boundaries; per-push failures in cron.   |
+| `console.error`         | Browser / Vercel | Same events, kept for in-process DevTools debugging.              |
+| Vercel platform metrics | Vercel dashboard | Build, deploy, function durations, error rates.                   |
 
-For day-one solo development this is enough, but it has clear blind
-spots: anything that happens on the author's iPhone PWA when DevTools
-isn't attached is silent. The next PR fixes that.
+### Sentry tagging
+
+| Tag        | Values                        | Meaning                                              |
+| ---------- | ----------------------------- | ---------------------------------------------------- |
+| `runtime`  | `browser` / `nodejs` / `edge` | Where the event originated. Set by SDK init.         |
+| `boundary` | `page` / `global`             | Which React Error Boundary caught (when applicable). |
+| `area`     | `push-cron`                   | Component / pipeline the event is about.             |
+
+See [ADR 0011](./decisions/0011-sentry-for-error-reporting.md) for the
+"why this over Slack / self-hosted" decision and the full set of
+consequences.
+
+### Required env vars
+
+| Variable                 | Used at     | Notes                                              |
+| ------------------------ | ----------- | -------------------------------------------------- |
+| `NEXT_PUBLIC_SENTRY_DSN` | build + run | Without it the SDK silently no-ops. Set in Vercel. |
+| `SENTRY_AUTH_TOKEN`      | build only  | Source map upload during `next build`. Optional.   |
+| `SENTRY_ORG`             | build only  | Source map upload target.                          |
+| `SENTRY_PROJECT`         | build only  | Source map upload target.                          |
+
+If `NEXT_PUBLIC_SENTRY_DSN` is unset locally, dev and previews stay
+zero-cost — the SDK initializes to a no-op.
 
 ## Planned wiring
-
-### Sentry (planned — PR 3)
-
-- `@sentry/nextjs` SDK on client + server.
-- Captures unhandled errors from client React boundaries, server
-  exceptions in API routes, and cron handler errors.
-- Source maps uploaded so stack traces deminify.
-- Tagged by feature (`reminders`, `ai-description`, etc.) so we can
-  filter noise quickly.
-- Sampling: 100% errors, no perf transactions yet (perf goes to
-  PostHog instead).
-
-ADR: [decisions/0011-sentry-for-error-reporting.md](./decisions/0011-sentry-for-error-reporting.md)
-(written in PR 3).
 
 ### PostHog (planned — PR 7)
 
@@ -47,29 +49,29 @@ ADR: [decisions/0013-posthog-for-analytics.md](./decisions/0013-posthog-for-anal
 
 ## What to watch for in production
 
-A short list, not yet automated as alerts:
+- **Spike in `boundary=page` or `boundary=global` events** — something
+  recently shipped is throwing. Filter Sentry by `boundary` tag.
+- **`area=push-cron` warnings** — Web Push delivery failing for the
+  author's device. `statusCode` tag tells you whether it's a transient
+  5xx or a permanent 410. Per-device 410s mean a dead subscription
+  that should be GC'd.
+- **Cron not running** — Vercel Cron is hobby-tier and silently skips
+  on outages. Sentry won't catch this (no exception is thrown).
+  Check `Vercel dashboard → Cron Jobs` history.
+- **`reminder:*` keys piling up in Upstash without firing** — means
+  the cron is hitting the route but failing past the auth step.
+  Inspect Vercel function logs.
 
-- **Spike in `error.tsx` activations** — surface area changed and
-  something started throwing on mount.
-- **Cron not running** — Vercel Cron is hobby-tier and silently skips on
-  outages. Check `Vercel dashboard → Cron Jobs` history.
-- **`reminder:*` keys piling up in Upstash without firing** — means the
-  cron is hitting the route but failing past the auth step. Inspect
-  Vercel function logs.
-- **Push subscription failures** — `web-push` returns a 410 GONE when a
-  subscription is dead. We don't currently delete on 410; should add to
-  the cron once we have observability to confirm the pattern.
+## How to debug a production issue
 
-## How to debug a production issue today
-
-1. Reproduce in Chrome DevTools with the production URL.
-2. If client-side: open the Application tab → Service Workers, look at
-   the cached responses. Sometimes the SW is serving stale shell.
+1. Check Sentry first. Filter by `runtime`, `boundary`, or `area`
+   tags to find the relevant events.
+2. If client-side and Sentry has nothing useful: reproduce in Chrome
+   DevTools against the production URL. The Application tab → Service
+   Workers panel sometimes reveals a stale shell.
 3. If server-side: `vercel logs <deployment-url> --follow` (requires
-   `vercel` CLI logged in).
-4. If reminder-related: inspect Upstash directly via the dashboard. The
-   `reminder:*` keys are JSON; you can grep `fireAt` to see what should
-   be firing.
-
-The Sentry PR will make most of step 1 unnecessary by tagging incidents
-automatically.
+   `vercel` CLI logged in). Sentry should already have the exception
+   if it was an uncaught throw.
+4. If reminder-related: inspect Upstash directly via its dashboard.
+   `reminder:*` keys are JSON; grep `fireAt` to see what should be
+   firing.

@@ -2,6 +2,7 @@
 
 import "./globals.css";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
 interface GlobalErrorProps {
@@ -40,6 +41,9 @@ export default function GlobalError({
 // component the tests render in isolation.
 export function GlobalErrorBody({ error, unstable_retry }: GlobalErrorProps) {
   useEffect(() => {
+    Sentry.captureException(error, {
+      tags: { boundary: "global" },
+    });
     console.error("Global error boundary caught:", error);
   }, [error]);
 

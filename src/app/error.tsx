@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
 interface ErrorProps {
@@ -14,9 +15,12 @@ export default function PageErrorBoundary({
   unstable_retry,
 }: ErrorProps) {
   useEffect(() => {
-    // Log to console so the user can see what happened in DevTools.
-    // (No remote error reporter is wired up yet; that's a future
-    // production-readiness ticket.)
+    // Tag this stream so we can filter "page-level" vs
+    // "global-error" boundary hits in the Sentry UI.
+    Sentry.captureException(error, {
+      tags: { boundary: "page" },
+    });
+    // Still log to console for in-browser DevTools debugging.
     console.error("Page-level error boundary caught:", error);
   }, [error]);
 

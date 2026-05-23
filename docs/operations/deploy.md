@@ -21,16 +21,20 @@ Set in Vercel via Terraform (`infra/main.tf` → `vercel_project_environment_var
 resources). The local source of truth is `infra/terraform.tfvars`
 (gitignored).
 
-| Variable                       | Where used                  | Notes                                           |
-| ------------------------------ | --------------------------- | ----------------------------------------------- |
-| `ANTHROPIC_API_KEY`            | `/api/generate-description` | Server-only.                                    |
-| `UPSTASH_REDIS_REST_URL`       | `src/lib/pushStore.ts`      | Server-only.                                    |
-| `UPSTASH_REDIS_REST_TOKEN`     | `src/lib/pushStore.ts`      | Server-only.                                    |
-| `VAPID_PUBLIC_KEY`             | build-time → client         | Public key half.                                |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | build-time → client         | Mirror of above with the `NEXT_PUBLIC_` prefix. |
-| `VAPID_PRIVATE_KEY`            | `src/lib/webPush.ts`        | Server-only.                                    |
-| `VAPID_SUBJECT`                | `src/lib/webPush.ts`        | `mailto:` for Web Push.                         |
-| `CRON_SECRET`                  | `/api/push/notify-cron`     | Vercel Cron auto-attaches as bearer.            |
+| Variable                       | Where used                  | Notes                                            |
+| ------------------------------ | --------------------------- | ------------------------------------------------ |
+| `ANTHROPIC_API_KEY`            | `/api/generate-description` | Server-only.                                     |
+| `UPSTASH_REDIS_REST_URL`       | `src/lib/pushStore.ts`      | Server-only.                                     |
+| `UPSTASH_REDIS_REST_TOKEN`     | `src/lib/pushStore.ts`      | Server-only.                                     |
+| `VAPID_PUBLIC_KEY`             | build-time → client         | Public key half.                                 |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | build-time → client         | Mirror of above with the `NEXT_PUBLIC_` prefix.  |
+| `VAPID_PRIVATE_KEY`            | `src/lib/webPush.ts`        | Server-only.                                     |
+| `VAPID_SUBJECT`                | `src/lib/webPush.ts`        | `mailto:` for Web Push.                          |
+| `CRON_SECRET`                  | `/api/push/notify-cron`     | Vercel Cron auto-attaches as bearer.             |
+| `NEXT_PUBLIC_SENTRY_DSN`       | Sentry SDK init             | Required for Sentry to send. Unset = SDK no-ops. |
+| `SENTRY_AUTH_TOKEN`            | `withSentryConfig` build    | Optional; needed for source-map upload.          |
+| `SENTRY_ORG`                   | `withSentryConfig` build    | Optional; pairs with `SENTRY_AUTH_TOKEN`.        |
+| `SENTRY_PROJECT`               | `withSentryConfig` build    | Optional; pairs with `SENTRY_AUTH_TOKEN`.        |
 
 ## Applying infrastructure changes
 

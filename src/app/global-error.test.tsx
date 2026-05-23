@@ -2,10 +2,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { captureException } = vi.hoisted(() => ({
+  captureException: vi.fn(),
+}));
+vi.mock("@sentry/nextjs", () => ({ captureException }));
+
 import { GlobalErrorBody } from "./global-error";
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
+  captureException.mockClear();
 });
 
 afterEach(() => {
@@ -69,5 +75,13 @@ describe("<GlobalError> — root-layout boundary", () => {
       expect.stringContaining("Global error boundary"),
       error,
     );
+  });
+
+  it("reports the error to Sentry tagged as boundary=global", () => {
+    const error = new globalThis.Error("captured");
+    render(<GlobalErrorBody error={error} unstable_retry={vi.fn()} />);
+    expect(captureException).toHaveBeenCalledWith(error, {
+      tags: { boundary: "global" },
+    });
   });
 });

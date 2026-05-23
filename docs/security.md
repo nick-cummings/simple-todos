@@ -96,8 +96,6 @@ settings or the in-app Settings page.
 
 ## Known gaps (tracked)
 
-- **No remote error reporting yet.** Errors fail silently in production
-  for unauthenticated visitors. Sentry integration is the next PR.
 - **No CSP.** See above.
 - **`infra/terraform.tfstate` is checked in.** This is fine because the
   state file holds resource IDs, not secrets; secrets come from
