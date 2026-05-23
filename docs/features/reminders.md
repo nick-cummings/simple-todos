@@ -58,7 +58,10 @@ reminders from [Settings](./settings.md).
 | Key                        | Shape                                                          |
 | -------------------------- | -------------------------------------------------------------- |
 | `subscription:<browserId>` | `{ browserId, createdAt, subscription: PushSubscriptionJSON }` |
-| `reminder:<reminderId>`    | `{ reminderId, browserId, todoId, title, fireAt }`             |
+| `reminder:<reminderId>`    | `{ reminderId, browserId, todoId, title, fireAt, sentAt? }`    |
+
+`sentAt` is set by the cron after a successful Web Push — see
+"Idempotency" below.
 
 `reminderId` is `r-<todoId>`. One reminder per todo at a time;
 updating a todo's due date overwrites the reminder.
@@ -92,23 +95,60 @@ entirely — see [ADR 0008](../decisions/0008-integration-tests-on-the-wiring-se
    bearer).
 2. Scans every `reminder:*` key.
 3. For each with `fireAt <= now`:
+   - **Dedupe check.** If the reminder has a `sentAt` within the
+     last 6 hours, treat it as already delivered: delete and move on
+     without sending. See "Idempotency" below.
    - Looks up the matching `subscription:<browserId>`.
    - Sends a Web Push with payload `{ title, body, todoId, url }`.
-   - Deletes the reminder key.
+   - On success: writes `sentAt`, then deletes the reminder.
+   - On 410 GONE: deletes both reminder and subscription.
 
 If the subscription is missing (browser cleared data or uninstalled
-PWA), the reminder is silently dropped. Web Push 410 GONE responses
-are not yet special-cased — see "Known gaps" below.
+PWA), the reminder is silently dropped.
+
+## Idempotency
+
+The cron's failure mode of concern: it sends a push successfully but
+crashes before the subsequent delete completes. Without dedupe, the
+next run would send the same notification again — at best annoying,
+at worst (for multi-device users in the future) a real volume issue.
+
+The fix has three parts:
+
+1. **`sentAt` on `ReminderRecord`** — set the moment a Web Push
+   succeeds, before the delete fires.
+2. **Two-step "sent" path** — `markReminderSent(id, now)` then
+   `deleteReminder(id)`. The first is a Redis write that updates the
+   record in place; the second removes it. A crash between them
+   leaves a "sent, not deleted" marker.
+3. **Dedupe gate at the top of each loop iteration** — if `sentAt`
+   is set and within `DEDUPE_WINDOW_MS` (6 hours), the cron skips the
+   send and just deletes the stale marker. After 6 hours the window
+   reopens (any reminder that old has had a full daily cron cycle
+   pass) and the normal send path runs again.
+
+The summary JSON the cron returns includes a `deduped` counter so
+this path is observable in the response and (eventually, when wired)
+in metrics.
+
+What this does _not_ protect against: a crash between the successful
+push and the `markReminderSent` write — the next run will resend.
+That's the unavoidable two-phase commit problem; the only way to
+fully close it would be a transactional "send + record" against a
+system that supports both, which Web Push doesn't. Acceptable trade
+since the failure case requires Redis to fail mid-cron, which is
+rare.
 
 ## How it's tested
 
-| Test                                     | Layer       | What it covers                                     |
-| ---------------------------------------- | ----------- | -------------------------------------------------- |
-| `src/lib/useReminders.test.ts`           | Unit        | Subscription flow, fireAt computation, sync POSTs. |
-| `src/lib/pushStore.test.ts`              | Unit        | Redis CRUD shapes.                                 |
-| `src/lib/webPush.test.ts`                | Unit        | VAPID-signed send.                                 |
-| `src/components/TodoApp.test.tsx` (seam) | Integration | `TodoApp` calls `syncTodoReminder` correctly.      |
-| `tests/e2e/reminders.spec.ts`            | E2E         | The gate UI; subscribe POST fires; busy state.     |
+| Test                                         | Layer       | What it covers                                          |
+| -------------------------------------------- | ----------- | ------------------------------------------------------- |
+| `src/lib/useReminders.test.ts`               | Unit        | Subscription flow, fireAt computation, sync POSTs.      |
+| `src/lib/pushStore.test.ts`                  | Unit        | Redis CRUD shapes; `markReminderSent` behavior.         |
+| `src/lib/webPush.test.ts`                    | Unit        | VAPID-signed send.                                      |
+| `src/components/TodoApp.test.tsx` (seam)     | Integration | `TodoApp` calls `syncTodoReminder` correctly.           |
+| `src/app/api/push/notify-cron/route.test.ts` | Integration | Cron dispatch, ordering, dedupe-window, expired/failed. |
+| `tests/e2e/reminders.spec.ts`                | E2E         | The gate UI; subscribe POST fires; busy state.          |
 
 E2E doesn't trigger real notifications — Web Push requires APNs/FCM
 plumbing the test environment doesn't have. The notification surface
@@ -116,12 +156,10 @@ is verified manually on the actual device.
 
 ## Known gaps
 
-- **No 410 GONE handling.** When a subscription endpoint dies, the
-  cron logs the failure but doesn't delete the dead subscription.
-  Builds up over time on multi-device use.
-- **No idempotency in the cron itself.** If `notify-cron` crashes
-  between "send" and "delete", the reminder fires again on the next
-  run. Tracked as PR 4.
+- **410 GONE handling is partial.** The cron deletes the subscription
+  on a 410 from the push service (good), but doesn't have a separate
+  GC for subscriptions that haven't received any reminder recently
+  (so a device that's dead in another way can accumulate).
 - **No timezone awareness.** Reminders fire at 15:00 UTC for everyone.
   Single-user app, so the author just picked a time they're awake.
 

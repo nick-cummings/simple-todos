@@ -32,6 +32,13 @@ export interface ReminderRecord {
   browserId: string;
   fireAt: number; // epoch ms — earliest time the cron may dispatch
   id: string;
+  // epoch ms of the last successful Web Push delivery for this
+  // reminder. The cron writes this before deleting the record so a
+  // crash between "sent" and "delete" leaves a recoverable marker:
+  // the next cron run sees `sentAt` within the dedupe window and
+  // skips + cleans up instead of resending. Unset for never-sent
+  // reminders.
+  sentAt?: number;
   title: string;
   todoId: string;
   url: string; // relative path the notification click opens
@@ -98,6 +105,26 @@ export async function listReminders(): Promise<ReminderRecord[]> {
   return raws
     .map((r) => parseRecord<ReminderRecord>(r))
     .filter((r): r is ReminderRecord => r !== null);
+}
+
+/**
+ * Mark a reminder as sent at the given timestamp. The cron writes
+ * this immediately after a successful Web Push, before deleting the
+ * record, so a crash mid-delete leaves a recoverable marker for the
+ * next cron run to honor (and clean up).
+ *
+ * Returns true if the reminder was found and updated, false if it had
+ * already been deleted between scan and update — both are fine; the
+ * caller proceeds to delete in either case.
+ */
+export async function markReminderSent(
+  id: string,
+  sentAt: number,
+): Promise<boolean> {
+  const existing = await getReminder(id);
+  if (!existing) return false;
+  await saveReminder({ ...existing, sentAt });
+  return true;
 }
 
 export async function saveReminder(record: ReminderRecord): Promise<void> {

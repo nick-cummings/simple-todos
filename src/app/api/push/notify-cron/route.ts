@@ -6,8 +6,18 @@ import {
   deleteSubscription,
   getSubscription,
   listReminders,
+  markReminderSent,
 } from "@/lib/pushStore";
 import { sendReminderPush } from "@/lib/webPush";
+
+// How long after a successful Web Push send do we treat the reminder
+// as "already delivered" if it somehow survives in Redis? The cron
+// runs daily; this window only needs to be long enough that an
+// unintended re-trigger (manual curl, retried cron) within hours of
+// a real send doesn't cause a duplicate notification. 6 hours is the
+// compromise between "definitely longer than any retry storm" and
+// "not so long it would mask a legitimate re-arming".
+const DEDUPE_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 /**
  * Vercel Cron handler. Fires daily (per vercel.json) and dispatches
@@ -47,11 +57,26 @@ export async function GET(request: Request) {
   let sent = 0;
   let expired = 0;
   let failed = 0;
+  let deduped = 0;
   // Avoid double-hitting Upstash for the same browserId during one
   // cron run — many reminders can share a subscription.
   const cache = new Map<string, ReturnType<typeof getSubscription>>();
 
   for (const reminder of due) {
+    // Idempotency gate: if a previous cron run successfully sent
+    // this reminder but crashed before deleting it, skip+clean up
+    // instead of resending. The `sentAt` write happens immediately
+    // after a successful push, before the delete, so a stale record
+    // with recent sentAt is the marker of a delete-failure window.
+    if (
+      reminder.sentAt !== undefined &&
+      now - reminder.sentAt < DEDUPE_WINDOW_MS
+    ) {
+      deduped += 1;
+      await deleteReminder(reminder.id);
+      continue;
+    }
+
     let lookup = cache.get(reminder.browserId);
     if (!lookup) {
       lookup = getSubscription(reminder.browserId);
@@ -67,6 +92,12 @@ export async function GET(request: Request) {
     const outcome = await sendReminderPush(sub.subscription, reminder);
     if (outcome.status === "sent") {
       sent += 1;
+      // Two writes intentionally split: markReminderSent first so
+      // a crash before the delete leaves a recoverable marker; then
+      // delete. If markReminderSent itself fails the next run
+      // resends — acceptable since that requires Redis itself to
+      // fail mid-cron, which is rare.
+      await markReminderSent(reminder.id, now);
       await deleteReminder(reminder.id);
     } else if (outcome.status === "expired") {
       expired += 1;
@@ -89,6 +120,7 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
+    deduped,
     expired,
     failed,
     sent,
