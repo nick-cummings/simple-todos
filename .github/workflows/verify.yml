@@ -16,6 +16,16 @@ jobs:
   verify:
     name: typecheck + lint + vitest + playwright
     runs-on: ubuntu-latest
+    # Official Playwright image ships browsers + every apt system dep
+    # pre-installed for the pinned Playwright version — skips ~30s of
+    # `playwright install-deps` on every run. Bump this tag when the
+    # @playwright/test dep version changes.
+    container:
+      image: mcr.microsoft.com/playwright:v1.60.0-noble
+      # The image runs as root; without this, actions/cache and
+      # actions/setup-node sometimes hit permission issues writing into
+      # /github/home.
+      options: --user 1001
     steps:
       - uses: actions/checkout@v6
 
@@ -43,28 +53,6 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:run
-
-      - name: Resolve Playwright version
-        id: pw
-        run: |
-          version=$(node -p "require('@playwright/test/package.json').version")
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        id: pw-cache
-        with:
-          path: ~/.cache/ms-playwright
-          # Cache key includes Playwright's version so a bump invalidates.
-          key: pw-${{ runner.os }}-${{ steps.pw.outputs.version }}
-
-      - name: Install Playwright browsers
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium webkit
-
-      - name: Install Playwright system deps
-        if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium webkit
 
       - run: npm run test:e2e
 
