@@ -126,16 +126,14 @@ all done.
 
 ### 1. Install the official Claude GitHub App
 
-From any repo or org admin context:
+Visit <https://github.com/apps/claude>, click **Install**, pick this
+repo (or grant org-wide access if you want the same pipeline on
+other repos), and accept the permission scopes it requests.
 
-```
-gh extension install anthropics/gh-claude-code
-gh claude-code install-app
-```
-
-Or via the [Anthropic onboarding flow](https://github.com/apps/claude).
-Install for this repo (or the whole org) and accept the permissions
-it requests.
+The Claude Code action auto-detects the installed App and uses its
+token, which is what lets the implementer's PR + ready-for-review
+events trigger the reviewer's `workflow_run` downstream. The
+default `GITHUB_TOKEN` would silently fail to trigger anything.
 
 ### 2. Set the API key secret
 
