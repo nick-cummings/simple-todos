@@ -185,11 +185,16 @@ EOF
 
 Three pieces matter most:
 
-- **`required_approving_review_count: 1`** combined with the fact
-  that GitHub does not count reviews from the workflow bot identity
-  (`github-actions[bot]` or the Claude App) as satisfying that
-  rule. Even if the reviewer agent ignored its prompt and ran
-  `gh pr review --approve`, the bot's approval would not count.
+- **`required_approving_review_count: 1`** combined with GitHub's
+  rule that **a PR's author can't approve their own PR**. Both the
+  implementer and the reviewer run under the same Claude GitHub
+  App identity, so the App is the PR author — and even if the
+  reviewer agent ignored its prompt and ran `gh pr review --approve`,
+  GitHub silently rejects the approval as a self-review.
+  Important: this safety hinges on _same identity_. If you ever
+  split the agents across two App identities (e.g., a custom App
+  for the reviewer), the reviewer's approval _would_ count, and
+  the gate disappears. Re-think this before doing that.
 - **`required_status_checks`** keeps a broken implementation from
   merging.
 - **`enforce_admins: false`** lets you (the repo admin) bypass for
@@ -232,7 +237,8 @@ For the implementer:
 - Run `npm run verify`. It must pass before opening the PR.
 - Push to `claude/<issue-number>-<slug>`.
 - `gh pr create --draft --title <title> --body <body>` referencing
-  `Fixes #<n>`.
+  `Closes #<n>` (matches the keyword the implementer workflow's
+  prompt enforces).
 - `gh pr ready <pr>` to transition out of draft.
 
 For the reviewer:
