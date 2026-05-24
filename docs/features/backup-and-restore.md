@@ -102,6 +102,14 @@ own user-facing error message.
   resolution would be a significant feature; we'll add it if multi-
   device becomes a real concern.
 
+## Import + quota
+
+`writeBackupToStorage` returns `boolean`. If a quota failure happens
+mid-import (the todos write succeeds but the labels write fills the
+cap, or either of them fails outright), Settings surfaces an error
+that points the user at the global storage banner. The recovery is
+covered in [the data-loss runbook](../operations/runbook-data-loss.md).
+
 ## References
 
 - Lib: `src/lib/backup.ts`

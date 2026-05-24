@@ -18,11 +18,13 @@ import {
 import { useFilterParams } from "@/lib/useFilterParams";
 import { useLabels } from "@/lib/useLabels";
 import { useReminders } from "@/lib/useReminders";
+import { useStorageError } from "@/lib/useStorageError";
 import { useTodos } from "@/lib/useTodos";
 import { withViewTransition } from "@/lib/viewTransition";
 
 import LabelsManager from "../LabelsManager";
 import RemindersGate from "../RemindersGate";
+import StorageErrorBanner from "../StorageErrorBanner";
 import ThemeToggle from "../ThemeToggle";
 import TodoCard from "../TodoCard";
 import TodoModal from "../TodoModal";
@@ -66,6 +68,8 @@ export default function TodoApp() {
     setSort,
     sort,
   } = useFilterParams();
+  const { dismiss: dismissStorageError, error: storageError } =
+    useStorageError();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Todo | undefined>();
   const [labelsManagerOpen, setLabelsManagerOpen] = useState(false);
@@ -328,6 +332,13 @@ export default function TodoApp() {
             <ThemeToggle />
           </div>
         </header>
+
+        {storageError && (
+          <StorageErrorBanner
+            error={storageError}
+            onDismiss={dismissStorageError}
+          />
+        )}
 
         {needsAttention && <RemindersGate onEnable={enableReminders} />}
 
