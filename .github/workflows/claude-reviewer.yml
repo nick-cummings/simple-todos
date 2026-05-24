@@ -117,9 +117,31 @@ jobs:
                - Material bundle additions (new dependency)?
                - Render-loop concerns (effect with missing deps, state in render)?
 
-            5. **Leave the review.** Use `gh pr review ${{ steps.pr.outputs.number }} --comment --body <summary>` for the overall comment, and add inline comments via the `pulls/reviews` API or by including `body` per `--comment` block for specific lines.
+            5. **Leave the review.** Submit a single review that contains both a top-level summary AND any inline line comments. `gh pr review` only handles the summary; inline line comments need the GitHub API directly. Use this one-shot pattern:
 
-               Use this structure for the summary:
+               ```sh
+               gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/reviews \
+                 -X POST \
+                 -f event=COMMENT \
+                 -f body="<the summary template below>" \
+                 -F 'comments[][path]=src/lib/example.ts' \
+                 -F 'comments[][line]=42' \
+                 -F 'comments[][body]=<inline comment, optionally with a suggestion block>'
+               ```
+
+               For suggestions that GitHub renders as one-click "Apply suggestion" blocks, wrap the proposed replacement in a fenced `suggestion` block inside the inline comment body:
+
+               ````
+               This duplicates the helper in `src/lib/storage.ts:safeWrite`. Inline it:
+
+               ```suggestion
+               return safeWrite(KEY, JSON.stringify(value));
+               ```
+               ````
+
+               Multiple inline comments: repeat the `-F 'comments[][path]=...'` triplet for each one. They all attach to the same review.
+
+               Use this structure for the summary body:
                ```
                ## Reviewer notes (Claude Sonnet 4.6)
 
