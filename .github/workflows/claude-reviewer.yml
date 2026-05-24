@@ -71,7 +71,16 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Sonnet is the right model for a review pass — pattern-
           # matching against the diff, not novel implementation.
-          claude_args: --model claude-sonnet-4-6 --max-turns 15
+          #
+          # --allowed-tools is REQUIRED (the action's default
+          # allowlist excludes Bash). The reviewer needs Bash for
+          # `gh pr view`, `gh pr diff`, and the `gh api` review
+          # submission. Edit/Write are intentionally omitted — the
+          # reviewer is read-only on the codebase.
+          claude_args: >-
+            --model claude-sonnet-4-6
+            --max-turns 15
+            --allowed-tools "Bash,Read,Glob,Grep,WebFetch"
           prompt: |
             You are the reviewer agent for this repository.
 

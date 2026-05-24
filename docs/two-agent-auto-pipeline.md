@@ -361,6 +361,26 @@ To cap spend, set [Anthropic API spend
 limits](https://console.anthropic.com/settings/billing). The
 implementer's `--max-turns 80` is also a hard ceiling.
 
+## Tool allowlist (don't forget this one)
+
+The `claude-code-action` ships with a restrictive default tool
+allowlist that **excludes `Bash`**. Without explicitly opting Bash
+back in via `--allowed-tools`, every `git`, `gh`, and `npm` call
+the agent attempts gets blocked and the run produces nothing
+visible (no commits, no PR, no comment) while still consuming
+turns and spend.
+
+Both workflows pass `--allowed-tools` in `claude_args`:
+
+- **Implementer:** `Bash,Edit,Read,Write,Glob,Grep,WebFetch,WebSearch`
+- **Reviewer:** `Bash,Read,Glob,Grep,WebFetch` (no `Edit` or
+  `Write` — the reviewer is read-only on the codebase)
+
+If you ever see a run finish with `permission_denials_count > 0`
+in the result JSON, that's the signal something the agent tried
+hit the default-deny. Fix is to extend the allowlist for that
+workflow.
+
 ## Limitations + known issues
 
 - **Agents only see the repo.** Issues referencing private docs,
