@@ -62,7 +62,7 @@ the typing; the human does the judging.
 | **Model**       | `claude-opus-4-7` (this is real implementation work)                                                           |
 | **Auth**        | Official Claude GitHub App (required — see [Why an App token](#why-an-app-token-not-the-default-github_token)) |
 | **Permissions** | `contents: write`, `issues: write`, `pull-requests: write`                                                     |
-| **Max turns**   | 30                                                                                                             |
+| **Max turns**   | 80                                                                                                             |
 | **Output**      | Feature branch `claude/<issue-number>-<slug>`, draft PR with `Fixes #N`, transitioned to ready for review      |
 
 The implementer inherits [`AGENTS.md`](../AGENTS.md) automatically
@@ -319,13 +319,13 @@ Rough per-issue cost, depending on complexity:
 
 | Run                                   | Typical | Heavy  |
 | ------------------------------------- | ------- | ------ |
-| Implementer (Opus 4.7, ~30 turns)     | $2-6    | $6-15+ |
+| Implementer (Opus 4.7, ~80 turns)     | $2-8    | $8-20+ |
 | Reviewer (Sonnet 4.6, ~15 turns)      | $0.20-1 | $1-3   |
 | GitHub Actions runner minutes (Hobby) | free    | free   |
 
 To cap spend, set [Anthropic API spend
 limits](https://console.anthropic.com/settings/billing). The
-implementer's `--max-turns 30` is also a hard ceiling.
+implementer's `--max-turns 80` is also a hard ceiling.
 
 ## Limitations + known issues
 
