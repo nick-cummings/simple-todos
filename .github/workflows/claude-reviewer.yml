@@ -33,9 +33,13 @@ jobs:
     steps:
       # Find the PR associated with the upstream workflow run.
       # workflow_run events don't carry the PR number directly, so
-      # look it up by head SHA. Skip if the PR is still a draft (the
-      # implementer marks ready before verify fires; manual drafts
-      # shouldn't be reviewed without being marked ready first).
+      # look it up by head SHA. Skip cases:
+      #  - No open, ready-for-review PR for this SHA.
+      #  - PR doesn't carry the `claude-review` label. The reviewer is
+      #    opt-in per-PR; otherwise it would fire on every PR's verify
+      #    success, which is noisy and costly. The implementer adds
+      #    the label itself after marking ready (auto-chain); humans
+      #    add it manually when they want a review.
       - name: Resolve PR for this run
         id: pr
         env:
@@ -52,6 +56,12 @@ jobs:
             exit 0
           fi
           NUMBER=$(echo "$PR_JSON" | jq -r .number)
+          HAS_LABEL=$(echo "$PR_JSON" | jq -r '.labels[].name' | grep -F -x "claude-review" || true)
+          if [ -z "$HAS_LABEL" ]; then
+            echo "PR #${NUMBER} doesn't carry the claude-review label; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "number=${NUMBER}" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
