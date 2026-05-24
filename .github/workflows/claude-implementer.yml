@@ -53,7 +53,10 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Opus for real implementation work. Adaptive thinking + max
           # effort are the defaults; --max-turns is a hard ceiling.
-          claude_args: --model claude-opus-4-7 --max-turns 30
+          # 80 turns is generous — first run against issue #10 (Lighthouse
+          # CI) hit the 30-turn wall while still orienting. Tune down
+          # again once we have data on what successful runs use.
+          claude_args: --model claude-opus-4-7 --max-turns 80
           prompt: |
             You are the implementer agent for this repository.
 
