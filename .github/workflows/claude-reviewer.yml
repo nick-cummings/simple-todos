@@ -69,6 +69,9 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Same rationale as the implementer — visibility into per-
+          # turn tool calls is essential for debugging silent runs.
+          show_full_output: true
           # Sonnet is the right model for a review pass — pattern-
           # matching against the diff, not novel implementation.
           #

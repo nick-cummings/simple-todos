@@ -51,6 +51,13 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Stream per-turn tool calls + results to the job log. The
+          # action's default redacts them ("full output hidden for
+          # security"). For this repo the trade is fine — no secrets
+          # in source, the API key already goes through Actions
+          # secret redaction. The visibility is essential for
+          # debugging silent runs (see fix/pipeline-allow-bash).
+          show_full_output: true
           # Opus for real implementation work. Adaptive thinking + max
           # effort are the defaults; --max-turns is a hard ceiling.
           #
