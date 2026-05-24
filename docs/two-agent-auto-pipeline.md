@@ -13,13 +13,21 @@ You review the comments and merge (or not). Neither agent can merge.
    Label "claude"
        ▼
                      Read issue
-                     Investigate code
-                     Implement + tests
-                     Update docs
-                     git push claude/<n>-<slug>
-                     gh pr create --draft
+                     Investigate + plan
+                     ┌──────────────────┐
+                     │ Bootstrap draft  │  ←─ pushed within minutes of
+                     │ PR (WIP body)    │      starting, so any later
+                     └──────────────────┘      death leaves a recoverable
+                     Implement + tests          partial branch.
+                     ↻ commit + push
+                     ↻ commit + push           (verify runs against
+                     ↻ commit + push           each push but doesn't
+                     Update docs                 trigger the reviewer
+                     ↻ commit + push           until the PR is marked
+                     npm run verify             ready.)
+                     Finalize PR body
                      gh pr ready ─────────────►
-                                                 npm run verify
+                                                 npm run verify (final)
                                                  (typecheck/lint/
                                                   vitest/playwright)
                                                        ▼
@@ -106,6 +114,32 @@ implementer's commits.
 
 A custom app (via `actions/create-github-app-token`) works too;
 use it if the official app is blocked by org policy.
+
+## Save-your-work: incremental commits, early draft PR
+
+The implementer's prompt enforces a "save-your-work" rule: open the
+draft PR right after planning, before writing any real code, then
+commit + push after every meaningful unit of work. If the run dies
+mid-implementation (turn ceiling, timeout, network blip, credit
+limit, anything), whatever you've pushed survives on the branch and
+the human can pick up from there.
+
+The cost is more CI noise — every push triggers a verify run, so a
+healthy implementer run might fire 5-10 verifies. That's free on
+the Hobby tier and the trade for "never lose 30 minutes of work to
+a runner restart" is worth it.
+
+The draft PR's body starts as a one-line WIP placeholder and gets
+swapped to the full summary/notes/test-evidence/docs template at
+the end of the run, immediately before `gh pr ready`. The reviewer
+agent only fires on the ready transition, so it doesn't see the WIP
+body or the intermediate verify failures — it sees the final state.
+
+When the implementer hits a wall, the prompt tells it to leave the
+PR in draft, summarize what's done / what's not / what's blocking
+in the PR body, and comment on the source issue with the same
+summary. A partial PR is normal; treat it as a starting point, not
+a complete change.
 
 ## Same-model blind spot
 
