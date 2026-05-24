@@ -37,18 +37,18 @@ The numbers below were chosen ~10–15% above the manual baseline in
 [`docs/performance.md`](../performance.md), so normal Lighthouse
 run-to-run noise doesn't flap but a real regression gets caught.
 
-| Audit                              | Budget       | Source / rationale                                                         |
-| ---------------------------------- | ------------ | -------------------------------------------------------------------------- |
-| `largest-contentful-paint`         | ≤ 2500 ms    | Standard "good" threshold; manual baseline ~1.8s on production.            |
-| `cumulative-layout-shift`          | ≤ 0.1        | "Good" threshold; we don't have shifting content by design.                |
-| `total-blocking-time`              | ≤ 200 ms     | "Good" threshold; loose enough that Sentry/PostHog init don't trip it.     |
-| `speed-index`                      | ≤ 3000 ms    | Loose; catches egregious regressions only.                                 |
-| `resource-summary:script:size`     | ≤ 256 KB     | Generous headroom over the manual ~140 KB gzip baseline.                   |
-| `total-byte-weight`                | ≤ 400 KB     | Same headroom logic.                                                       |
-| `categories:performance`           | ≥ 0.85       | Loose floor; the individual metrics are the real gates.                    |
-| `categories:accessibility`         | ≥ 0.95       | Enforces the a11y work tracked under issue #9.                             |
-| `categories:best-practices`        | ≥ 0.90       | Generous; lets us experiment with deps that ding it.                       |
-| `categories:seo`                   | ≥ 0.90       | Largely irrelevant for an installed PWA but cheap to keep.                 |
+| Audit                          | Budget    | Source / rationale                                                     |
+| ------------------------------ | --------- | ---------------------------------------------------------------------- |
+| `largest-contentful-paint`     | ≤ 2500 ms | Standard "good" threshold; manual baseline ~1.8s on production.        |
+| `cumulative-layout-shift`      | ≤ 0.1     | "Good" threshold; we don't have shifting content by design.            |
+| `total-blocking-time`          | ≤ 200 ms  | "Good" threshold; loose enough that Sentry/PostHog init don't trip it. |
+| `speed-index`                  | ≤ 3000 ms | Loose; catches egregious regressions only.                             |
+| `resource-summary:script:size` | ≤ 256 KB  | Generous headroom over the manual ~140 KB gzip baseline.               |
+| `total-byte-weight`            | ≤ 400 KB  | Same headroom logic.                                                   |
+| `categories:performance`       | ≥ 0.85    | Loose floor; the individual metrics are the real gates.                |
+| `categories:accessibility`     | ≥ 0.95    | Enforces the a11y work tracked under issue #9.                         |
+| `categories:best-practices`    | ≥ 0.90    | Generous; lets us experiment with deps that ding it.                   |
+| `categories:seo`               | ≥ 0.90    | Largely irrelevant for an installed PWA but cheap to keep.             |
 
 ### Land-in-warn-first
 

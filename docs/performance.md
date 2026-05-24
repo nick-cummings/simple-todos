@@ -14,19 +14,19 @@ measured manually in Chrome DevTools (Fast 3G + 4× CPU); the lhci
 budgets are CI-enforced and may diverge slightly because headless
 Chrome measures higher than DevTools.
 
-| Metric               | CI budget    | Production target (manual) |
-| -------------------- | ------------ | -------------------------- |
-| LCP                  | ≤ 2.5s       | ~1.8s                      |
-| CLS                  | ≤ 0.1        | ~0                         |
-| TBT                  | ≤ 200ms      | ~50ms                      |
-| Speed Index          | ≤ 3s         | n/a                        |
-| JS shipped (script)  | ≤ 256KB      | ~140KB gzip                |
-| Total page weight    | ≤ 400KB      | ~200KB                     |
-| Performance score    | ≥ 0.85       | ~0.95                      |
-| Accessibility score  | ≥ 0.95       | (now CI-enforced)          |
-| Best Practices       | ≥ 0.90       | ~1.0                       |
-| SEO                  | ≥ 0.90       | ~1.0                       |
-| HTML size for `/`    | < 30KB       | ~18KB                      |
+| Metric              | CI budget | Production target (manual) |
+| ------------------- | --------- | -------------------------- |
+| LCP                 | ≤ 2.5s    | ~1.8s                      |
+| CLS                 | ≤ 0.1     | ~0                         |
+| TBT                 | ≤ 200ms   | ~50ms                      |
+| Speed Index         | ≤ 3s      | n/a                        |
+| JS shipped (script) | ≤ 256KB   | ~140KB gzip                |
+| Total page weight   | ≤ 400KB   | ~200KB                     |
+| Performance score   | ≥ 0.85    | ~0.95                      |
+| Accessibility score | ≥ 0.95    | (now CI-enforced)          |
+| Best Practices      | ≥ 0.90    | ~1.0                       |
+| SEO                 | ≥ 0.90    | ~1.0                       |
+| HTML size for `/`   | < 30KB    | ~18KB                      |
 
 The assertions land in `warn` mode on the first PR (the issue's
 explicit first-run plan); a follow-up tightens the perf/a11y/LCP/CLS
