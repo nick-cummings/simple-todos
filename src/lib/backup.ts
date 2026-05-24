@@ -1,4 +1,5 @@
 import { type Label, LABELS_STORAGE_KEY } from "./labels";
+import { safeWrite } from "./storage";
 import { STORAGE_KEY, type Todo } from "./todos";
 
 // Backup file shape. Version-stamped so future migrations can branch
@@ -86,12 +87,15 @@ export function parseBackup(raw: string): BackupFile {
 
 // Side-effect helpers — kept here so the Settings page can stay
 // declarative and the logic is unit-testable.
-export function writeBackupToStorage(backup: BackupFile): void {
-  globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(backup.todos));
-  globalThis.localStorage.setItem(
-    LABELS_STORAGE_KEY,
-    JSON.stringify(backup.labels),
-  );
+//
+// Returns `true` only if both writes succeed. On a quota failure the
+// first write may succeed and the second fail; the caller surfaces
+// the partial-import state via the storage-error banner and should
+// guide the user to free space + retry.
+export function writeBackupToStorage(backup: BackupFile): boolean {
+  const todosOk = safeWrite(STORAGE_KEY, JSON.stringify(backup.todos));
+  const labelsOk = safeWrite(LABELS_STORAGE_KEY, JSON.stringify(backup.labels));
+  return todosOk && labelsOk;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

@@ -91,6 +91,12 @@ via Upstash and calls the Anthropic Messages API.
 The `:v1` suffix gives us a migration lane if a schema ever needs to
 change. We've never had to use it.
 
+All writes flow through `safeWrite` in `src/lib/storage.ts`, which
+catches `QuotaExceededError`, reports to Sentry, and triggers an
+in-app banner via the `useStorageError` hook. See
+[ADR 0012](./decisions/0012-localstorage-quota-handling.md) and
+the [data-loss runbook](./operations/runbook-data-loss.md).
+
 ### Server (Upstash Redis)
 
 | Key pattern                      | Shape                       | TTL     |

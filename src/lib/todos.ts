@@ -1,5 +1,6 @@
 import { toISODate } from "./dates";
 import { isBrowser } from "./runtime";
+import { safeWrite } from "./storage";
 
 export interface Recurrence {
   every: number; // ≥1
@@ -171,9 +172,9 @@ export function recurrenceLabel(r: Recurrence): string {
   return `Every ${r.every} ${plurals[r.unit]}`;
 }
 
-export function saveTodos(todos: Todo[]): void {
-  if (!isBrowser()) return;
-  globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+export function saveTodos(todos: Todo[]): boolean {
+  if (!isBrowser()) return false;
+  return safeWrite(STORAGE_KEY, JSON.stringify(todos));
 }
 
 export function sortTodos(todos: Todo[], sort: SortKey): Todo[] {

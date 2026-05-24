@@ -871,3 +871,97 @@ describe("<TodoApp> — URL state for filters", () => {
     });
   });
 });
+
+describe("<TodoApp> — storage error banner", () => {
+  it("renders the banner when a write to localStorage hits quota", async () => {
+    // Have the next setItem call throw QuotaExceededError so the
+    // create flow triggers the safeWrite failure path.
+    const setItemSpy = vi
+      .spyOn(globalThis.localStorage, "setItem")
+      .mockImplementation((key: string) => {
+        // Only intercept the todos write — let other keys (theme, etc.)
+        // through so the rest of the app still mounts cleanly.
+        if (key === "simple-todos:v1") {
+          const e = new Error("quota");
+          e.name = "QuotaExceededError";
+          throw e;
+        }
+        return undefined;
+      });
+    try {
+      const { user } = await renderApp();
+      await user.click(screen.getByRole("button", { name: /add todo/i }));
+      const dialog = await screen.findByRole("dialog", { name: /new todo/i });
+      await user.type(
+        within(dialog).getByPlaceholderText(/what needs doing/i),
+        "Will fail",
+      );
+      const submitBtn = within(dialog)
+        .getAllByRole("button", { name: /^add$/i })
+        .find((b) => (b as HTMLButtonElement).type === "submit")!;
+      await user.click(submitBtn);
+      expect(
+        await screen.findByRole("heading", { name: /storage is full/i }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("link", { name: /open settings/i }),
+      ).toHaveAttribute("href", "/settings");
+    } finally {
+      setItemSpy.mockRestore();
+    }
+  });
+
+  it("Dismiss hides the banner without affecting the rest of the UI", async () => {
+    // Two todos so toggling one done leaves the other visible (the
+    // default filter is open-only, so we still want todo content
+    // rendered after the user clicks Dismiss).
+    seedTodos([
+      {
+        completed: false,
+        createdAt: 1,
+        id: "a",
+        labels: [],
+        title: "Toggle me",
+        updatedAt: 1,
+      },
+      {
+        completed: false,
+        createdAt: 2,
+        id: "b",
+        labels: [],
+        title: "Stays open",
+        updatedAt: 2,
+      },
+    ]);
+    const setItemSpy = vi
+      .spyOn(globalThis.localStorage, "setItem")
+      .mockImplementation((key: string) => {
+        if (key === "simple-todos:v1") {
+          const e = new Error("quota");
+          e.name = "QuotaExceededError";
+          throw e;
+        }
+        return undefined;
+      });
+    try {
+      const { user } = await renderApp();
+      // Default sort is createdDesc, so the higher-createdAt todo
+      // ("Stays open") renders first. Click the second checkbox to
+      // toggle "Toggle me" specifically and leave "Stays open"
+      // visible after the dismiss.
+      const checkboxes = screen.getAllByRole("checkbox", {
+        name: /mark as done/i,
+      });
+      await user.click(checkboxes[1]!);
+      const dismiss = await screen.findByRole("button", { name: /dismiss/i });
+      await user.click(dismiss);
+      expect(
+        screen.queryByRole("heading", { name: /storage is full/i }),
+      ).not.toBeInTheDocument();
+      // The second todo (still open) renders normally.
+      expect(await screen.findByText("Stays open")).toBeInTheDocument();
+    } finally {
+      setItemSpy.mockRestore();
+    }
+  });
+});

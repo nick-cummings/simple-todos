@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 import { isBrowser } from "./runtime";
+import { safeWrite } from "./storage";
 
 export interface Label {
   color: LabelColor;
@@ -169,9 +170,9 @@ export function normalizeLabelName(raw: string): string {
   return raw.trim().replaceAll(/\s+/g, " ");
 }
 
-export function saveLabels(labels: Label[]): void {
-  if (!isBrowser()) return;
-  globalThis.localStorage.setItem(LABELS_STORAGE_KEY, JSON.stringify(labels));
+export function saveLabels(labels: Label[]): boolean {
+  if (!isBrowser()) return false;
+  return safeWrite(LABELS_STORAGE_KEY, JSON.stringify(labels));
 }
 
 /** Inline style for a filter-chip leading dot. */

@@ -91,7 +91,15 @@ export default function Settings() {
     try {
       const raw = await confirmingImport.file.text();
       const backup = parseBackup(raw);
-      writeBackupToStorage(backup);
+      const written = writeBackupToStorage(backup);
+      if (!written) {
+        setImportMessage({
+          kind: "error",
+          text: "Saved partially — your browser's storage filled up before the import finished. The global banner has more detail.",
+        });
+        setConfirmingImport(null);
+        return;
+      }
       setImportMessage({
         kind: "success",
         text: `Imported ${backup.todos.length} todos and ${backup.labels.length} labels. Reload to see them.`,
