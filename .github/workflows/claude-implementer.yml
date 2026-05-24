@@ -69,6 +69,15 @@ jobs:
 
             Execute these steps in order. Don't skip any.
 
+            **Save-your-work rule (load-bearing):** open the draft PR
+            EARLY — right after planning, before implementation
+            starts — and commit + push after every meaningful unit of
+            work. If the run dies mid-implementation (turn ceiling,
+            timeout, network blip, credit limit), whatever you've
+            pushed survives on the branch and the human can pick up
+            from there. Losing all work because everything sat
+            unpushed in the runner is the single worst failure mode.
+
             1. **Read the issue.** Use `gh issue view ${{ github.event.issue.number }} --comments` to fetch the body and any conversation. Treat the issue as the spec — if it's ambiguous, leave a question as a comment on the issue and stop. Do not invent requirements.
 
             2. **Orient.** Read these before touching code:
@@ -79,28 +88,68 @@ jobs:
                - Any ADR in `docs/decisions/` that the issue mentions or that the change would interact with
                - `docs/testing.md` (testing philosophy, especially the seam-test convention from ADR 0008)
 
-            3. **Plan.** Identify the files you'll change, the tests you'll add or update, and the docs that need to come along. If the change is a material decision (architecture, dependency, format, security posture, performance budget), plan a new ADR.
+            3. **Plan.** Identify the files you'll change, the tests you'll add or update, and the docs that need to come along. If the change is a material decision (architecture, dependency, format, security posture, performance budget), plan a new ADR. Pick a short branch slug (3-5 lowercase words from the issue title) and a clear PR title (imperative, ~70 chars max).
 
-            4. **Implement.** Follow the existing patterns. Lean on the strict ESLint config — if you need to disable a rule, leave a comment explaining why (see ADR 0007).
+            4. **Bootstrap the PR (so progress is durable).** Do this BEFORE implementation:
 
-            5. **Test.** Add or update tests at the right layer per `docs/testing.md`. For features that split "hook does work + caller wires it up", add a seam integration test (this is the load-bearing convention from ADR 0008). Don't just test the happy path — cover the obvious edge cases.
+               ```sh
+               git checkout -b claude/${{ github.event.issue.number }}-<slug>
+               git commit --allow-empty -m "wip(#${{ github.event.issue.number }}): start implementer run"
+               git push -u origin claude/${{ github.event.issue.number }}-<slug>
+               gh pr create --draft \
+                 --title "<your title>" \
+                 --body "$(cat <<'BODY'
+               > **WIP** — the implementer is still working. This PR's body, status, and ready/draft state will be updated as the run progresses. If you're reading this and the run has ended without being marked ready, the implementation is partial; treat the branch as a starting point rather than a complete change.
 
-            6. **Document.** Per ADR 0001, anything beyond a minor bug fix lands with a docs update in the same PR. New feature → feature doc. New material decision → ADR. New production failure mode → runbook.
+               Closes #${{ github.event.issue.number }}
+               BODY
+               )"
+               ```
 
-            7. **Verify.** Run `npm run verify` (= format check + typecheck + lint + vitest + playwright). It must pass before you open the PR. If something fails, fix it before continuing.
+               Capture the resulting PR number — you'll need it later.
 
-            8. **Branch + push.** Branch name format: `claude/${{ github.event.issue.number }}-<short-slug>`. The slug is 3-5 lowercase words separated by dashes, derived from the issue title.
+            5. **Implement, committing in chunks.** Don't pile every file into one commit at the end. After each meaningful unit (e.g. "add the new config file", "wire the workflow step", "add the failing test", "make the test pass"), commit with a descriptive message and push:
 
-            9. **Open a draft PR.** Use `gh pr create --draft`. Include:
-               - A clear title (imperative, ~70 chars max)
-               - A description with these sections:
-                 - **Summary** (3-5 sentences on what changed and why)
-                 - **Implementation notes** (any tradeoffs you made, files of interest, anything reviewers should look at first)
-                 - **Test evidence** (which tests cover the change, what manual verification you ran)
-                 - **Docs updated** (links to the feature doc / ADR / runbook you wrote or modified)
-                 - `Closes #${{ github.event.issue.number }}` on its own line
+               ```sh
+               git add <files-touched>
+               git commit -m "<short imperative summary>"
+               git push
+               ```
 
-            10. **Mark ready.** Use `gh pr ready <pr-number>` to transition the PR out of draft. This emits the `ready_for_review` event and gates the start of the verify workflow; verify going green is what triggers the reviewer agent.
+               Aim for 3-10 commits over the run. Smaller is better than larger — each push is a checkpoint the human can recover from. Follow the existing patterns. Lean on the strict ESLint config — if you need to disable a rule, leave a comment explaining why (see ADR 0007).
+
+            6. **Test.** Add or update tests at the right layer per `docs/testing.md`. For features that split "hook does work + caller wires it up", add a seam integration test (this is the load-bearing convention from ADR 0008). Don't just test the happy path — cover the obvious edge cases. Commit + push tests as you go, same chunking discipline.
+
+            7. **Document.** Per ADR 0001, anything beyond a minor bug fix lands with a docs update in the same PR. New feature → feature doc. New material decision → ADR. New production failure mode → runbook. Commit + push docs.
+
+            8. **Verify.** Run `npm run verify` (= format check + typecheck + lint + vitest + playwright). It must pass before you mark the PR ready. If something fails, fix it, commit + push the fix, then re-run. If you can't get it green after ~3 honest attempts, jump to "If you get stuck" below.
+
+            9. **Finalize the PR body.** Once verify passes locally, replace the WIP placeholder with the real description:
+
+               ```sh
+               gh pr edit <pr-number> --body "$(cat <<'BODY'
+               ## Summary
+
+               <3-5 sentences on what changed and why>
+
+               ## Implementation notes
+
+               <tradeoffs, files of interest, anything reviewers should look at first>
+
+               ## Test evidence
+
+               <which tests cover the change, what manual verification you ran>
+
+               ## Docs updated
+
+               - <links to feature doc / ADR / runbook you wrote or modified>
+
+               Closes #${{ github.event.issue.number }}
+               BODY
+               )"
+               ```
+
+            10. **Mark ready.** Use `gh pr ready <pr-number>` to transition the PR out of draft. This emits the `ready_for_review` event; the verify workflow runs against the PR, and on green the reviewer agent fires.
 
             ## What you must NOT do
 
@@ -116,7 +165,16 @@ jobs:
             ## If you get stuck
 
             If you can't make verify pass after ~3 honest attempts, or
-            the issue is too ambiguous to implement, stop. Open a
-            comment on the issue explaining what's blocking you and
-            what you tried. Leave the branch in place so the human can
-            inspect it.
+            the issue is too ambiguous to implement: stop, but do not
+            silently abandon. Concretely:
+
+            1. Push whatever partial state you have (the save-your-work
+               rule means most of it is already on the branch).
+            2. Update the draft PR body to summarize **what's done**,
+               **what's not done**, and **what's blocking you**.
+            3. Leave a comment on the source issue with the same
+               summary plus a link to the partial PR.
+            4. Leave the PR in draft. The human picks it up from there.
+
+            Don't mark a partial PR ready — that triggers the reviewer
+            on incomplete work and wastes a review pass.
