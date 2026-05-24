@@ -10,10 +10,14 @@ local change → git push origin main → GitHub Actions verify → Vercel auto-
 ```
 
 GitHub Actions (`.github/workflows/verify.yml`) runs `npm run verify` on
-every push to `main` and on every PR. Vercel auto-deploys `main`
-regardless of CI state, so a red CI doesn't actually block production —
-**revert quickly if a bad merge lands.** Vercel's deploy preview can be
-inspected from the dashboard.
+every push to `main` and on every PR. Verify covers: format check,
+typecheck, lint, vitest unit suite, Playwright E2E, and Lighthouse CI
+budgets (see [ADR 0015](../decisions/0015-lighthouse-ci.md)). A red
+Lighthouse step fails the workflow the same way any other step does;
+the report uploads as the `lighthouse-report` artifact on every run.
+Vercel auto-deploys `main` regardless of CI state, so a red CI doesn't
+actually block production — **revert quickly if a bad merge lands.**
+Vercel's deploy preview can be inspected from the dashboard.
 
 ## Required environment variables
 
