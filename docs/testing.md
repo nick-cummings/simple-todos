@@ -59,11 +59,18 @@ because it tests deployed behavior, not unit-level behavior.
 ## Running
 
 ```sh
-npm test           # vitest watch mode
-npm run test:run   # vitest one-shot with coverage
-npm run test:e2e   # playwright across both projects
-npm run verify     # the full pre-push gate: format + typecheck + lint + unit + e2e
+npm test               # vitest watch mode
+npm run test:run       # vitest one-shot with coverage
+npm run test:e2e       # playwright across both projects
+npm run verify:static  # format + typecheck + lint (~5s)
+npm run verify:fast    # verify:static + unit tests (~10s, no E2E)
+npm run verify         # the full pre-push gate: verify:fast + e2e (~5min)
 ```
+
+Iterate locally with `verify:fast`. Run the full `verify` once when
+you're done — it's slow enough that you don't want to wait on E2E
+during every save. The Claude implementer agent follows the same
+discipline.
 
 CI runs `verify`. The pre-push Husky hook also runs `verify`. Both gates
 must be green before code lands on `main`.

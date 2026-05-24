@@ -378,6 +378,28 @@ To cap spend, set [Anthropic API spend
 limits](https://console.anthropic.com/settings/billing). The
 implementer's `--max-turns 80` is also a hard ceiling.
 
+### Friction the prompt pre-empts
+
+A post-mortem on the first successful run ($5.51, 102 turns) found
+~34% of the cost was friction rather than implementation. The
+prompt now pre-empts the common time-wasters:
+
+- **Environment facts** ("Husky is disabled, no sudo, npm deps
+  installed, Playwright deps missing, App token can't write
+  workflows") so the agent doesn't have to discover them by trying
+  and failing.
+- **Repo layout** so the agent doesn't `ls` directories that have
+  predictable contents.
+- **`npm run verify:fast`** (`verify:static` + unit tests, ~10s)
+  for iteration. Full `npm run verify` (~5min including E2E) is
+  reserved for one final check before marking ready. Previous runs
+  ran full verify 2-3 times mid-implementation; the prompt now
+  forbids that.
+- **"Don't re-read the issue"** rule. The agent was reading the
+  issue body in 3 different formats hoping for clarity.
+
+Expected savings: ~$1-2 per medium-sized issue.
+
 ## Tool allowlist (don't forget this one)
 
 The `claude-code-action` ships with a restrictive default tool

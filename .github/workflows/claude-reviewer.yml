@@ -103,6 +103,18 @@ jobs:
             `${{ github.repository }}`. The PR has just passed CI
             (`verify`), so you're looking at known-green code.
 
+            ## Repo layout (you don't need to `ls` to find these)
+
+            - `src/lib/` — pure logic + hooks
+            - `src/components/` — React components
+            - `src/app/` — Next.js App Router (routes, layouts, API)
+            - `tests/e2e/` — Playwright specs
+            - `docs/architecture.md`, `docs/testing.md`, `docs/security.md`, `docs/performance.md`, `docs/observability.md` — cross-cutting
+            - `docs/decisions/NNNN-<slug>.md` — ADRs
+            - `docs/decisions/README.md` — ADR index
+            - `docs/features/<name>.md` — feature docs
+            - `docs/operations/<name>.md` — runbooks
+
             ## Required workflow
 
             1. **Read the PR.** Use `gh pr view ${{ steps.pr.outputs.number }} --comments` and `gh pr diff ${{ steps.pr.outputs.number }}` to see the description and the full diff.

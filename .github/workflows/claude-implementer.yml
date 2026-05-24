@@ -19,6 +19,13 @@ jobs:
     # Time guard: a runaway implementer can't burn the day. 30 min is
     # generous given the action's own --max-turns ceiling.
     timeout-minutes: 30
+    env:
+      # Disable the Husky pre-commit / pre-push hooks for the whole
+      # job. Otherwise the implementer wastes turns discovering the
+      # hooks, then has to remember to prepend `HUSKY=0` to every
+      # git command. CI runs the same checks via `verify` anyway, so
+      # the hooks add no safety here — just friction.
+      HUSKY: "0"
     permissions:
       contents: write # push the feature branch
       issues: write # comment on the source issue
@@ -79,6 +86,38 @@ jobs:
             Implement GitHub issue #${{ github.event.issue.number }}
             from `${{ github.repository }}`.
 
+            ## Environment facts (don't waste turns discovering these)
+
+            - **OS:** Ubuntu runner. **No sudo.**
+            - **Node deps:** `npm ci` already ran. Don't reinstall.
+            - **Husky:** `HUSKY=0` is exported job-wide. You can use plain `git commit` / `git push` — the hooks are disabled. CI runs `npm run verify` for the same checks.
+            - **Playwright system deps:** not installed and not installable (`sudo apt-get` will fail). Do NOT run `npx playwright install`. The agent's verify step runs without browsers; full E2E runs in CI on a different runner that has them.
+            - **Token scope:** the Claude GitHub App's token does NOT carry `workflows: write`. You CANNOT commit changes to any `.github/workflows/*.yml` file. If your task requires a workflow change, write the proposed diff into the PR description for human application — don't try to commit and recover. See "What you must NOT do" below.
+
+            ## Repo layout (you don't need to `ls` to find these)
+
+            - `src/lib/` — pure logic + hooks (`.ts` / `.test.ts`)
+            - `src/components/` — React components (`.tsx` / `.test.tsx`)
+            - `src/app/` — Next.js App Router routes, layouts, API handlers
+            - `tests/e2e/` — Playwright specs
+            - `docs/architecture.md`, `docs/testing.md`, `docs/security.md`, `docs/performance.md`, `docs/observability.md` — cross-cutting docs
+            - `docs/decisions/NNNN-<slug>.md` — ADRs (numbered)
+            - `docs/decisions/README.md` — ADR index (update when you add one)
+            - `docs/features/<feature>.md` — feature docs
+            - `docs/features/README.md` — feature index
+            - `docs/operations/<runbook>.md` — runbooks
+            - `infra/*.tf` — Terraform for Vercel + env vars
+            - `vercel.json` — cron schedule, headers
+            - `next.config.ts` — Next + Sentry config
+
+            ## Verify: pick the cheapest tool for the job
+
+            - **`npm run verify:static`** — format check + typecheck + lint. ~5s. Use for "did I make a typo".
+            - **`npm run verify:fast`** — verify:static + unit tests. ~10s. Use for "does my change still work" during iteration.
+            - **`npm run verify`** — verify:fast + Playwright E2E. ~5 min. Use ONCE before marking the PR ready.
+
+            Iterate with `verify:fast`. Run the full `verify` exactly once at the end. Running full verify multiple times is the single biggest cost driver after the initial orientation.
+
             ## Required workflow
 
             Execute these steps in order. Don't skip any.
@@ -136,7 +175,7 @@ jobs:
 
             7. **Document.** Per ADR 0001, anything beyond a minor bug fix lands with a docs update in the same PR. New feature → feature doc. New material decision → ADR. New production failure mode → runbook. Commit + push docs.
 
-            8. **Verify.** Run `npm run verify` (= format check + typecheck + lint + vitest + playwright). It must pass before you mark the PR ready. If something fails, fix it, commit + push the fix, then re-run. If you can't get it green after ~3 honest attempts, jump to "If you get stuck" below.
+            8. **Verify.** Iterate with `npm run verify:fast` (~10s — runs everything except E2E). Run the full `npm run verify` exactly ONCE, right before marking the PR ready, to catch anything E2E-specific. Both must pass. If something fails, fix it, commit + push the fix, then re-run the same level. If you can't get the full verify green after ~3 honest attempts, jump to "If you get stuck" below.
 
             9. **Finalize the PR body.** Once verify passes locally, replace the WIP placeholder with the real description:
 
@@ -177,11 +216,14 @@ jobs:
             - **Don't merge.** Branch protection prevents it; don't try.
             - **Don't approve any PR.** Same.
             - **Don't push directly to `main`.** Push only to your `claude/*` feature branch.
-            - **Don't modify `.github/workflows/claude-implementer.yml` or `.github/workflows/claude-reviewer.yml`.** Changes to these files need human review.
+            - **Don't commit changes to ANY `.github/workflows/*.yml` file.** The App token can't push them — the push will fail, you'll waste turns recovering, and the change won't land anyway. If the task needs a workflow edit, put the diff in the PR description for human application. Mention that the diff is there so the human knows to apply it.
+            - **Don't try to install Playwright browsers or system deps.** `sudo` is denied, `apt-get` is denied, `playwright install` will fail. The implementer's verify step doesn't need browsers; full E2E runs in CI on a different runner that already has them.
+            - **Don't re-read the issue body more than once.** The first `gh issue view <n> --comments` is all the context you'll get from the issue. If something is unclear, leave a question on the issue and stop — don't re-fetch in a different format hoping for clarity.
+            - **Don't run `ls` to discover the repo layout.** It's in the "Repo layout" section above. If a specific path isn't listed, use `Glob` or `Grep` (those are cheaper than `Bash ls` and don't require a shell).
             - **Don't add a new dependency** without explaining why in the PR description and the relevant ADR.
             - **Don't disable tests** to make verify pass. If a test fails, the implementation is wrong.
             - **Don't skip the docs step.** ADR 0001 is enforced by the reviewer agent.
-            - **Don't bypass the verify hook with `--no-verify`.**
+            - **Don't bypass the verify hook with `--no-verify`.** (HUSKY=0 is already set at the job level, so you don't need to.)
 
             ## If you get stuck
 
