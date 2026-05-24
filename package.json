@@ -15,7 +15,8 @@
     "test": "vitest",
     "test:run": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "verify": "npm run format:check && npm run typecheck && npm run lint && npm run test:run && npm run test:e2e",
+    "test:lhci": "lhci autorun",
+    "verify": "npm run format:check && npm run typecheck && npm run lint && npm run test:run && npm run test:e2e && npm run test:lhci",
     "prepush": "npm run verify",
     "prepare": "husky"
   },
@@ -30,6 +31,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
