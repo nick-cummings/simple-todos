@@ -1,5 +1,66 @@
 #!/usr/bin/env sh
-# Runs the full test pipeline before allowing a push.
-# Same command works standalone: `npm run prepush`.
-# Bypass (discouraged) with: git push --no-verify
-npm run prepush
+# Pre-push gate. Always runs the fast static checks (prettier + tsc + eslint
+# via `verify:static`). Runs the slow test suites (vitest + playwright) only
+# when the push includes a file that could affect test outcomes. Docs- and
+# CI/meta-only pushes skip the suites.
+#
+# This is a developer-time convenience, NOT the source of truth: the `verify`
+# GitHub Actions workflow always runs the full suite on every PR. See
+# docs/decisions/0013-change-aware-pre-push.md.
+#
+# Standalone full run: `npm run prepush`.
+# Bypass everything (discouraged): `git push --no-verify`.
+set -eu
+
+remote="${1:-origin}"
+# Zero-hash sentinel, width-agnostic (works for SHA-1 and SHA-256 repos).
+zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+
+# Collect every commit being pushed, across all refs on stdin.
+commits=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue # branch deletion: nothing to test
+  if [ "$remote_sha" = "$zero" ]; then
+    # New branch on the remote: every commit not already on another remote ref.
+    new=$(git rev-list "$local_sha" --not --remotes="$remote")
+  else
+    new=$(git rev-list "$remote_sha..$local_sha")
+  fi
+  commits="$commits $new"
+done
+
+commits=$(printf '%s' "$commits" | tr ' ' '\n' | sed '/^$/d')
+[ -z "$commits" ] && exit 0 # nothing to push; let git proceed
+
+# Union of files touched by the pushed commits. --root makes a root commit
+# (no parent) report its full tree instead of erroring.
+# shellcheck disable=SC2086 # $commits is an intentional word-split list
+changed=$(git diff-tree --no-commit-id --name-only -r --root $commits | sort -u)
+
+# A file is "safe" (can't change test outcomes) if it matches the docs/CI/meta
+# allowlist below. Any file outside it means we run the suites.
+needs_tests=0
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+  *.md) ;;                # markdown anywhere
+  docs/*) ;;              # docs tree
+  LICENSE | LICENSE.*) ;; # license
+  .github/*) ;;           # workflows / CI meta
+  .gitignore | .prettierignore | .gitattributes | .editorconfig) ;;
+  *)
+    needs_tests=1
+    break
+    ;;
+  esac
+done <<EOF
+$changed
+EOF
+
+if [ "$needs_tests" -eq 1 ]; then
+  echo "pre-push: code-affecting changes detected -> full verify (with tests)"
+  npm run verify
+else
+  echo "pre-push: docs/CI-only changes -> static checks, skipping test suites"
+  npm run verify:static
+fi
