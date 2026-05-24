@@ -1,0 +1,155 @@
+name: Claude Reviewer
+
+# Fires after the `verify` workflow completes successfully on a PR.
+# This means the reviewer sees a known-good build, not a race against
+# CI — see docs/two-agent-auto-pipeline.md ("Reviewer timing").
+on:
+  workflow_run:
+    workflows: [verify]
+    types: [completed]
+
+# At most one reviewer per PR head SHA. A force-push (which retriggers
+# verify) will cancel any in-flight review for the prior SHA.
+concurrency:
+  group: claude-reviewer-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Guard the whole job:
+    #  - upstream verify succeeded
+    #  - upstream was triggered by a pull_request (not a push to main)
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # diff + repo state
+      issues: write # leave comments
+      pull-requests: write # submit the review
+
+    steps:
+      # Find the PR associated with the upstream workflow run.
+      # workflow_run events don't carry the PR number directly, so
+      # look it up by head SHA. Skip if the PR is still a draft (the
+      # implementer marks ready before verify fires; manual drafts
+      # shouldn't be reviewed without being marked ready first).
+      - name: Resolve PR for this run
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          PR_JSON=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/pulls" \
+            --jq '[.[] | select(.state == "open" and .draft == false)] | first')
+          if [ -z "$PR_JSON" ] || [ "$PR_JSON" = "null" ]; then
+            echo "No open, ready-for-review PR for ${HEAD_SHA}; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          NUMBER=$(echo "$PR_JSON" | jq -r .number)
+          echo "number=${NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR head
+        if: steps.pr.outputs.skip != 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          # Full history so the agent can inspect prior commits + the
+          # base branch for context.
+          fetch-depth: 0
+
+      - name: Run Claude reviewer
+        if: steps.pr.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Sonnet is the right model for a review pass — pattern-
+          # matching against the diff, not novel implementation.
+          claude_args: --model claude-sonnet-4-6 --max-turns 15
+          prompt: |
+            You are the reviewer agent for this repository.
+
+            ## The task
+
+            Review pull request #${{ steps.pr.outputs.number }} in
+            `${{ github.repository }}`. The PR has just passed CI
+            (`verify`), so you're looking at known-green code.
+
+            ## Required workflow
+
+            1. **Read the PR.** Use `gh pr view ${{ steps.pr.outputs.number }} --comments` and `gh pr diff ${{ steps.pr.outputs.number }}` to see the description and the full diff.
+
+            2. **Read the linked issue if one exists.** The PR description should say `Closes #N` — if it does, `gh issue view N` to ground yourself in what the change was supposed to do.
+
+            3. **Orient against the codebase.** For every file the diff touches, scan the surrounding code so you understand the patterns being used. Read any feature doc in `docs/features/` that names the affected component, and any ADR in `docs/decisions/` that the change interacts with.
+
+            4. **Walk the rubric.** Hunt for specific failure modes, in priority order:
+
+               **Convention compliance**
+               - **Seam test (ADR 0008):** If the diff adds or changes a "hook does work + caller wires it up" pair, is there an integration test that mocks the hook and asserts the caller's call pattern? Unit tests on each side alone are not sufficient.
+               - **Docs convention (ADR 0001):** Any non-trivial behavior change must land with a docs update — new feature doc, updated feature doc, ADR, or runbook. A diff that adds code without docs is a red flag.
+               - **`safeWrite` (ADR 0012):** Any new `localStorage.setItem` call must route through `safeWrite` from `src/lib/storage.ts`, not the raw browser API.
+               - **Suspense boundary (ADR 0006):** Any new consumer of `useSearchParams` must be wrapped in `<Suspense>`.
+               - **DOM method binding (lesson):** Code that does `const f = document.startViewTransition` (or similar host-method extraction) will throw "Illegal invocation". Capture the receiver object instead.
+               - **ESLint disables (ADR 0007):** Any `// eslint-disable-...` line should be followed by a comment explaining why.
+
+               **Test quality**
+               - Are edge cases covered, or only the happy path?
+               - Do the tests assert behavior or implementation details?
+               - For new error paths: does the test prove the user sees something sensible (not just that an exception is caught)?
+
+               **Security**
+               - Any new env var that should be Terraform-managed in `infra/`?
+               - Any new external surface (API route, fetch) that should be rate-limited?
+               - Any change to security headers in `next.config.ts`?
+
+               **Accessibility**
+               - New interactive element without `aria-label` or accessible name?
+               - Modal/dialog without focus management?
+               - Color-only signal?
+
+               **Performance**
+               - Material bundle additions (new dependency)?
+               - Render-loop concerns (effect with missing deps, state in render)?
+
+            5. **Leave the review.** Use `gh pr review ${{ steps.pr.outputs.number }} --comment --body <summary>` for the overall comment, and add inline comments via the `pulls/reviews` API or by including `body` per `--comment` block for specific lines.
+
+               Use this structure for the summary:
+               ```
+               ## Reviewer notes (Claude Sonnet 4.6)
+
+               <one-paragraph overall impression>
+
+               ### Things worth a second look
+               - <bullet, with file:line and why>
+
+               ### Things that look fine but I want to call out
+               - <bullet, with file:line>
+
+               ### Convention checks
+               - Seam test: ✅ / ❌ / N/A
+               - Docs updated: ✅ / ❌ / N/A
+               - <other relevant ADR>: ✅ / ❌ / N/A
+               ```
+
+               If you find nothing meaningful to comment on, still submit a review with the convention checks — the absence of findings is itself a signal.
+
+            ## What you must NOT do
+
+            - **Don't approve.** Always submit with `--comment`. Never `--approve`, never `--request-changes`. Branch protection enforces this from the other side, but obey it from this side too — the user wants their own approval to be the only one that lands code.
+            - **Don't merge.** Don't run `gh pr merge` under any circumstances.
+            - **Don't push commits to the PR.** This pass is read-only. If you find a typo or want to "just fix" something, leave a suggestion comment instead. Don't change the diff.
+            - **Don't dismiss other reviews.**
+            - **Don't add or remove labels.**
+            - **Don't be vague.** A review that says "looks good, consider improving error handling" is worthless. Either point at a specific line and explain the concern, or don't bring it up.
+
+            ## Tone
+
+            You're reviewing the work of a colleague who's read all the same docs. Be direct. Don't pad with praise. Don't apologize for nitpicks — they're useful. Don't restate the obvious.
+
+            If the PR is straightforward and well-tested, the review can be short. Length is not a quality signal.

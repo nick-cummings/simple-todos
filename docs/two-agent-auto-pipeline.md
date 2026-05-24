@@ -1,119 +1,354 @@
-# Two-Agent Claude Code Pipeline — Design Notes
+# Two-agent auto-pipeline
 
-## Goal
+A pair of GitHub Actions workflows that turn the repo into a
+loosely-supervised dev loop. You open an issue, label it `claude`,
+and walk away. Claude implements it, runs tests, opens a PR, marks
+it ready, then a second Claude reviews the PR and leaves comments.
+You review the comments and merge (or not). Neither agent can merge.
 
-Build a GitHub automation pipeline using `anthropics/claude-code-action@v1`:
+```
+   You                Implementer (Opus)         CI (verify)            Reviewer (Sonnet)            You
+   ──                ───────────────────         ──────────             ──────────────────            ──
+   Open issue
+   Label "claude"
+       ▼
+                     Read issue
+                     Investigate code
+                     Implement + tests
+                     Update docs
+                     git push claude/<n>-<slug>
+                     gh pr create --draft
+                     gh pr ready ─────────────►
+                                                 npm run verify
+                                                 (typecheck/lint/
+                                                  vitest/playwright)
+                                                       ▼
+                                                 pass ──────────────────►
+                                                                          Read PR + diff
+                                                                          Check seams,
+                                                                          docs, ADRs
+                                                                          gh pr review --comment
+                                                                                  ─────────────►
+                                                                                                  Read
+                                                                                                  comments
+                                                                                                  Address
+                                                                                                  Merge
+```
 
-1. I create an issue and mark it for Claude. An **implementer agent** picks it up,
-   investigates, implements, tests, and opens a PR with a thorough description of
-   its reasoning and how it tested.
-2. The implementer marks the PR ready for review itself, which automatically
-   triggers a **reviewer agent** that leaves a preliminary review (inline
-   comments/suggestions) and verifies docs match the changes.
-3. I come in last — after both agents have run — to a PR that's already
-   implemented and pre-reviewed. I approve and merge.
-4. Neither agent can merge. Merging requires my explicit human approval.
+Branch protection on `main` enforces that the agents can't merge,
+even if they ignore the prompt instructions.
 
-Runs on GitHub-hosted runners (works with my machine off).
+## Why this exists
 
-## Flow (auto-chain)
+Most of the work on this repo follows a pattern: an issue describes
+what needs to happen, the implementation is straightforward once
+the relevant ADRs and feature docs are in mind, and the review is
+a checklist (does the seam test exist? are docs updated? consistent
+with prior decisions?). All three steps are well-suited to LLM
+assistance.
 
-issue (labeled) -> Implementer agent -> opens PR + marks ready
--> (CI runs) -> Reviewer agent (preliminary review + doc check)
--> [I review the implemented, pre-reviewed PR] -> I approve + merge
+This pipeline hands off small-to-medium issues end-to-end while
+keeping the author as the only human who lands code. The agents do
+the typing; the human does the judging.
 
-No manual step between the two agents. The human gate is at the END (approval +
-merge), not in the middle.
+## The agents
 
-## Workflow A — Implementer (.github/workflows/claude-implement.yml)
+### Implementer
 
-- Trigger: `issues: [labeled]` filtering for a `claude` label (preferred), OR
-  `issues: [assigned]` with `assignee_trigger` set to a designated login.
-- Permissions: contents: write, pull-requests: write, issues: write.
-- Auth: MUST use a GitHub App token (see gotchas) — required for the handoff to fire.
-- Steps: checkout -> generate App token -> run action.
-- Prompt: read issue #N, investigate, implement, run tests, open a PR with
-  `Fixes #N`, write a description covering reasoning + test evidence, then mark it
-  ready for review (open non-draft, or open draft then `gh pr ready`).
-- claude_args: `--model claude-opus-4-7 --max-turns 30` (tune turns).
+|                 |                                                                                                                |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
+| **File**        | [`.github/workflows/claude-implementer.yml`](../.github/workflows/claude-implementer.yml)                      |
+| **Trigger**     | `issues.labeled` where `label.name == 'claude'`                                                                |
+| **Model**       | `claude-opus-4-7` (this is real implementation work)                                                           |
+| **Auth**        | Official Claude GitHub App (required — see [Why an App token](#why-an-app-token-not-the-default-github_token)) |
+| **Permissions** | `contents: write`, `issues: write`, `pull-requests: write`                                                     |
+| **Max turns**   | 30                                                                                                             |
+| **Output**      | Feature branch `claude/<issue-number>-<slug>`, draft PR with `Fixes #N`, transitioned to ready for review      |
 
-## Workflow B — Reviewer (.github/workflows/claude-review.yml)
+The implementer inherits [`AGENTS.md`](../AGENTS.md) automatically
+(the action reads it on startup). The workflow's inline `prompt:`
+adds the step-by-step procedure: read the issue, plan, implement,
+test, update docs per the convention, push, open a draft PR, then
+mark ready.
 
-- Trigger: `pull_request: [opened, ready_for_review]`.
-  Refinement: trigger on `workflow_run` after CI completes instead, so the reviewer
-  evaluates against green tests rather than racing them.
-- Permissions: contents: read (or write if it should commit doc fixes — see open
-  decisions), pull-requests: write.
-- Steps: checkout -> run action.
-- Prompt: review the diff against a specific failure-mode checklist (NOT a vague
-  "review this PR"), leave inline comments/suggestions, verify docs reflect the
-  changes. Submit review as COMMENT, NEVER APPROVE.
-- claude_args: `--model claude-opus-4-7`.
+### Reviewer
 
-## Merge protection (enforced independently of the agents)
+|                 |                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **File**        | [`.github/workflows/claude-reviewer.yml`](../.github/workflows/claude-reviewer.yml)                                 |
+| **Trigger**     | `workflow_run` after the `verify` workflow completes successfully                                                   |
+| **Filter**      | Only runs for PRs (not pushes to `main`); skips draft PRs                                                           |
+| **Model**       | `claude-sonnet-4-6` (review is pattern-matching; fast + cheap is right)                                             |
+| **Permissions** | `contents: read`, `pull-requests: write`, `issues: write`                                                           |
+| **Max turns**   | 15                                                                                                                  |
+| **Output**      | A single PR review submitted with `--comment` (never `--approve` or `--request-changes`), plus inline line comments |
 
-Branch protection / ruleset on `main`:
+The reviewer is told what to look for in priority order: the
+seam-test convention from [ADR 0008](./decisions/0008-integration-tests-on-the-wiring-seam.md);
+the docs convention from [ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md);
+the `safeWrite` rule from [ADR 0012](./decisions/0012-localstorage-quota-handling.md);
+the Suspense rule from [ADR 0006](./decisions/0006-suspense-for-search-params.md);
+plus general bugs, accessibility regressions, and security.
 
-- Require a PR before merging.
-- Require at least 1 approving review.
-- Reviewer agent only comments (never APPROVE), so the only thing that can satisfy
-  the approval gate is me. -> Neither agent can merge, by construction. Unaffected
-  by the auto-chain.
-- Disable auto-merge; optionally require my approval via CODEOWNERS.
+## Why an App token, not the default `GITHUB_TOKEN`
 
-## Resolved facts / gotchas
+GitHub's loop-prevention says: events triggered by the default
+`GITHUB_TOKEN` do not trigger downstream workflow runs. If the
+implementer used `GITHUB_TOKEN` to mark the PR as ready, the
+`pull_request.ready_for_review` event would fire — but the
+reviewer workflow would silently never start.
 
-- App token is REQUIRED, not optional. The implementer triggers the reviewer, and
-  the default `github-actions` token cannot trigger downstream workflows (GitHub
-  loop-prevention). Use the official Claude app (/install-github-app) or your own
-  app via create-github-app-token. Without it, the reviewer silently never runs.
-- Event detail: opening a PR emits `opened`, not `ready_for_review`. So either open
-  non-draft (trigger reviewer on `opened`), or open draft then `gh pr ready` to emit
-  the conversion. Triggering on `[opened, ready_for_review]` covers either path.
-- "Assign to Claude" is NOT a native assignable bot like Copilot. The action
-  triggers via workflow config (`assignee_trigger` or a label), not bot assignment.
-  A `claude` label is cleaner and more robust.
-- Only users with WRITE access can trigger the action. Org settings can block app
-  installs — check if this lands in a work org repo.
-- Same-model blind spot: both agents are Opus 4.7, so the reviewer shares the
-  implementer's reasoning blind spots and may bless its choices rather than catch
-  them. The auto "preliminary review" is NOT independent verification — my final
-  pass is the real review. Mitigate with a sharp, opinionated reviewer rubric
-  (specific failure modes to hunt for).
-- Cost note: the reviewer runs on every PR including bad implementations (no cheap
-  human kill-switch before the review pass, unlike a draft-gated flow). Cap with
-  `--max-turns`.
-- "Test it thoroughly" requires CI that can actually run the tests. Unit tests run
-  fine on the runner; integration tests need Kafka + DynamoDB via `services:`
-  containers (Kafka image, DynamoDB Local / LocalStack) wired into Workflow A, else
-  testing degrades to unit-only.
-- Default model is Sonnet; use `--model claude-opus-4-7` for both agents.
+The fix is to use a GitHub App token instead. The official Claude
+GitHub App is the easiest path: install it once, and the action
+picks it up automatically. The reviewer's `workflow_run` trigger
+then fires correctly when the verify workflow completes for the
+implementer's commits.
 
-## Rollout (recommended)
+A custom app (via `actions/create-github-app-token`) works too;
+use it if the official app is blocked by org policy.
 
-- Phase 1 (pipeline unproven): keep a manual draft gate — implementer opens DRAFT
-  and stops; I flip to ready-for-review after eyeballing it. Catches bad
-  implementations before paying for a review pass.
-- Phase 2 (implementer trusted): drop the draft step / add `gh pr ready` so it
-  auto-chains. One-line change. Keep the draft-gate version commented out as a toggle.
+## Same-model blind spot
 
-## Open decisions
+If you switched both agents to the same model, the reviewer would
+share the implementer's reasoning blind spots and tend to bless
+its choices rather than catch them. Splitting them across Opus
+(implementer) and Sonnet (reviewer) reduces this somewhat. It
+doesn't eliminate it.
 
-1. Reviewer + docs: FLAG stale docs as review comments (read-only, recommended
-   default), or FIX by committing doc-only changes to the PR branch (contents:
-   write, scoped to docs/comments only)?
-2. Testing depth at launch: unit-only to start (no service containers), or
-   integration from day one (add Kafka/Dynamo service-container matrix to Workflow A)?
+**The auto review is a preliminary pass, not independent
+verification.** Your final read is the real review. The reviewer's
+job is to surface things you should look at, not to bless the PR.
 
-## Deliverables still to write
+## Setup checklist
 
-- claude-implement.yml and claude-review.yml (full, auto-chain with draft-gate toggle).
-- Branch-protection ruleset.
-- CLAUDE.md implementation + reviewer rubric tuned to NestJS + Kafka + DynamoDB
-  (span-hierarchy conventions, DynamoDB access patterns, reviewer failure-mode list).
+These steps are one-time. The pipeline doesn't run until they're
+all done.
 
-## Don'ts
+### 1. Install the official Claude GitHub App
 
-- Do NOT auto-trigger the implementer from the reviewer's comments to "address
-  feedback." That's the loop/runaway-cost trap. Keep revisions a manual
-  `@claude address the review comments` mention until the pipeline is proven.
+From any repo or org admin context:
+
+```
+gh extension install anthropics/gh-claude-code
+gh claude-code install-app
+```
+
+Or via the [Anthropic onboarding flow](https://github.com/apps/claude).
+Install for this repo (or the whole org) and accept the permissions
+it requests.
+
+### 2. Set the API key secret
+
+```sh
+gh secret set ANTHROPIC_API_KEY --body "<your key>"
+```
+
+Both workflows reference `secrets.ANTHROPIC_API_KEY`. Without it,
+the action fails fast on its `anthropic_api_key` input.
+
+### 3. Create the `claude` label
+
+```sh
+gh label create claude \
+  --description "Hand this issue off to the Claude implementer agent" \
+  --color "5319E7"
+```
+
+The implementer's `if:` filter matches on this exact name. If you
+rename it, update the workflow.
+
+### 4. Branch protection on `main` (essential)
+
+This is the load-bearing safety rule. Without it, a misbehaving
+implementer could push directly to `main`, or the reviewer could
+self-approve and merge.
+
+```sh
+gh api -X PUT "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/main/protection" \
+  --input - <<'EOF'
+{
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews": true,
+    "require_code_owner_reviews": false
+  },
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["typecheck + lint + vitest + playwright"]
+  },
+  "enforce_admins": false,
+  "restrictions": null,
+  "required_linear_history": true,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+EOF
+```
+
+Three pieces matter most:
+
+- **`required_approving_review_count: 1`** combined with the fact
+  that GitHub does not count reviews from the workflow bot identity
+  (`github-actions[bot]` or the Claude App) as satisfying that
+  rule. Even if the reviewer agent ignored its prompt and ran
+  `gh pr review --approve`, the bot's approval would not count.
+- **`required_status_checks`** keeps a broken implementation from
+  merging.
+- **`enforce_admins: false`** lets you (the repo admin) bypass for
+  emergencies. Flip to `true` if you want zero exceptions.
+
+### 5. Smoke test
+
+1. Open a tiny issue: _"Add a one-line greeting to the bottom of
+   `docs/README.md`."_
+2. Add the `claude` label.
+3. Watch the Actions tab. A workflow run named **Claude Implementer**
+   should appear within a minute.
+4. Wait ~3-8 minutes for the implementer to push a branch, open a
+   draft PR, run verify, and transition the PR to ready.
+5. The `verify` workflow runs against the new PR. When it goes
+   green, the **Claude Reviewer** workflow fires automatically.
+6. Open the PR, read the agent's review, decide.
+
+If any step doesn't fire, check the Actions tab for the workflow
+run logs and the gotcha list below.
+
+## What the agents are told (and not told)
+
+Both agents inherit [`AGENTS.md`](../AGENTS.md) automatically. That
+covers the Next-version warning and the docs convention from
+[ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md).
+Per-workflow `prompt:` adds the steps for the specific role.
+
+For the implementer:
+
+- Read the issue body. Treat it as the spec.
+- Investigate the codebase: relevant feature docs, ADRs, existing
+  patterns.
+- Implement following the established conventions.
+- Add or update tests at the right layer per
+  [`docs/testing.md`](./testing.md), including the seam test from
+  [ADR 0008](./decisions/0008-integration-tests-on-the-wiring-seam.md)
+  when applicable.
+- Update or add docs per the convention.
+- Run `npm run verify`. It must pass before opening the PR.
+- Push to `claude/<issue-number>-<slug>`.
+- `gh pr create --draft --title <title> --body <body>` referencing
+  `Fixes #<n>`.
+- `gh pr ready <pr>` to transition out of draft.
+
+For the reviewer:
+
+- Read the PR description, the diff, and the issue it closes.
+- Investigate the changes against the codebase — especially the
+  ADRs the change touches.
+- Look for specific failure modes (the order is the rubric, not
+  exhaustive):
+  1. New hook + caller without a seam integration test ([ADR 0008](./decisions/0008-integration-tests-on-the-wiring-seam.md))
+  2. New behavior shipped without a docs update ([ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md))
+  3. Material decision shipped without an ADR ([ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md))
+  4. Direct `localStorage.setItem` instead of `safeWrite` ([ADR 0012](./decisions/0012-localstorage-quota-handling.md))
+  5. `useSearchParams` consumer without a Suspense boundary ([ADR 0006](./decisions/0006-suspense-for-search-params.md))
+  6. Extracted DOM methods like `const f = document.startViewTransition` (breaks `this` binding)
+  7. ESLint rule disabled without a comment explaining why
+  8. Test asserting only the happy path when edge cases are obvious
+  9. Accessibility regressions (missing `aria-*`, focus traps, etc.)
+  10. Security regressions (header changes, secrets in source, new env vars without Terraform)
+- Leave inline comments + a single review-level comment summary.
+- Always submit with `gh pr review --comment`. Never `--approve`,
+  never `--request-changes`.
+
+Both prompts live in the workflow YAML so they're versioned with
+the rest of the repo. To change agent behavior, edit the workflow
+and open a normal PR.
+
+## Guard rails
+
+| Guard                                            | What it stops                                             |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| Branch protection requiring 1 human approval     | The agent merging its own (or another agent's) PR.        |
+| Bot reviews don't satisfy the approval rule      | The reviewer agent self-approving to bypass the gate.     |
+| `claude` label is the only implementer trigger   | Random comments / mentions don't spawn implementer runs.  |
+| Reviewer triggers on `workflow_run` after verify | Reviewer doesn't run against broken implementations.      |
+| Workflow runs in `permissions:` sandbox          | The agent can't change repo settings, secrets, or admin.  |
+| Implementer pushes only to `claude/*` branches   | Naming convention makes bot-created branches obvious.     |
+| App token (not default) for the implementer      | Loop-prevention doesn't kill the handoff to the reviewer. |
+| Reviewer prompt explicitly forbids `--approve`   | Defense-in-depth alongside branch protection.             |
+
+## What the pipeline does NOT do
+
+- **Auto-address reviewer feedback.** Don't wire the reviewer's
+  comments to re-trigger the implementer — that's the runaway-cost
+  trap. Iterations go through a fresh human-driven trigger
+  (re-label the issue, or `@claude address the review comments`
+  manually).
+- **Merge.** Branch protection prevents this and the prompts forbid
+  it. Belt + suspenders.
+- **Approve.** Same.
+- **Respond to issue comments.** Only the label triggers the
+  implementer. Adding context to an issue after the implementer has
+  started has no effect on the in-flight run.
+- **Run against `main` pushes.** The reviewer's `workflow_run`
+  filter requires the upstream workflow to have been triggered by a
+  pull request.
+
+## When NOT to use the pipeline
+
+Use it for issues that the agent can plausibly land on its own.
+Don't use it for:
+
+- Changes that need architectural judgement (open an ADR yourself
+  first; the agent implements against it after).
+- Production incidents (you debug; the agent helps after).
+- Anything touching secrets, IAM, or infrastructure provisioning
+  (those go through Terraform, which Claude shouldn't `terraform
+apply` autonomously).
+- Tasks where the issue body would have to be longer than the
+  resulting code change.
+
+For everything else: open the issue, write what you'd write for a
+human contributor, label it `claude`, watch the loop run.
+
+## Cost considerations
+
+Rough per-issue cost, depending on complexity:
+
+| Run                                   | Typical | Heavy  |
+| ------------------------------------- | ------- | ------ |
+| Implementer (Opus 4.7, ~30 turns)     | $2-6    | $6-15+ |
+| Reviewer (Sonnet 4.6, ~15 turns)      | $0.20-1 | $1-3   |
+| GitHub Actions runner minutes (Hobby) | free    | free   |
+
+To cap spend, set [Anthropic API spend
+limits](https://console.anthropic.com/settings/billing). The
+implementer's `--max-turns 30` is also a hard ceiling.
+
+## Limitations + known issues
+
+- **Agents only see the repo.** Issues referencing private docs,
+  design files, Slack threads, etc. produce work that misses that
+  context. Inline the relevant context in the issue body.
+- **Long runs may exceed the turn budget.** If hit, the implementer
+  leaves the branch + PR in a partial state and the next iteration
+  is on the human (or a fresh re-trigger).
+- **The reviewer can't execute tests.** It reads test files but
+  doesn't run them. The `workflow_run` gate ensures CI has gone
+  green before the reviewer fires, but the reviewer's "is this
+  test testing the right thing?" judgment is still pattern-matching.
+- **Parallel issues with the `claude` label** spawn parallel
+  implementers. They don't coordinate. Worst case: two PRs touching
+  the same file conflict at merge time.
+- **Force-pushes to a PR branch** re-trigger verify, which
+  re-triggers the reviewer. Expect duplicate reviews on iterated
+  PRs.
+
+## References
+
+- Implementer workflow: [`.github/workflows/claude-implementer.yml`](../.github/workflows/claude-implementer.yml)
+- Reviewer workflow: [`.github/workflows/claude-reviewer.yml`](../.github/workflows/claude-reviewer.yml)
+- Action source: <https://github.com/anthropics/claude-code-action>
+- Action docs: <https://code.claude.com/docs/en/github-actions>
+- Related: [`AGENTS.md`](../AGENTS.md) — the conventions both
+  agents inherit.
+- Related: [`docs/decisions/0001-everything-substantial-gets-a-doc.md`](./decisions/0001-everything-substantial-gets-a-doc.md) —
+  the rule the agents enforce on themselves.

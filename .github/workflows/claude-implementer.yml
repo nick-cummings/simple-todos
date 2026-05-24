@@ -1,0 +1,118 @@
+name: Claude Implementer
+
+# Fires when the "claude" label is added to an issue. The label is the
+# only trigger — random comments / mentions / assignments do nothing.
+on:
+  issues:
+    types: [labeled]
+
+# Only one implementer per issue at a time. Re-labeling an issue while
+# a previous run is in flight will cancel the older one.
+concurrency:
+  group: claude-implementer-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  implement:
+    if: github.event.label.name == 'claude'
+    runs-on: ubuntu-latest
+    # Time guard: a runaway implementer can't burn the day. 30 min is
+    # generous given the action's own --max-turns ceiling.
+    timeout-minutes: 30
+    permissions:
+      contents: write # push the feature branch
+      issues: write # comment on the source issue
+      pull-requests: write # create + transition the draft PR
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Fetch the full history so the agent can read prior commits
+          # if it needs context.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Install deps up front so the agent doesn't burn a turn on it.
+      - run: npm ci
+
+      # Configure git so the agent's commits identify themselves. The
+      # Anthropic Claude GitHub App provides the token + identity once
+      # installed (see docs/two-agent-auto-pipeline.md for setup).
+      - name: Configure git
+        run: |
+          git config user.name "claude[bot]"
+          git config user.email "claude[bot]@users.noreply.github.com"
+
+      - name: Run Claude implementer
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Opus for real implementation work. Adaptive thinking + max
+          # effort are the defaults; --max-turns is a hard ceiling.
+          claude_args: --model claude-opus-4-7 --max-turns 30
+          prompt: |
+            You are the implementer agent for this repository.
+
+            ## The task
+
+            Implement GitHub issue #${{ github.event.issue.number }}
+            from `${{ github.repository }}`.
+
+            ## Required workflow
+
+            Execute these steps in order. Don't skip any.
+
+            1. **Read the issue.** Use `gh issue view ${{ github.event.issue.number }} --comments` to fetch the body and any conversation. Treat the issue as the spec — if it's ambiguous, leave a question as a comment on the issue and stop. Do not invent requirements.
+
+            2. **Orient.** Read these before touching code:
+               - `AGENTS.md` (project conventions)
+               - `docs/README.md` (docs system overview)
+               - `docs/architecture.md` (system surfaces)
+               - Any feature doc in `docs/features/` that the issue touches
+               - Any ADR in `docs/decisions/` that the issue mentions or that the change would interact with
+               - `docs/testing.md` (testing philosophy, especially the seam-test convention from ADR 0008)
+
+            3. **Plan.** Identify the files you'll change, the tests you'll add or update, and the docs that need to come along. If the change is a material decision (architecture, dependency, format, security posture, performance budget), plan a new ADR.
+
+            4. **Implement.** Follow the existing patterns. Lean on the strict ESLint config — if you need to disable a rule, leave a comment explaining why (see ADR 0007).
+
+            5. **Test.** Add or update tests at the right layer per `docs/testing.md`. For features that split "hook does work + caller wires it up", add a seam integration test (this is the load-bearing convention from ADR 0008). Don't just test the happy path — cover the obvious edge cases.
+
+            6. **Document.** Per ADR 0001, anything beyond a minor bug fix lands with a docs update in the same PR. New feature → feature doc. New material decision → ADR. New production failure mode → runbook.
+
+            7. **Verify.** Run `npm run verify` (= format check + typecheck + lint + vitest + playwright). It must pass before you open the PR. If something fails, fix it before continuing.
+
+            8. **Branch + push.** Branch name format: `claude/${{ github.event.issue.number }}-<short-slug>`. The slug is 3-5 lowercase words separated by dashes, derived from the issue title.
+
+            9. **Open a draft PR.** Use `gh pr create --draft`. Include:
+               - A clear title (imperative, ~70 chars max)
+               - A description with these sections:
+                 - **Summary** (3-5 sentences on what changed and why)
+                 - **Implementation notes** (any tradeoffs you made, files of interest, anything reviewers should look at first)
+                 - **Test evidence** (which tests cover the change, what manual verification you ran)
+                 - **Docs updated** (links to the feature doc / ADR / runbook you wrote or modified)
+                 - `Closes #${{ github.event.issue.number }}` on its own line
+
+            10. **Mark ready.** Use `gh pr ready <pr-number>` to transition the PR out of draft. This emits the `ready_for_review` event and gates the start of the verify workflow; verify going green is what triggers the reviewer agent.
+
+            ## What you must NOT do
+
+            - **Don't merge.** Branch protection prevents it; don't try.
+            - **Don't approve any PR.** Same.
+            - **Don't push directly to `main`.** Push only to your `claude/*` feature branch.
+            - **Don't modify `.github/workflows/claude-implementer.yml` or `.github/workflows/claude-reviewer.yml`.** Changes to these files need human review.
+            - **Don't add a new dependency** without explaining why in the PR description and the relevant ADR.
+            - **Don't disable tests** to make verify pass. If a test fails, the implementation is wrong.
+            - **Don't skip the docs step.** ADR 0001 is enforced by the reviewer agent.
+            - **Don't bypass the verify hook with `--no-verify`.**
+
+            ## If you get stuck
+
+            If you can't make verify pass after ~3 honest attempts, or
+            the issue is too ambiguous to implement, stop. Open a
+            comment on the issue explaining what's blocking you and
+            what you tried. Leave the branch in place so the human can
+            inspect it.
