@@ -24,14 +24,18 @@ You review the comments and merge (or not). Neither agent can merge.
                      ↻ commit + push           each push but doesn't
                      Update docs                 trigger the reviewer
                      ↻ commit + push           until the PR is marked
-                     npm run verify             ready.)
-                     Finalize PR body
-                     gh pr ready ─────────────►
+                     npm run verify             ready AND carries the
+                     Finalize PR body            "claude-review" label.)
+                     gh pr ready
+                     gh pr edit --add-label
+                       claude-review ──────────►
                                                  npm run verify (final)
                                                  (typecheck/lint/
                                                   vitest/playwright)
                                                        ▼
                                                  pass ──────────────────►
+                                                                          (Has claude-review
+                                                                          label? if not, skip.)
                                                                           Read PR + diff
                                                                           Check seams,
                                                                           docs, ADRs
@@ -85,7 +89,7 @@ mark ready.
 | --------------- | ------------------------------------------------------------------------------------------------------------------- |
 | **File**        | [`.github/workflows/claude-reviewer.yml`](../.github/workflows/claude-reviewer.yml)                                 |
 | **Trigger**     | `workflow_run` after the `verify` workflow completes successfully                                                   |
-| **Filter**      | Only runs for PRs (not pushes to `main`); skips draft PRs                                                           |
+| **Filter**      | Only runs for PRs (not pushes to `main`); skips draft PRs; **skips PRs that don't carry the `claude-review` label** |
 | **Model**       | `claude-sonnet-4-6` (review is pattern-matching; fast + cheap is right)                                             |
 | **Permissions** | `contents: read`, `pull-requests: write`, `issues: write`                                                           |
 | **Max turns**   | 15                                                                                                                  |
@@ -178,16 +182,29 @@ gh secret set ANTHROPIC_API_KEY --body "<your key>"
 Both workflows reference `secrets.ANTHROPIC_API_KEY`. Without it,
 the action fails fast on its `anthropic_api_key` input.
 
-### 3. Create the `claude` label
+### 3. Create the labels
+
+Two labels gate the pipeline — one per agent:
 
 ```sh
 gh label create claude \
   --description "Hand this issue off to the Claude implementer agent" \
   --color "5319E7"
+
+gh label create claude-review \
+  --description "Request a Claude reviewer pass on this PR" \
+  --color "0E8A16"
 ```
 
-The implementer's `if:` filter matches on this exact name. If you
-rename it, update the workflow.
+- **`claude`** on an issue → fires the implementer.
+- **`claude-review`** on a PR → makes the reviewer fire when verify
+  goes green. Without it the reviewer skips, even if everything
+  else is in place. The implementer adds this label to its own PRs
+  as part of the auto-chain; humans add it manually when they want
+  a review on their own PR.
+
+If you rename either, update the corresponding workflow's `if:`
+filter / label-resolution step.
 
 ### 4. Branch protection on `main` (essential)
 

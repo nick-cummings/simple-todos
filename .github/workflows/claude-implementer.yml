@@ -163,7 +163,14 @@ jobs:
                )"
                ```
 
-            10. **Mark ready.** Use `gh pr ready <pr-number>` to transition the PR out of draft. This emits the `ready_for_review` event; the verify workflow runs against the PR, and on green the reviewer agent fires.
+            10. **Mark ready + request review.** Transition the PR out of draft and add the `claude-review` label so the reviewer agent fires when verify goes green:
+
+                ```sh
+                gh pr ready <pr-number>
+                gh pr edit <pr-number> --add-label claude-review
+                ```
+
+                The reviewer is gated on this label — without it, verify going green is a no-op as far as the reviewer is concerned. Skipping the label is how you'd hand a PR to the human without an auto-review (rarely needed in this workflow, but supported).
 
             ## What you must NOT do
 
