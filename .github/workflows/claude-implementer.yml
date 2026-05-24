@@ -23,6 +23,7 @@ jobs:
       contents: write # push the feature branch
       issues: write # comment on the source issue
       pull-requests: write # create + transition the draft PR
+      id-token: write # required by the action for OIDC federation against the Claude API
     steps:
       - uses: actions/checkout@v6
         with:

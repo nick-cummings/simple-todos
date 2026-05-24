@@ -28,6 +28,7 @@ jobs:
       contents: read # diff + repo state
       issues: write # leave comments
       pull-requests: write # submit the review
+      id-token: write # required by the action for OIDC federation against the Claude API
 
     steps:
       # Find the PR associated with the upstream workflow run.
