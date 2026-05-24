@@ -64,3 +64,6 @@ TESTING_PLAN.md
 
 # Sentry build artifacts — uploaded source maps shouldn't be served.
 .sentryclirc
+
+# Lighthouse CI report output
+/.lighthouseci/

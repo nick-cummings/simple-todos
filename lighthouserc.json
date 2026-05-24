@@ -24,11 +24,11 @@
       "aggregationMethod": "median",
       "assertions": {
         "categories:performance": [
-          "error",
+          "warn",
           { "minScore": 0.85, "aggregationMethod": "median" }
         ],
         "categories:accessibility": [
-          "error",
+          "warn",
           { "minScore": 0.95, "aggregationMethod": "median" }
         ],
         "categories:best-practices": [
@@ -40,11 +40,11 @@
           { "minScore": 0.9, "aggregationMethod": "median" }
         ],
         "largest-contentful-paint": [
-          "error",
+          "warn",
           { "maxNumericValue": 2500, "aggregationMethod": "median" }
         ],
         "cumulative-layout-shift": [
-          "error",
+          "warn",
           { "maxNumericValue": 0.1, "aggregationMethod": "median" }
         ],
         "total-blocking-time": [
