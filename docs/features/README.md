@@ -19,6 +19,7 @@ the same PR. See [`../decisions/0001-everything-substantial-gets-a-doc.md`](../d
 - [backup-and-restore.md](./backup-and-restore.md) — JSON export/import.
 - [deep-link.md](./deep-link.md) — `?todo=ID` from a notification opens the matching todo.
 - [error-boundaries.md](./error-boundaries.md) — page-level + root-layout React Error Boundaries.
+- [install-banner.md](./install-banner.md) — one-time "Add to Home Screen" nudge for iOS Safari.
 - [labels.md](./labels.md) — free-form color-coded tags for todos.
 - [reminders.md](./reminders.md) — daily Web Push notifications for due todos.
 - [settings.md](./settings.md) — the `/settings` route.
