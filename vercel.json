@@ -5,6 +5,10 @@
     {
       "path": "/api/push/notify-cron",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/push/gc-cron",
+      "schedule": "0 10 * * *"
     }
   ],
   "headers": [
