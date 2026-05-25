@@ -24,6 +24,14 @@ export interface PushSubscriptionJSON {
 export interface PushSubscriptionRecord {
   browserId: string;
   createdAt: number;
+  // epoch ms of the last successful Web Push delivery to this
+  // subscription. Bumped by `notify-cron` after a `sent` outcome.
+  // Read by `gc-cron` to prune subscriptions that haven't been used
+  // in a long time (devices that died without ever surfacing a 410).
+  // Unset for legacy rows created before this field existed and for
+  // brand new subscriptions that have never received a reminder —
+  // see ADR 0014 for how the GC handles those.
+  lastReminderAt?: number;
   subscription: PushSubscriptionJSON;
 }
 
@@ -66,6 +74,50 @@ export async function deleteReminder(id: string): Promise<void> {
 
 export async function deleteSubscription(browserId: string): Promise<void> {
   await getClient().del(SUBSCRIPTION_PREFIX + browserId);
+}
+
+/**
+ * Scan all subscriptions. Used by the GC cron handler. Returns parsed
+ * records, silently skipping any that fail to parse (Upstash data
+ * lives across deploys, so a schema bump shouldn't crash the cron).
+ */
+export async function listSubscriptions(): Promise<PushSubscriptionRecord[]> {
+  const c = getClient();
+  const keys: string[] = [];
+  let cursor: number | string = 0;
+  do {
+    const result = (await c.scan(cursor, {
+      count: 100,
+      match: `${SUBSCRIPTION_PREFIX}*`,
+    })) as [number | string, string[]];
+    keys.push(...result[1]);
+    cursor = result[0];
+  } while (cursor !== 0 && cursor !== "0");
+  if (keys.length === 0) return [];
+  const raws = await c.mget<(null | string)[]>(...keys);
+  return raws
+    .map((r) => parseRecord<PushSubscriptionRecord>(r))
+    .filter((r): r is PushSubscriptionRecord => r !== null);
+}
+
+/**
+ * Mark a subscription as having received a reminder at the given
+ * timestamp. The `notify-cron` writes this after every successful
+ * Web Push so the GC cron can tell which subscriptions are still
+ * alive vs. abandoned.
+ *
+ * Returns true if the subscription was found and updated, false if
+ * it was deleted between scan and update (e.g. by a concurrent 410
+ * handler) — both are fine; the caller has no recovery to do.
+ */
+export async function markSubscriptionUsed(
+  browserId: string,
+  ts: number,
+): Promise<boolean> {
+  const existing = await getSubscription(browserId);
+  if (!existing) return false;
+  await saveSubscription({ ...existing, lastReminderAt: ts });
+  return true;
 }
 
 export async function getReminder(id: string): Promise<null | ReminderRecord> {
