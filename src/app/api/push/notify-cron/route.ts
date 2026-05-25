@@ -7,6 +7,7 @@ import {
   getSubscription,
   listReminders,
   markReminderSent,
+  markSubscriptionUsed,
 } from "@/lib/pushStore";
 import { sendReminderPush } from "@/lib/webPush";
 
@@ -99,6 +100,11 @@ export async function GET(request: Request) {
       // fail mid-cron, which is rare.
       await markReminderSent(reminder.id, now);
       await deleteReminder(reminder.id);
+      // Stamp the subscription so the GC cron can tell it's still
+      // alive. A failure here doesn't change the delivery outcome
+      // (the push already went out); the GC just sees a slightly
+      // stale lastReminderAt next run.
+      await markSubscriptionUsed(reminder.browserId, now);
     } else if (outcome.status === "expired") {
       expired += 1;
       await deleteReminder(reminder.id);
