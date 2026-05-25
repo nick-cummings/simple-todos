@@ -179,10 +179,7 @@ describe("GET /api/push/notify-cron — dispatch", () => {
     expect(deleteSubscription).not.toHaveBeenCalled();
     // Subscription is stamped with the delivery timestamp so the GC
     // cron can tell the device is still alive.
-    expect(markSubscriptionUsed).toHaveBeenCalledWith(
-      "b1",
-      expect.any(Number),
-    );
+    expect(markSubscriptionUsed).toHaveBeenCalledWith("b1", expect.any(Number));
   });
 
   it("does not stamp the subscription on expired or failed outcomes", async () => {
