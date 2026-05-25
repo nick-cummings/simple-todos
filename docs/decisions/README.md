@@ -27,6 +27,7 @@ Template: [TEMPLATE.md](./TEMPLATE.md)
 | 0011 | [Sentry for error reporting](./0011-sentry-for-error-reporting.md)                                          | accepted |
 | 0012 | [localStorage quota: catch + surface, don't pre-empt](./0012-localstorage-quota-handling.md)                | accepted |
 | 0013 | [Pre-push runs tests only when code changes](./0013-change-aware-pre-push.md)                               | accepted |
+| 0014 | [Garbage-collect stale push subscriptions](./0014-stale-subscription-gc.md)                                 | accepted |
 
 ## Numbering
 

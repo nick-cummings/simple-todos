@@ -55,13 +55,14 @@ reminders from [Settings](./settings.md).
 
 ### Server (Upstash Redis)
 
-| Key                        | Shape                                                          |
-| -------------------------- | -------------------------------------------------------------- |
-| `subscription:<browserId>` | `{ browserId, createdAt, subscription: PushSubscriptionJSON }` |
-| `reminder:<reminderId>`    | `{ reminderId, browserId, todoId, title, fireAt, sentAt? }`    |
+| Key                        | Shape                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| `subscription:<browserId>` | `{ browserId, createdAt, subscription: PushSubscriptionJSON, lastReminderAt? }` |
+| `reminder:<reminderId>`    | `{ reminderId, browserId, todoId, title, fireAt, sentAt? }`                     |
 
 `sentAt` is set by the cron after a successful Web Push — see
-"Idempotency" below.
+"Idempotency" below. `lastReminderAt` is set after a successful
+delivery for use by the GC cron — see "Garbage collection" below.
 
 `reminderId` is `r-<todoId>`. One reminder per todo at a time;
 updating a todo's due date overwrites the reminder.
@@ -139,16 +140,46 @@ system that supports both, which Web Push doesn't. Acceptable trade
 since the failure case requires Redis to fail mid-cron, which is
 rare.
 
+## Garbage collection
+
+`notify-cron` removes a subscription only when the push service
+explicitly returns 410 GONE. Subscriptions can become invalid in
+ways that never produce a 410 (OS-level revocation, browser
+uninstalled, device factory reset, push service silently dropping
+the endpoint, user simply not creating a due-date todo for months).
+Without intervention these accumulate in Upstash forever.
+
+A second daily cron, `/api/push/gc-cron` (10:00 UTC, vs notify-cron's
+15:00 UTC), prunes them:
+
+1. `notify-cron` calls `markSubscriptionUsed(browserId, now)` after
+   every successful Web Push, stamping `lastReminderAt` on the
+   subscription row.
+2. `gc-cron` scans all subscriptions and deletes any whose
+   `lastReminderAt` is older than 90 days.
+3. Subscriptions with no `lastReminderAt` (legacy rows from before
+   the field existed) are left alone — `notify-cron` will stamp
+   them on the next successful push, converting them to "kept."
+4. If anything was deleted, the cron fires a single Sentry
+   `captureMessage` at `warning` level with the counts as tags
+   (`area: push-gc`, `deleted`, `kept`, `legacy`).
+
+Design rationale (window size, legacy handling, why a separate cron)
+is in [ADR 0014](../decisions/0014-stale-subscription-gc.md).
+Operational guidance for inspecting / changing it is in the
+[runbook](../operations/gc-stale-subscriptions.md).
+
 ## How it's tested
 
-| Test                                         | Layer       | What it covers                                          |
-| -------------------------------------------- | ----------- | ------------------------------------------------------- |
-| `src/lib/useReminders.test.ts`               | Unit        | Subscription flow, fireAt computation, sync POSTs.      |
-| `src/lib/pushStore.test.ts`                  | Unit        | Redis CRUD shapes; `markReminderSent` behavior.         |
-| `src/lib/webPush.test.ts`                    | Unit        | VAPID-signed send.                                      |
-| `src/components/TodoApp.test.tsx` (seam)     | Integration | `TodoApp` calls `syncTodoReminder` correctly.           |
-| `src/app/api/push/notify-cron/route.test.ts` | Integration | Cron dispatch, ordering, dedupe-window, expired/failed. |
-| `tests/e2e/reminders.spec.ts`                | E2E         | The gate UI; subscribe POST fires; busy state.          |
+| Test                                         | Layer       | What it covers                                                                 |
+| -------------------------------------------- | ----------- | ------------------------------------------------------------------------------ |
+| `src/lib/useReminders.test.ts`               | Unit        | Subscription flow, fireAt computation, sync POSTs.                             |
+| `src/lib/pushStore.test.ts`                  | Unit        | Redis CRUD shapes; `markReminderSent` behavior.                                |
+| `src/lib/webPush.test.ts`                    | Unit        | VAPID-signed send.                                                             |
+| `src/components/TodoApp.test.tsx` (seam)     | Integration | `TodoApp` calls `syncTodoReminder` correctly.                                  |
+| `src/app/api/push/notify-cron/route.test.ts` | Integration | Cron dispatch, ordering, dedupe-window, expired/failed.                        |
+| `src/app/api/push/gc-cron/route.test.ts`     | Integration | Stale-subscription pruning, legacy classification, boundary, Sentry reporting. |
+| `tests/e2e/reminders.spec.ts`                | E2E         | The gate UI; subscribe POST fires; busy state.                                 |
 
 E2E doesn't trigger real notifications — Web Push requires APNs/FCM
 plumbing the test environment doesn't have. The notification surface
@@ -156,10 +187,6 @@ is verified manually on the actual device.
 
 ## Known gaps
 
-- **410 GONE handling is partial.** The cron deletes the subscription
-  on a 410 from the push service (good), but doesn't have a separate
-  GC for subscriptions that haven't received any reminder recently
-  (so a device that's dead in another way can accumulate).
 - **No timezone awareness.** Reminders fire at 15:00 UTC for everyone.
   Single-user app, so the author just picked a time they're awake.
 
