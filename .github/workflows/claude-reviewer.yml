@@ -12,11 +12,16 @@ on:
   pull_request:
     types: [ready_for_review, labeled]
 
-# At most one reviewer per PR. A new ready/label event cancels any
-# in-flight review for the same PR.
+# Serialize reviewer runs per PR, but DON'T cancel in progress. The
+# implementer's auto-chain fires `ready_for_review` then `labeled` in
+# quick succession — with cancel-in-progress the second event would
+# cancel the first's run, and we saw the real (labeled) review get
+# killed that way. With it off, the ready_for_review run skips (no label
+# yet) and the labeled run queues behind it and reviews. There's no
+# push trigger anymore, so there's nothing else to dedupe.
 concurrency:
   group: claude-reviewer-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   review:
