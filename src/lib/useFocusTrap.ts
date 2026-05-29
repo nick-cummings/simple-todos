@@ -11,12 +11,6 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
-function getFocusable(container: HTMLElement): HTMLElement[] {
-  return [...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].filter(
-    (el) => el.tabIndex !== -1,
-  );
-}
-
 /**
  * Keeps keyboard focus inside `containerRef` while `enabled`.
  *
@@ -55,7 +49,8 @@ export function useFocusTrap(
         return;
       }
       const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const last = focusable.at(-1);
+      if (!last) return;
       const active = document.activeElement;
       const inside = container.contains(active);
       if (e.shiftKey) {
@@ -72,7 +67,13 @@ export function useFocusTrap(
     globalThis.addEventListener("keydown", onKeyDown);
     return () => {
       globalThis.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus?.();
+      previouslyFocused?.focus();
     };
   }, [containerRef, enabled]);
+}
+
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  return [
+    ...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+  ].filter((el) => el.tabIndex !== -1);
 }

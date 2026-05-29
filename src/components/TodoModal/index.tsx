@@ -176,7 +176,6 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
       role="dialog"
     >
       <div
-        ref={panelRef}
         className={
           `flex w-full max-w-md flex-col bg-card shadow-pop ` +
           // Mobile: bottom sheet pinned at 88dvh — enough for the
@@ -187,6 +186,7 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
             closing ? "animate-pop-out" : "animate-pop-in"
           }`
         }
+        ref={panelRef}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         {/* Header (fixed) */}

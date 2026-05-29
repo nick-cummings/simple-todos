@@ -3,8 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import TodoModal from "./TodoModal";
 import { makeTodo } from "@/test-utils/factories";
+
+import TodoModal from "./TodoModal";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -332,7 +333,11 @@ describe("<TodoModal> a11y wiring", () => {
     const [open, setOpen] = useState(false);
     return (
       <>
-        <button data-testid="trigger" onClick={() => setOpen(true)} type="button">
+        <button
+          data-testid="trigger"
+          onClick={() => setOpen(true)}
+          type="button"
+        >
           open
         </button>
         <TodoModal
@@ -351,7 +356,9 @@ describe("<TodoModal> a11y wiring", () => {
     expect(dialog).toHaveAttribute("aria-modal", "true");
     const labelId = dialog.getAttribute("aria-labelledby");
     expect(labelId).toBeTruthy();
-    expect(document.getElementById(labelId!)).toHaveTextContent(/todo details/i);
+    expect(document.querySelector(`[id="${labelId}"]`)).toHaveTextContent(
+      /todo details/i,
+    );
   });
 
   it("traps Tab so focus wraps back into the dialog", async () => {
