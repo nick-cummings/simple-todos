@@ -96,7 +96,7 @@ either way: tell the user to export and clear. Reactive is enough.
   unhandled. As of this consistency pass, all three also flow through
   `safeWrite`:
   - `useTheme` — `THEME_KEY` (the `setTheme` persistence write; the
-    pre-paint inline script in the layout only *reads* the key, so it
+    pre-paint inline script in the layout only _reads_ the key, so it
     is not affected).
   - `useReminders` — `PERMISSION_PROMPTED_KEY` and `BROWSER_ID_KEY`.
     These are best-effort: the hooks keep working on the in-memory
