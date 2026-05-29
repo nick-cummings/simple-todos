@@ -66,7 +66,12 @@ All routes under `/api/` follow the same posture:
   entries are pruned on every call, and a hard `MAX_BUCKETS` cap evicts
   the oldest entries if a flood of distinct IPs within a single window
   would otherwise overflow it — so a hostile spray of unique source IPs
-  can't grow it without limit across the lambda's lifetime.
+  can't grow it without limit across the lambda's lifetime. The tradeoff:
+  once that cap is hit (>`MAX_BUCKETS` live IPs in one window), evicting
+  the oldest _live_ bucket resets that IP's counter early, so a determined
+  flood could let an evicted IP regain its quota — an accepted, bounded
+  relaxation that only applies to the in-memory fallback, never the
+  shared Upstash limiter.
 - **`POST /api/push/subscribe`** — accepts only known browserId-bound
   subscriptions. Idempotent.
 - **`DELETE /api/push/subscribe`** — removes a subscription by browserId.
