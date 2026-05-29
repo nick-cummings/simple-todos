@@ -20,22 +20,18 @@ You review the comments and merge (or not). Neither agent can merge.
                      └──────────────────┘      death leaves a recoverable
                      Implement + tests          partial branch.
                      ↻ commit + push
-                     ↻ commit + push           (verify runs against
-                     ↻ commit + push           each push but doesn't
-                     Update docs                 trigger the reviewer
-                     ↻ commit + push           until the PR is marked
-                     npm run verify             ready AND carries the
-                     Finalize PR body            "claude-review" label.)
+                     ↻ commit + push           (verify runs on every
+                     ↻ commit + push           push; it gates the
+                     Update docs                MERGE, not the review.)
+                     ↻ commit + push
+                     npm run verify
+                     Finalize PR body
                      gh pr ready
                      gh pr edit --add-label
-                       claude-review ──────────►
-                                                 npm run verify (final)
-                                                 (typecheck/lint/
-                                                  vitest/playwright)
-                                                       ▼
-                                                 pass ──────────────────►
-                                                                          (Has claude-review
-                                                                          label? if not, skip.)
+                       claude-review ──────────────────────────────────►
+                                                                          (Non-draft + has
+                                                                          claude-review
+                                                                          label? else skip.)
                                                                           Read PR + diff
                                                                           Check seams,
                                                                           docs, ADRs
@@ -88,8 +84,8 @@ mark ready.
 |                 |                                                                                                                     |
 | --------------- | ------------------------------------------------------------------------------------------------------------------- |
 | **File**        | [`.github/workflows/claude-reviewer.yml`](../.github/workflows/claude-reviewer.yml)                                 |
-| **Trigger**     | `workflow_run` after the `verify` workflow completes successfully                                                   |
-| **Filter**      | Only runs for PRs (not pushes to `main`); skips draft PRs; **skips PRs that don't carry the `claude-review` label** |
+| **Trigger**     | `pull_request` — `ready_for_review`, or `labeled` with `claude-review` (independent of CI status)                   |
+| **Filter**      | Requires a **non-draft PR carrying the `claude-review` label**; skips drafts and unlabeled PRs                      |
 | **Model**       | `claude-sonnet-4-6` (review is pattern-matching; fast + cheap is right)                                             |
 | **Permissions** | `contents: read`, `pull-requests: write`, `issues: write`                                                           |
 | **Max turns**   | 15                                                                                                                  |
@@ -112,9 +108,10 @@ reviewer workflow would silently never start.
 
 The fix is to use a GitHub App token instead. The official Claude
 GitHub App is the easiest path: install it once, and the action
-picks it up automatically. The reviewer's `workflow_run` trigger
-then fires correctly when the verify workflow completes for the
-implementer's commits.
+picks it up automatically. Because the implementer marks the PR
+ready and adds the `claude-review` label using the App token, those
+`pull_request` events trigger the reviewer's workflow downstream —
+which the default `GITHUB_TOKEN` would not.
 
 A custom app (via `actions/create-github-app-token`) works too;
 use it if the official app is blocked by org policy.
@@ -211,9 +208,10 @@ repo (or grant org-wide access if you want the same pipeline on
 other repos), and accept the permission scopes it requests.
 
 The Claude Code action auto-detects the installed App and uses its
-token, which is what lets the implementer's PR + ready-for-review
-events trigger the reviewer's `workflow_run` downstream. The
-default `GITHUB_TOKEN` would silently fail to trigger anything.
+token, which is what lets the implementer's ready-for-review +
+`claude-review` label events trigger the reviewer's `pull_request`
+workflow downstream. The default `GITHUB_TOKEN` would silently fail
+to trigger anything.
 
 ### 2. Set the model-auth secret
 
@@ -252,11 +250,11 @@ gh label create claude-review \
 ```
 
 - **`claude`** on an issue → fires the implementer.
-- **`claude-review`** on a PR → makes the reviewer fire when verify
-  goes green. Without it the reviewer skips, even if everything
-  else is in place. The implementer adds this label to its own PRs
-  as part of the auto-chain; humans add it manually when they want
-  a review on their own PR.
+- **`claude-review`** on a non-draft PR → fires the reviewer (on the
+  `ready_for_review` / `labeled` event). Without it the reviewer
+  skips, even if everything else is in place. The implementer adds
+  this label to its own PRs as part of the auto-chain; humans add it
+  manually when they want a review on their own PR.
 
 If you rename either, update the corresponding workflow's `if:`
 filter / label-resolution step.
@@ -374,16 +372,16 @@ and open a normal PR.
 
 ## Guard rails
 
-| Guard                                            | What it stops                                             |
-| ------------------------------------------------ | --------------------------------------------------------- |
-| Branch protection requiring 1 human approval     | The agent merging its own (or another agent's) PR.        |
-| Bot reviews don't satisfy the approval rule      | The reviewer agent self-approving to bypass the gate.     |
-| `claude` label is the only implementer trigger   | Random comments / mentions don't spawn implementer runs.  |
-| Reviewer triggers on `workflow_run` after verify | Reviewer doesn't run against broken implementations.      |
-| Workflow runs in `permissions:` sandbox          | The agent can't change repo settings, secrets, or admin.  |
-| Implementer pushes only to `claude/*` branches   | Naming convention makes bot-created branches obvious.     |
-| App token (not default) for the implementer      | Loop-prevention doesn't kill the handoff to the reviewer. |
-| Reviewer prompt explicitly forbids `--approve`   | Defense-in-depth alongside branch protection.             |
+| Guard                                                 | What it stops                                                |
+| ----------------------------------------------------- | ------------------------------------------------------------ |
+| Branch protection requiring 1 human approval          | The agent merging its own (or another agent's) PR.           |
+| Bot reviews don't satisfy the approval rule           | The reviewer agent self-approving to bypass the gate.        |
+| `claude` label is the only implementer trigger        | Random comments / mentions don't spawn implementer runs.     |
+| Reviewer fires only on a non-draft `claude-review` PR | Routine PRs / other labels don't spawn (costly) review runs. |
+| Workflow runs in `permissions:` sandbox               | The agent can't change repo settings, secrets, or admin.     |
+| Implementer pushes only to `claude/*` branches        | Naming convention makes bot-created branches obvious.        |
+| App token (not default) for the implementer           | Loop-prevention doesn't kill the handoff to the reviewer.    |
+| Reviewer prompt explicitly forbids `--approve`        | Defense-in-depth alongside branch protection.                |
 
 ## What the pipeline does NOT do
 
@@ -398,9 +396,9 @@ and open a normal PR.
 - **Respond to issue comments.** Only the label triggers the
   implementer. Adding context to an issue after the implementer has
   started has no effect on the in-flight run.
-- **Run against `main` pushes.** The reviewer's `workflow_run`
-  filter requires the upstream workflow to have been triggered by a
-  pull request.
+- **Run against `main` pushes.** The reviewer only triggers on
+  pull-request `ready_for_review` / `labeled` events, so a direct
+  push to `main` (which has no PR) never fires it.
 
 ## When NOT to use the pipeline
 
@@ -493,15 +491,19 @@ workflow.
   leaves the branch + PR in a partial state and the next iteration
   is on the human (or a fresh re-trigger).
 - **The reviewer can't execute tests.** It reads test files but
-  doesn't run them. The `workflow_run` gate ensures CI has gone
-  green before the reviewer fires, but the reviewer's "is this
-  test testing the right thing?" judgment is still pattern-matching.
+  doesn't run them. It also no longer waits for CI — it fires on the
+  ready/label event, so it may review a diff before `verify` is
+  green. That's intentional: branch protection's required status
+  checks still block merging non-green code, so the review is purely
+  advisory and its "is this test testing the right thing?" judgment
+  is pattern-matching either way.
 - **Parallel issues with the `claude` label** spawn parallel
   implementers. They don't coordinate. Worst case: two PRs touching
   the same file conflict at merge time.
-- **Force-pushes to a PR branch** re-trigger verify, which
-  re-triggers the reviewer. Expect duplicate reviews on iterated
-  PRs.
+- **Pushing new commits to a PR does not re-trigger the reviewer.**
+  It fires on `ready_for_review` / `labeled`, not on pushes. To get a
+  fresh review after changes, remove and re-add the `claude-review`
+  label (or toggle the PR back to draft and mark it ready again).
 
 ## References
 
