@@ -7,6 +7,7 @@ locals {
   has_cron_secret       = var.cron_secret != ""
   has_sentry_dsn        = var.sentry_dsn != ""
   has_sentry_sourcemaps = var.sentry_auth_token != "" && var.sentry_org != "" && var.sentry_project != ""
+  has_pipeline_secret   = var.github_repo != "" && var.claude_code_oauth_token != ""
 }
 
 resource "vercel_project" "app" {
@@ -163,4 +164,19 @@ resource "vercel_project_environment_variable" "sentry_project" {
   key        = "SENTRY_PROJECT"
   value      = var.sentry_project
   target     = ["production", "preview"]
+}
+
+# GitHub Actions secret for the two-agent auto-pipeline. The
+# implementer + reviewer workflows authenticate the model against a
+# Claude Max subscription via this OAuth token (see
+# docs/two-agent-auto-pipeline.md, "Model auth: Max subscription
+# trial"). Managing it here keeps the repo as the source of truth: the
+# value lives in the git-ignored terraform.tfvars, the binding lives
+# here, and `terraform apply` pushes it to GitHub. The plaintext lands
+# only in local (git-ignored) state, same as every sensitive var above.
+resource "github_actions_secret" "claude_code_oauth_token" {
+  count       = local.has_pipeline_secret ? 1 : 0
+  repository  = split("/", var.github_repo)[1]
+  secret_name = "CLAUDE_CODE_OAUTH_TOKEN"
+  value       = var.claude_code_oauth_token
 }
