@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -43,9 +43,22 @@ describe("<TodoModal> hook wiring (ADR 0008 seam)", () => {
     expect(screen.getByRole("dialog")).toContainElement(ref.current!);
   });
 
-  it("hands useEscapeKey a close handler", () => {
-    renderOpen();
-    expect(useEscapeKey).toHaveBeenCalledWith(expect.any(Function));
+  it("hands useEscapeKey the modal's close handler", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onClose = vi.fn();
+    renderOpen(onClose);
+    expect(useEscapeKey).toHaveBeenCalledTimes(1);
+    const onEscape = vi.mocked(useEscapeKey).mock.calls[0][0];
+    expect(onEscape).toBeInstanceOf(Function);
+    // Invoking the wired callback must drive the close path — proves it's
+    // the close handler, not just *a* function (a wrong/stale callback
+    // would pass `expect.any(Function)` but fail to close).
+    await act(async () => {
+      onEscape();
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 
   it("wires neither hook while closed", () => {
