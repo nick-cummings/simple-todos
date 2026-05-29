@@ -1,7 +1,19 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { safeWrite } from "./storage";
 import { fireAtForDueDate, useReminders } from "./useReminders";
+
+// Seam mock (ADR 0008 / ADR 0012): the hook must persist the prompted
+// flag and browserId through `safeWrite`, not raw `localStorage.setItem`.
+// Default impl writes through so the existing flow-level tests still
+// observe persistence; the seam tests below assert the call shape.
+vi.mock("./storage", () => ({
+  safeWrite: vi.fn((key: string, value: string) => {
+    globalThis.localStorage.setItem(key, value);
+    return true;
+  }),
+}));
 
 // We mock browser-only APIs (Notification, navigator.serviceWorker)
 // per test. happy-dom doesn't ship a Push API.
@@ -75,6 +87,13 @@ let fetchSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   localStorage.clear();
+  // Restore the write-through default each test; seam tests override it
+  // and afterEach's restoreAllMocks would otherwise leave it cleared.
+  vi.mocked(safeWrite).mockReset();
+  vi.mocked(safeWrite).mockImplementation((key: string, value: string) => {
+    globalThis.localStorage.setItem(key, value);
+    return true;
+  });
   fetchSpy = vi.fn(async () => new Response("{}", { status: 200 }));
   Object.defineProperty(globalThis, "fetch", {
     configurable: true,
@@ -375,5 +394,59 @@ describe("useReminders.syncTodoReminder", () => {
     // Active is false → DELETE path runs; but no browserId is stored,
     // so we early-return without calling fetch.
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("useReminders — safeWrite seam (ADR 0012)", () => {
+  const VAPID = "BNbxGYNMhEIi9zrneh7l_RTPiLLMfS1cN3pXdQXBb3IOmcZdLxR";
+
+  async function enableViaPrompt() {
+    const note = installNotificationMock("default");
+    installServiceWorkerMock(null);
+    const { result } = renderHook(() =>
+      useReminders({ vapidPublicKey: VAPID }),
+    );
+    await waitFor(() => expect(result.current.permission).toBe("prompt"));
+    note.requestPermission.mockImplementationOnce(async () => {
+      note.grant();
+      return "granted";
+    });
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.enable();
+    });
+    return { ok, result };
+  }
+
+  it("persists the prompted flag through safeWrite, not raw localStorage", async () => {
+    await enableViaPrompt();
+    expect(vi.mocked(safeWrite)).toHaveBeenCalledWith(
+      "simple-todos:reminders:prompted",
+      "1",
+    );
+  });
+
+  it("persists a freshly minted browserId through safeWrite", async () => {
+    await enableViaPrompt();
+    expect(vi.mocked(safeWrite)).toHaveBeenCalledWith(
+      "simple-todos:browserId",
+      expect.any(String),
+    );
+  });
+
+  it("does not re-write the browserId when one is already stored", async () => {
+    localStorage.setItem("simple-todos:browserId", "deadbeef1");
+    vi.mocked(safeWrite).mockClear();
+    await enableViaPrompt();
+    const browserIdWrites = vi
+      .mocked(safeWrite)
+      .mock.calls.filter((c) => c[0] === "simple-todos:browserId");
+    expect(browserIdWrites).toHaveLength(0);
+  });
+
+  it("enable still succeeds when safeWrite fails (returns false) without throwing", async () => {
+    vi.mocked(safeWrite).mockReturnValue(false);
+    const { ok } = await enableViaPrompt();
+    expect(ok).toBe(true);
   });
 });
