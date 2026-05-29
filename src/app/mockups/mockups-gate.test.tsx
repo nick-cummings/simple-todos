@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The gate seam: each /mockups/* page asks `mockupsEnabled()` and, when
 // it's false, halts rendering via `notFound()`. Unit tests cover the
@@ -49,10 +49,6 @@ const pages = [
 beforeEach(() => {
   mockupsEnabled.mockReset();
   notFound.mockClear();
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
 });
 
 describe.each(pages)("/mockups/%s page gate", (_name, Page) => {
