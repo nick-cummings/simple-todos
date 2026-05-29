@@ -2,7 +2,7 @@
 
 import { type RefObject, useEffect } from "react";
 
-const FOCUSABLE_SELECTOR = [
+export const FOCUSABLE_SELECTOR = [
   "a[href]",
   "button:not([disabled])",
   "input:not([disabled])",
@@ -10,6 +10,12 @@ const FOCUSABLE_SELECTOR = [
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
+
+export function getFocusable(container: HTMLElement): HTMLElement[] {
+  return [
+    ...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+  ].filter((el) => el.tabIndex !== -1);
+}
 
 /**
  * Keeps keyboard focus inside `containerRef` while `enabled`.
@@ -70,10 +76,4 @@ export function useFocusTrap(
       previouslyFocused?.focus();
     };
   }, [containerRef, enabled]);
-}
-
-function getFocusable(container: HTMLElement): HTMLElement[] {
-  return [
-    ...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-  ].filter((el) => el.tabIndex !== -1);
 }

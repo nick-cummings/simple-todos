@@ -3,22 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { getFocusable } from "@/lib/useFocusTrap";
 import { makeTodo } from "@/test-utils/factories";
 
 import TodoModal from "./TodoModal";
-
-const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  '[tabindex]:not([tabindex="-1"])',
-].join(",");
-
-function focusablesIn(el: HTMLElement): HTMLElement[] {
-  return [...el.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)];
-}
 
 function getSubmitButton(): HTMLButtonElement {
   return [...document.querySelectorAll("button")].find(
@@ -366,7 +354,7 @@ describe("<TodoModal> a11y wiring", () => {
     // and no title autofocus to race against.
     const { user } = await renderModal({ initial: { title: "x" } });
     const dialog = screen.getByRole("dialog");
-    const focusables = focusablesIn(dialog);
+    const focusables = getFocusable(dialog);
     expect(focusables.length).toBeGreaterThan(1);
     const last = focusables.at(-1)!;
     last.focus();
@@ -378,7 +366,7 @@ describe("<TodoModal> a11y wiring", () => {
   it("traps Shift+Tab so focus wraps to the last element", async () => {
     const { user } = await renderModal({ initial: { title: "x" } });
     const dialog = screen.getByRole("dialog");
-    const focusables = focusablesIn(dialog);
+    const focusables = getFocusable(dialog);
     const first = focusables[0];
     first.focus();
     await user.tab({ shift: true });
