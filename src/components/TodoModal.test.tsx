@@ -1,8 +1,23 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import TodoModal from "./TodoModal";
 import { makeTodo } from "@/test-utils/factories";
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+function focusablesIn(el: HTMLElement): HTMLElement[] {
+  return [...el.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)];
+}
 
 function getSubmitButton(): HTMLButtonElement {
   return [...document.querySelectorAll("button")].find(
@@ -306,5 +321,77 @@ describe("<TodoModal>", () => {
     // The numeric input shows 2 and the unit shows weeks.
     expect(screen.getByLabelText(/every \(number\)/i)).toHaveValue(2);
     expect(screen.getByLabelText(/every \(unit\)/i)).toHaveValue("week");
+  });
+});
+
+// Seam test (ADR 0008): the focus-trap + escape hooks doing the work,
+// plus the modal wiring them up. Unit tests cover the hooks in
+// isolation; these prove TodoModal actually opts in.
+describe("<TodoModal> a11y wiring", () => {
+  function Harness({ initial }: { initial?: ReturnType<typeof makeTodo> }) {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <button data-testid="trigger" onClick={() => setOpen(true)} type="button">
+          open
+        </button>
+        <TodoModal
+          initial={initial}
+          onClose={() => setOpen(false)}
+          onSubmit={() => {}}
+          open={open}
+        />
+      </>
+    );
+  }
+
+  it("marks the dialog with aria-modal and labels it from the heading", async () => {
+    await renderModal({ initial: { title: "x" } });
+    const dialog = screen.getByRole("dialog", { name: /todo details/i });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    const labelId = dialog.getAttribute("aria-labelledby");
+    expect(labelId).toBeTruthy();
+    expect(document.getElementById(labelId!)).toHaveTextContent(/todo details/i);
+  });
+
+  it("traps Tab so focus wraps back into the dialog", async () => {
+    // View mode (existing todo) has a small, stable set of focusables
+    // and no title autofocus to race against.
+    const { user } = await renderModal({ initial: { title: "x" } });
+    const dialog = screen.getByRole("dialog");
+    const focusables = focusablesIn(dialog);
+    expect(focusables.length).toBeGreaterThan(1);
+    const last = focusables.at(-1)!;
+    last.focus();
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(focusables[0]);
+  });
+
+  it("traps Shift+Tab so focus wraps to the last element", async () => {
+    const { user } = await renderModal({ initial: { title: "x" } });
+    const dialog = screen.getByRole("dialog");
+    const focusables = focusablesIn(dialog);
+    const first = focusables[0];
+    first.focus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(focusables.at(-1));
+  });
+
+  it("closes on Escape and restores focus to the trigger", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup();
+    render(<Harness initial={makeTodo({ title: "x" })} />);
+    const trigger = screen.getByTestId("trigger");
+    await user.click(trigger);
+    // Modal mounted and focus pulled inside the dialog.
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.keyboard("{Escape}");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 });
