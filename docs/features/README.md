@@ -15,6 +15,7 @@ the same PR. See [`../decisions/0001-everything-substantial-gets-a-doc.md`](../d
 
 ## Index
 
+- [a11y.md](./a11y.md) — keyboard a11y: focus-trap + escape-key hooks, wired into `TodoModal`.
 - [ai-description.md](./ai-description.md) — AI-generated todo descriptions via Claude.
 - [backup-and-restore.md](./backup-and-restore.md) — JSON export/import.
 - [deep-link.md](./deep-link.md) — `?todo=ID` from a notification opens the matching todo.
