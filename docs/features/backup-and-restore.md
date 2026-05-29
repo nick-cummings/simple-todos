@@ -85,6 +85,14 @@ the exact validators the loader uses, so anything that imports survives
 a reload unchanged. The oversize bound rejects pathological or hostile
 input before we attempt to validate and persist it.
 
+Note this also (intentionally) tightens `loadTodos()` itself, not just
+import: strengthening the shared `isTodo` means a todo already in
+`localStorage` with, say, non-string `labels` is now dropped on the next
+load where it previously slipped through. That data was already corrupt
+and would have been dropped after any reimport anyway, so the loader and
+importer now agree — but it's a behaviour change on load, not only on
+import.
+
 ## How it's wired
 
 ```
