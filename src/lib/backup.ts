@@ -1,10 +1,15 @@
-import { type Label, LABELS_STORAGE_KEY } from "./labels";
+import { isLabel, type Label, LABELS_STORAGE_KEY } from "./labels";
 import { safeWrite } from "./storage";
-import { STORAGE_KEY, type Todo } from "./todos";
+import { isTodo, STORAGE_KEY, type Todo } from "./todos";
 
 // Backup file shape. Version-stamped so future migrations can branch
 // on it; bump CURRENT_BACKUP_VERSION when adding incompatible fields.
 export const CURRENT_BACKUP_VERSION = 1 as const;
+
+// Upper bound on each array to reject pathological / malicious input
+// before we try to validate and persist it. Far above any realistic
+// hand-curated todo list; a backup over this is corrupt or hostile.
+export const MAX_BACKUP_ITEMS = 100_000;
 
 export interface BackupFile {
   exportedAt: string;
@@ -71,10 +76,26 @@ export function parseBackup(raw: string): BackupFile {
       `Unsupported backup version: ${typeof version === "number" ? version : "missing"}. This app reads version ${CURRENT_BACKUP_VERSION}.`,
     );
   }
-  if (!Array.isArray(todos) || !todos.every(looksLikeTodo)) {
+  if (!Array.isArray(todos)) {
     throw new BackupParseError("Backup is missing a valid `todos` array.");
   }
-  if (!Array.isArray(labels) || !labels.every(looksLikeLabel)) {
+  if (todos.length > MAX_BACKUP_ITEMS) {
+    throw new BackupParseError(
+      `Backup has too many todos (max ${MAX_BACKUP_ITEMS}).`,
+    );
+  }
+  if (!todos.every(isTodo)) {
+    throw new BackupParseError("Backup is missing a valid `todos` array.");
+  }
+  if (!Array.isArray(labels)) {
+    throw new BackupParseError("Backup is missing a valid `labels` array.");
+  }
+  if (labels.length > MAX_BACKUP_ITEMS) {
+    throw new BackupParseError(
+      `Backup has too many labels (max ${MAX_BACKUP_ITEMS}).`,
+    );
+  }
+  if (!labels.every(isLabel)) {
     throw new BackupParseError("Backup is missing a valid `labels` array.");
   }
   return {
@@ -100,25 +121,4 @@ export function writeBackupToStorage(backup: BackupFile): boolean {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function looksLikeLabel(value: unknown): value is Label {
-  if (!isPlainObject(value)) return false;
-  return (
-    typeof value.name === "string" &&
-    typeof value.color === "string" &&
-    typeof value.createdAt === "number"
-  );
-}
-
-function looksLikeTodo(value: unknown): value is Todo {
-  if (!isPlainObject(value)) return false;
-  return (
-    typeof value.id === "string" &&
-    typeof value.title === "string" &&
-    typeof value.completed === "boolean" &&
-    typeof value.createdAt === "number" &&
-    typeof value.updatedAt === "number" &&
-    Array.isArray(value.labels)
-  );
 }

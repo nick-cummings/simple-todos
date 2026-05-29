@@ -100,6 +100,35 @@ export function filterTodos(
   });
 }
 
+export function isRecurrence(v: unknown): v is Recurrence {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  if (typeof o.every !== "number" || o.every < 1) return false;
+  if (o.unit !== "day" && o.unit !== "week" && o.unit !== "month") return false;
+  return true;
+}
+
+export function isTodo(v: unknown): v is Todo {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  if (
+    typeof o.id !== "string" ||
+    typeof o.title !== "string" ||
+    typeof o.completed !== "boolean" ||
+    !Array.isArray(o.labels) ||
+    !o.labels.every((l) => typeof l === "string") ||
+    typeof o.createdAt !== "number" ||
+    typeof o.updatedAt !== "number"
+  ) {
+    return false;
+  }
+  if (o.description !== undefined && typeof o.description !== "string")
+    return false;
+  if (o.dueDate !== undefined && typeof o.dueDate !== "string") return false;
+  if (o.recurrence !== undefined && !isRecurrence(o.recurrence)) return false;
+  return true;
+}
+
 export function labelCounts(todos: Todo[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const t of todos) {
@@ -204,34 +233,6 @@ export function sortTodos(todos: Todo[], sort: SortKey): Todo[] {
       return todos.toSorted((a, b) => b.createdAt - a.createdAt);
     }
   }
-}
-
-function isRecurrence(v: unknown): v is Recurrence {
-  if (!v || typeof v !== "object") return false;
-  const o = v as Record<string, unknown>;
-  if (typeof o.every !== "number" || o.every < 1) return false;
-  if (o.unit !== "day" && o.unit !== "week" && o.unit !== "month") return false;
-  return true;
-}
-
-function isTodo(v: unknown): v is Todo {
-  if (!v || typeof v !== "object") return false;
-  const o = v as Record<string, unknown>;
-  if (
-    typeof o.id !== "string" ||
-    typeof o.title !== "string" ||
-    typeof o.completed !== "boolean" ||
-    !Array.isArray(o.labels) ||
-    typeof o.createdAt !== "number" ||
-    typeof o.updatedAt !== "number"
-  ) {
-    return false;
-  }
-  if (o.description !== undefined && typeof o.description !== "string")
-    return false;
-  if (o.dueDate !== undefined && typeof o.dueDate !== "string") return false;
-  if (o.recurrence !== undefined && !isRecurrence(o.recurrence)) return false;
-  return true;
 }
 
 function makeTodoId(now: number): string {

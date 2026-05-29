@@ -125,6 +125,16 @@ export function findLabelByName(
   return labels.find((l) => l.name.toLowerCase() === key);
 }
 
+export function isLabel(v: unknown): v is Label {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.name === "string" &&
+    typeof o.color === "string" &&
+    typeof o.createdAt === "number"
+  );
+}
+
 export function loadLabels(): Label[] {
   if (!isBrowser()) return [];
   try {
@@ -184,14 +194,4 @@ export function tagDotStyle(color: LabelColor): CSSProperties {
 export function tagPillStyle(color: LabelColor): CSSProperties {
   const s = swatchFor(color);
   return { backgroundColor: s.bg, color: s.fg };
-}
-
-function isLabel(v: unknown): v is Label {
-  if (!v || typeof v !== "object") return false;
-  const o = v as Record<string, unknown>;
-  return (
-    typeof o.name === "string" &&
-    typeof o.color === "string" &&
-    typeof o.createdAt === "number"
-  );
 }

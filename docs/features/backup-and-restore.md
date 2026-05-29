@@ -58,13 +58,40 @@ error message.
 
 - Top level is an object (not array or primitive).
 - `version` matches `CURRENT_BACKUP_VERSION`.
-- `todos` is an array of todo-shaped objects (id, title, completed,
-  createdAt, updatedAt, labels[]).
-- `labels` is an array of label-shaped objects (name, color, createdAt).
+- `todos` is an array, at most `MAX_BACKUP_ITEMS` (100,000) entries,
+  of objects accepted by the **canonical** `isTodo` validator from
+  `src/lib/todos.ts` — same check `loadTodos()` runs. This covers the
+  required fields (id, title, completed, createdAt, updatedAt) plus the
+  optional ones: `labels[]` entries must be strings, `description` /
+  `dueDate` must be strings if present, and `recurrence` must satisfy
+  `isRecurrence`.
+- `labels` is an array, at most `MAX_BACKUP_ITEMS` entries, of objects
+  accepted by the canonical `isLabel` validator from `src/lib/labels.ts`
+  (name, color, createdAt).
 - `exportedAt` may be missing; defaults to empty string.
 
 Any failure throws `BackupParseError` with a user-facing message. The
 Settings UI surfaces the message in a `role="alert"` paragraph.
+
+### Why share the validators
+
+`parseBackup` used to run its own looser `looksLikeTodo` /
+`looksLikeLabel` helpers. They accepted records that the canonical
+`isTodo` later rejected — e.g. `description: 123`, `recurrence: "x"`, or
+non-string `labels` entries. Such a record imported and was written to
+storage, then `loadTodos()` (which filters through `isTodo`) **silently
+dropped** it on the next load: invisible data loss. Importing now uses
+the exact validators the loader uses, so anything that imports survives
+a reload unchanged. The oversize bound rejects pathological or hostile
+input before we attempt to validate and persist it.
+
+Note this also (intentionally) tightens `loadTodos()` itself, not just
+import: strengthening the shared `isTodo` means a todo already in
+`localStorage` with, say, non-string `labels` is now dropped on the next
+load where it previously slipped through. That data was already corrupt
+and would have been dropped after any reimport anyway, so the loader and
+importer now agree — but it's a behaviour change on load, not only on
+import.
 
 ## How it's wired
 
@@ -83,14 +110,18 @@ testable in isolation.
 
 | Test                                        | Layer       | What it covers                                            |
 | ------------------------------------------- | ----------- | --------------------------------------------------------- |
-| `src/lib/backup.test.ts` (13 tests)         | Unit        | round-trip, every parser rejection path, quota write.     |
+| `src/lib/backup.test.ts` (20 tests)         | Unit        | round-trip, every parser rejection path, quota write.     |
 | `src/components/Settings/Settings.test.tsx` | Integration | Export blob shape, import error UI, replace-confirm flow. |
 | `tests/e2e/settings.spec.ts`                | E2E         | Download fires, import preview/cancel preserves storage.  |
 
 The parser rejection paths are tested individually: not-JSON,
 non-object top level, wrong version, missing `todos`, malformed
-`todos[]`, missing `labels`, malformed `labels[]`. Each path has its
-own user-facing error message.
+`todos[]` (including non-string `description` / `dueDate`, bad
+`recurrence`, and non-string `labels` entries), oversize `todos` /
+`labels` arrays, missing `labels`, and malformed `labels[]`. A
+round-trip test (`parseBackup` → `writeBackupToStorage` → `loadTodos`)
+proves an imported todo with every optional field survives a reload
+unchanged — the regression guard for the data-loss bug this fix closes.
 
 ## Known gaps
 
