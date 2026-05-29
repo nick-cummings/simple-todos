@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
+import { mockupsEnabled } from "@/lib/mockupsEnabled";
 import RecurringTaskMock from "@/components/mockups/RecurringTaskMock";
 
 export const metadata: Metadata = {
@@ -8,5 +10,6 @@ export const metadata: Metadata = {
 };
 
 export default function RecurringPage() {
+  if (!mockupsEnabled()) notFound();
   return <RecurringTaskMock />;
 }
