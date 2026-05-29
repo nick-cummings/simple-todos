@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Todo } from "./todos";
 
 import { isBrowser } from "./runtime";
+import { safeWrite } from "./storage";
 
 const BROWSER_ID_KEY = "simple-todos:browserId";
 const PERMISSION_PROMPTED_KEY = "simple-todos:reminders:prompted";
@@ -99,7 +100,7 @@ export function useReminders(
     if (perm === "prompt") {
       const result = await Notification.requestPermission();
       perm = result === "granted" ? "granted" : "denied";
-      globalThis.localStorage.setItem(PERMISSION_PROMPTED_KEY, "1");
+      safeWrite(PERMISSION_PROMPTED_KEY, "1");
     }
     setPermission(perm);
     if (perm !== "granted") return false;
@@ -231,7 +232,9 @@ function ensureBrowserId(): string {
   let id = globalThis.localStorage.getItem(BROWSER_ID_KEY);
   if (!id) {
     id = makeBrowserId();
-    globalThis.localStorage.setItem(BROWSER_ID_KEY, id);
+    // If persistence fails (quota/unavailable) we still return the
+    // in-memory id for this session; a fresh one is minted next load.
+    safeWrite(BROWSER_ID_KEY, id);
   }
   return id;
 }

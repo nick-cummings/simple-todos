@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import { isBrowser } from "./runtime";
+import { safeWrite } from "./storage";
 import {
   applyResolvedTheme,
   readStoredTheme,
@@ -32,11 +33,9 @@ export function useTheme() {
 
   const setTheme = useCallback((next: Theme) => {
     cache = next;
-    try {
-      globalThis.localStorage.setItem(THEME_KEY, next);
-    } catch {
-      // localStorage may be unavailable (e.g. private mode); state still updates.
-    }
+    // safeWrite swallows quota/unavailability (e.g. private mode) and
+    // surfaces it via Sentry + the storage banner; state still updates.
+    safeWrite(THEME_KEY, next);
     applyResolvedTheme(resolveTheme(next));
     emit();
   }, []);
