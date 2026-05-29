@@ -7,9 +7,9 @@ import { useLabels } from "@/lib/useLabels";
 import { useTodos } from "@/lib/useTodos";
 
 import { NewLabelRow } from "../NewLabelRow";
+import { SortMenu } from "../SortMenu";
 import { XIcon } from "./Icons";
 import { LabelRow } from "./LabelRow";
-import { SortKey, SortMenu } from "./SortMenu";
 
 interface Props {
   onClose: () => void;
@@ -17,6 +17,14 @@ interface Props {
 }
 
 const EXIT_MS = 220;
+
+type SortKey = "count" | "name" | "recent";
+
+const SORT_LABELS: Record<SortKey, string> = {
+  count: "Count",
+  name: "Name",
+  recent: "Recent",
+};
 
 export default function LabelsManager({ onClose, open }: Props) {
   if (!open) return null;
@@ -143,7 +151,15 @@ function LabelsManagerContent({ onClose }: { onClose: () => void }) {
             </span>
           </h2>
           <div className="flex items-center gap-1.5">
-            {labels.length > 0 && <SortMenu onChange={setSort} value={sort} />}
+            {labels.length > 0 && (
+              <SortMenu
+                ariaLabel="Sort labels by"
+                labels={SORT_LABELS}
+                onChange={setSort}
+                value={sort}
+                variant="compact"
+              />
+            )}
             <button
               aria-label="Close"
               className="flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-subtle hover:text-fg"
