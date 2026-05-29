@@ -71,7 +71,7 @@ the typing; the human does the judging.
 | --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **File**        | [`.github/workflows/claude-implementer.yml`](../.github/workflows/claude-implementer.yml)                      |
 | **Trigger**     | `issues.labeled` where `label.name == 'claude'`                                                                |
-| **Model**       | `claude-opus-4-7` (this is real implementation work)                                                           |
+| **Model**       | `claude-opus-4-8` (this is real implementation work)                                                           |
 | **Auth**        | Official Claude GitHub App (required — see [Why an App token](#why-an-app-token-not-the-default-github_token)) |
 | **Permissions** | `contents: write`, `issues: write`, `pull-requests: write`                                                     |
 | **Max turns**   | 80                                                                                                             |
@@ -118,6 +118,48 @@ implementer's commits.
 
 A custom app (via `actions/create-github-app-token`) works too;
 use it if the official app is blocked by org policy.
+
+## Model auth: Max subscription trial
+
+The model auth is currently pointed at a **Claude Max subscription**
+(OAuth token via `claude_code_oauth_token`) instead of pay-as-you-go
+API billing. This is a trial to see whether subscription quota covers
+the pipeline's real usage. Both workflows use it, so the whole
+pipeline's usage bills against the one shared subscription.
+
+What this changes:
+
+- **Cost within quota is $0.** No per-issue API charge as long as you
+  stay under the subscription's limits.
+- **Caching gets better for free.** Prompt caching is automatic and on
+  by default either way (there is no enable flag; only a
+  `DISABLE_PROMPT_CACHING` escape hatch we don't set). Subscription
+  auth requests the **1-hour** cache TTL at no extra cost; API-key auth
+  defaults to 5 minutes. Within a single run this rarely matters — the
+  cache is cold at the start of every fresh Actions run regardless, so
+  the benefit is intra-run, not across runs.
+
+What to watch:
+
+- **Limits are shared and hard.** Max has a 5-hour rolling window _and_
+  weekly caps, shared across Claude.ai, the desktop app, and every
+  Claude Code session — including this pipeline. Hitting a cap is a
+  hard cutoff, not a throttle: an in-flight implementer run can die
+  mid-implementation. The save-your-work rule limits the blast radius
+  (the partial branch survives) but the run won't finish. Opt-in usage
+  credits keep things going past the cap, but at API rates — i.e. you'd
+  be paying anyway.
+- **It's a ToS gray area.** Subscription OAuth tokens are sanctioned
+  for official Anthropic tools (Claude Code, which this action runs),
+  but unattended CI use isn't explicitly documented. API-key billing is
+  the unambiguous path; keep it as the fallback (step 2).
+- **If we keep this past the trial, it earns an ADR** (cost/security
+  posture) per [ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md).
+  Right now it's an experiment.
+
+A cheaper-reviewer alternative we verified but deferred (routing the
+reviewer to DeepSeek) is captured in
+[`deepseek-reviewer-option.md`](./deepseek-reviewer-option.md).
 
 ## Save-your-work: incremental commits, early draft PR
 
@@ -173,14 +215,27 @@ token, which is what lets the implementer's PR + ready-for-review
 events trigger the reviewer's `workflow_run` downstream. The
 default `GITHUB_TOKEN` would silently fail to trigger anything.
 
-### 2. Set the API key secret
+### 2. Set the model-auth secret
+
+The pipeline currently authenticates the **model** against a Claude
+Max subscription via an OAuth token — a trial (see
+[Model auth: Max subscription trial](#model-auth-max-subscription-trial)).
+Generate the token locally (it's interactive and needs a Claude
+subscription) and store it as a secret:
 
 ```sh
-gh secret set ANTHROPIC_API_KEY --body "<your key>"
+claude setup-token                  # prints a long-lived OAuth token
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --body "<token from setup-token>"
 ```
 
-Both workflows reference `secrets.ANTHROPIC_API_KEY`. Without it,
-the action fails fast on its `anthropic_api_key` input.
+Both workflows reference `secrets.CLAUDE_CODE_OAUTH_TOKEN`. To fall
+back to pay-as-you-go API billing, swap each workflow's auth input
+back to `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` and set
+that secret with `gh secret set ANTHROPIC_API_KEY`.
+
+This token authenticates only the model. The GitHub App token that
+does git/PR operations and fires the reviewer handoff is separate and
+unchanged (step 1).
 
 ### 3. Create the labels
 
@@ -370,13 +425,20 @@ Rough per-issue cost, depending on complexity:
 
 | Run                                   | Typical | Heavy  |
 | ------------------------------------- | ------- | ------ |
-| Implementer (Opus 4.7, ~80 turns)     | $2-8    | $8-20+ |
+| Implementer (Opus 4.8, ~80 turns)     | $2-8    | $8-20+ |
 | Reviewer (Sonnet 4.6, ~15 turns)      | $0.20-1 | $1-3   |
 | GitHub Actions runner minutes (Hobby) | free    | free   |
 
-To cap spend, set [Anthropic API spend
+These are the **API-billing** figures (the fallback auth). Under the
+current Max-subscription trial (see [Model auth: Max subscription
+trial](#model-auth-max-subscription-trial)) the per-issue dollar cost
+is $0 within quota — the real budget is the subscription's shared
+5-hour + weekly usage limits, and the failure mode is a hard cutoff
+mid-run rather than a bill.
+
+To cap spend on the API-billing fallback, set [Anthropic API spend
 limits](https://console.anthropic.com/settings/billing). The
-implementer's `--max-turns 80` is also a hard ceiling.
+implementer's `--max-turns 80` is also a hard ceiling either way.
 
 ### Friction the prompt pre-empts
 

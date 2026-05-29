@@ -10,6 +10,10 @@ terraform {
       source  = "upstash/upstash"
       version = "~> 1.5"
     }
+    github = {
+      source  = "integrations/github"
+      version = "~> 6.0"
+    }
   }
 
   # Local state by default. To use a remote backend, swap this block.
@@ -28,4 +32,13 @@ provider "vercel" {
 provider "upstash" {
   email   = var.upstash_email
   api_key = var.upstash_api_key
+}
+
+provider "github" {
+  # Owner is derived from github_repo (owner/name form). The token is
+  # used only to manage this repo's Actions secrets: set var.github_token
+  # (in the git-ignored terraform.tfvars), or leave it empty and fall
+  # back to the GITHUB_TOKEN env var, e.g. `export GITHUB_TOKEN=$(gh auth token)`.
+  owner = var.github_repo != "" ? split("/", var.github_repo)[0] : null
+  token = var.github_token != "" ? var.github_token : null
 }

@@ -19,3 +19,11 @@
 # sentry_auth_token = "sntrys_..."                     # https://<org>.sentry.io/settings/auth-tokens/
 # sentry_org        = "your-org-slug"     # the URL slug, not the display name (e.g. "nick-cummings", not "Nick Cummings")
 # sentry_project    = "simple-todos"
+
+# Two-agent pipeline — GitHub Actions secret (managed as code).
+#   github_token: optional; blank falls back to `export GITHUB_TOKEN=$(gh auth token)`.
+#                 If set, needs fine-grained "Secrets: read/write" (or classic `repo`).
+#   claude_code_oauth_token: from `claude setup-token`; Terraform pushes it to the
+#                 repo as the CLAUDE_CODE_OAUTH_TOKEN Actions secret. Needs github_repo set.
+# github_token            = "github_pat_..."
+# claude_code_oauth_token = "sk-ant-oat01-..."

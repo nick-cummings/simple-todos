@@ -115,3 +115,22 @@ variable "sentry_project" {
   type        = string
   default     = ""
 }
+
+# ----- GitHub Actions secrets (two-agent pipeline) -------------------
+# Lets Terraform manage the repo's Actions secrets as code, so the
+# pipeline's credentials follow the same source-of-truth rule as
+# everything else: value in the git-ignored tfvars, binding in the repo.
+
+variable "github_token" {
+  description = "Token the github provider uses to manage this repo's Actions secrets. Needs the fine-grained 'Secrets: read/write' repository permission (or a classic PAT with `repo` scope). Optional — leave empty to fall back to the GITHUB_TOKEN env var (e.g. `export GITHUB_TOKEN=$(gh auth token)`). Provide via TF_VAR_github_token or terraform.tfvars."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "claude_code_oauth_token" {
+  description = "Claude Max subscription OAuth token from `claude setup-token`. The two-agent pipeline workflows (.github/workflows/claude-*.yml) authenticate the model with it. Terraform pushes it to the repo as the CLAUDE_CODE_OAUTH_TOKEN Actions secret. Requires github_repo set; leave empty to skip. See docs/two-agent-auto-pipeline.md."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

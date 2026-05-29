@@ -78,7 +78,12 @@ jobs:
         if: steps.pr.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Same Max-subscription OAuth auth as the implementer (TRIAL)
+          # — so the whole pipeline's usage bills against the one
+          # shared subscription quota, which is what we want to measure.
+          # The reviewer MODEL stays Sonnet (below); only the auth
+          # source changed. To revert, swap back to anthropic_api_key.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # Same rationale as the implementer — visibility into per-
           # turn tool calls is essential for debugging silent runs.
           show_full_output: true
