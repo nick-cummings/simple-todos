@@ -202,6 +202,19 @@ function clientIp(request: Request): string {
   return "unknown";
 }
 
+// Make room for one new bucket. Only bites when MAX_BUCKETS distinct IPs
+// are all live within the same window (pruning can't help then). Map
+// iteration is insertion-ordered, so the front entry is the oldest —
+// which, since every window is the same length, is also the soonest to
+// expire.
+function evictUntilUnderCap(): void {
+  while (buckets.size >= MAX_BUCKETS) {
+    const oldest = buckets.keys().next().value;
+    if (oldest === undefined) break;
+    buckets.delete(oldest);
+  }
+}
+
 function inMemoryLimit(ip: string): {
   allowed: boolean;
   retryAfterSec: number;
@@ -232,23 +245,10 @@ function pruneExpiredBuckets(now: number): void {
   }
 }
 
-// Make room for one new bucket. Only bites when MAX_BUCKETS distinct IPs
-// are all live within the same window (pruning can't help then). Map
-// iteration is insertion-ordered, so the front entry is the oldest —
-// which, since every window is the same length, is also the soonest to
-// expire.
-function evictUntilUnderCap(): void {
-  while (buckets.size >= MAX_BUCKETS) {
-    const oldest = buckets.keys().next().value;
-    if (oldest === undefined) break;
-    buckets.delete(oldest);
-  }
-}
-
 // Test-only handle on the fallback limiter. Next ignores non-HTTP-method
 // exports from a route module, so this is inert in production.
 export const __fallbackLimiterInternals = {
-  MAX_BUCKETS,
   bucketCount: () => buckets.size,
   inMemoryLimit,
+  MAX_BUCKETS,
 };

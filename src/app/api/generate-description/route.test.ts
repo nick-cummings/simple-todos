@@ -47,6 +47,11 @@ vi.mock("@upstash/redis", () => {
 
 const ORIGINAL_ENV = { ...process.env };
 
+async function importModule() {
+  vi.resetModules();
+  return import("./route");
+}
+
 async function importPOST() {
   vi.resetModules();
   const mod = await import("./route");
@@ -284,6 +289,69 @@ describe("POST /api/generate-description — in-memory rate limit", () => {
     );
     expect(denied.status).toBe(429);
     expect(allowed.status).toBe(200);
+  });
+});
+
+describe("POST /api/generate-description — in-memory limiter is bounded", () => {
+  const WINDOW_MS = 24 * 60 * 60 * 1000;
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("prunes expired buckets once their window elapses", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    mockCreate.mockResolvedValue({ content: [{ text: "ok", type: "text" }] });
+    const mod = await importModule();
+
+    for (let i = 0; i < 200; i++) {
+      await mod.POST(
+        makeRequest({ title: "x" }, { "x-forwarded-for": `10.0.${i}.1` }),
+      );
+    }
+    expect(mod.__fallbackLimiterInternals.bucketCount()).toBe(200);
+
+    // Advance past the 24h window, then make one fresh request. The prune
+    // on that call must evict all 200 stale entries.
+    vi.advanceTimersByTime(WINDOW_MS + 1000);
+    await mod.POST(
+      makeRequest({ title: "x" }, { "x-forwarded-for": "11.11.11.11" }),
+    );
+    expect(mod.__fallbackLimiterInternals.bucketCount()).toBe(1);
+  });
+
+  it("never exceeds MAX_BUCKETS even when every IP is live in one window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    const mod = await importModule();
+    const { inMemoryLimit, MAX_BUCKETS } = mod.__fallbackLimiterInternals;
+
+    // Flood with more distinct IPs than the cap, all within one window so
+    // pruning can't help — the size cap is the only thing keeping it bounded.
+    for (let i = 0; i < MAX_BUCKETS + 250; i++) {
+      inMemoryLimit(`ip-${i}`);
+    }
+    expect(mod.__fallbackLimiterInternals.bucketCount()).toBe(MAX_BUCKETS);
+  });
+
+  it("lets a previously-exhausted IP back in once its window resets", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    mockCreate.mockResolvedValue({ content: [{ text: "ok", type: "text" }] });
+    const mod = await importModule();
+    const ip = { "x-forwarded-for": "8.8.8.8" };
+
+    for (let i = 0; i < 20; i++) {
+      const res = await mod.POST(makeRequest({ title: "x" }, ip));
+      expect(res.status).toBe(200);
+    }
+    const denied = await mod.POST(makeRequest({ title: "x" }, ip));
+    expect(denied.status).toBe(429);
+
+    vi.advanceTimersByTime(WINDOW_MS + 1000);
+    const reopened = await mod.POST(makeRequest({ title: "x" }, ip));
+    expect(reopened.status).toBe(200);
   });
 });
 
