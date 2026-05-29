@@ -59,6 +59,16 @@ jobs:
           # The reviewer MODEL stays Sonnet (below); only the auth
           # source changed. To revert, swap back to anthropic_api_key.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The reviewer triggers on `pull_request` (ready/label) events,
+          # and the implementer (claude[bot]) is what adds the
+          # `claude-review` label — a bot actor. claude-code-action's
+          # bot guard blocks bot-initiated runs unless the bot is
+          # allowlisted. Scope it to our own App only — NOT `*`: this is
+          # a PUBLIC repo, where `*` would let any external App invoke
+          # the agent with prompts it controls. Both spellings cover the
+          # action's actor-name matching. The job `if:` still gates on a
+          # non-draft PR carrying the label.
+          allowed_bots: "claude[bot],claude"
           # Same rationale as the implementer — visibility into per-
           # turn tool calls is essential for debugging silent runs.
           show_full_output: true

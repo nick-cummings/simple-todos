@@ -504,6 +504,19 @@ workflow.
   It fires on `ready_for_review` / `labeled`, not on pushes. To get a
   fresh review after changes, remove and re-add the `claude-review`
   label (or toggle the PR back to draft and mark it ready again).
+- **Reviewer-workflow changes only apply to PRs branched afterward.**
+  `pull_request` workflows run from the **PR's head branch**, not
+  `main`. So edits to `claude-reviewer.yml` take effect only for PRs
+  whose branch was cut from a `main` that already had them; PRs already
+  in flight keep the old reviewer behaviour until rebranched. (The
+  implementer always branches from current `main`, so new runs are
+  fine — this only bites while iterating on the reviewer workflow
+  itself.) The old `workflow_run` trigger didn't have this property
+  because it always ran from the default branch.
+- **The reviewer runs under a bot actor.** Its trigger is the
+  implementer (`claude[bot]`) adding the label, so the action's
+  bot-actor guard requires `allowed_bots` to list our App. It's scoped
+  to `claude[bot]` only — never `*` on this public repo.
 
 ## References
 
