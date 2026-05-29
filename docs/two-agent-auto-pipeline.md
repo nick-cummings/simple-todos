@@ -74,7 +74,7 @@ the typing; the human does the judging.
 | **Model**       | `claude-opus-4-8` (this is real implementation work)                                                           |
 | **Auth**        | Official Claude GitHub App (required — see [Why an App token](#why-an-app-token-not-the-default-github_token)) |
 | **Permissions** | `contents: write`, `issues: write`, `pull-requests: write`                                                     |
-| **Max turns**   | 80                                                                                                             |
+| **Max turns**   | 120                                                                                                            |
 | **Output**      | Feature branch `claude/<issue-number>-<slug>`, draft PR with `Fixes #N`, transitioned to ready for review      |
 
 The implementer inherits [`AGENTS.md`](../AGENTS.md) automatically
@@ -423,11 +423,11 @@ human contributor, label it `claude`, watch the loop run.
 
 Rough per-issue cost, depending on complexity:
 
-| Run                                   | Typical | Heavy  |
-| ------------------------------------- | ------- | ------ |
-| Implementer (Opus 4.8, ~80 turns)     | $2-8    | $8-20+ |
-| Reviewer (Sonnet 4.6, ~15 turns)      | $0.20-1 | $1-3   |
-| GitHub Actions runner minutes (Hobby) | free    | free   |
+| Run                                   | Typical | Heavy   |
+| ------------------------------------- | ------- | ------- |
+| Implementer (Opus 4.8, ~120 turns)    | $3-10   | $10-24+ |
+| Reviewer (Sonnet 4.6, ~15 turns)      | $0.20-1 | $1-3    |
+| GitHub Actions runner minutes (Hobby) | free    | free    |
 
 These are the **API-billing** figures (the fallback auth). Under the
 current Max-subscription trial (see [Model auth: Max subscription
@@ -438,7 +438,9 @@ mid-run rather than a bill.
 
 To cap spend on the API-billing fallback, set [Anthropic API spend
 limits](https://console.anthropic.com/settings/billing). The
-implementer's `--max-turns 80` is also a hard ceiling either way.
+implementer's `--max-turns 120` is also a hard ceiling either way.
+(Raised from 80 after a run did all the work but ran out of turns on
+the finalization step; 120 leaves headroom to mark the PR ready.)
 
 ### Friction the prompt pre-empts
 

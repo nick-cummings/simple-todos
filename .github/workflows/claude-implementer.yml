@@ -16,9 +16,10 @@ jobs:
   implement:
     if: github.event.label.name == 'claude'
     runs-on: ubuntu-latest
-    # Time guard: a runaway implementer can't burn the day. 30 min is
-    # generous given the action's own --max-turns ceiling.
-    timeout-minutes: 30
+    # Time guard: a runaway implementer can't burn the day. Sized above
+    # the --max-turns ceiling so the turn budget — not the wall clock —
+    # is what stops a run (~120 turns ≈ 27 min at the observed rate).
+    timeout-minutes: 40
     env:
       # Disable the Husky pre-commit / pre-push hooks for the whole
       # job. Otherwise the implementer wastes turns discovering the
@@ -89,7 +90,7 @@ jobs:
           # all failed because of this.)
           claude_args: >-
             --model claude-opus-4-8
-            --max-turns 80
+            --max-turns 120
             --allowed-tools "Bash,Edit,Read,Write,Glob,Grep,WebFetch,WebSearch"
           prompt: |
             You are the implementer agent for this repository.
