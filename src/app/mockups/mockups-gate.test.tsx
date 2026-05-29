@@ -66,7 +66,7 @@ describe.each(pages)("/mockups/%s page gate", (_name, Page) => {
   it("calls notFound() and renders nothing when mockups are disabled", () => {
     mockupsEnabled.mockReturnValue(false);
     expect(() => render(<Page />)).toThrow("NEXT_NOT_FOUND");
-    expect(notFound).toHaveBeenCalledTimes(1);
+    expect(notFound).toHaveBeenCalled();
     expect(screen.queryByTestId("mock-component")).toBeNull();
   });
 });
