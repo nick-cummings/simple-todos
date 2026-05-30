@@ -6,21 +6,32 @@ paint matters; ongoing interactions need to feel instant.
 
 ## Current state
 
-These are baselines. We don't have automated Lighthouse gating in CI
-yet — that's a planned PR — so the numbers below are measured manually
-in Chrome DevTools on a throttled connection (Fast 3G + 4x CPU) loading
-production from Vercel.
+Lighthouse CI gates the `verify` workflow against the budgets below
+(see [`lighthouserc.json`](../lighthouserc.json) for the canonical
+config and [ADR 0015](./decisions/0015-lighthouse-ci.md) for the
+rationale). The numbers in the table below are production targets
+measured manually in Chrome DevTools (Fast 3G + 4× CPU); the lhci
+budgets are CI-enforced and may diverge slightly because headless
+Chrome measures higher than DevTools.
 
-| Metric               | Target       | Current (manual) |
-| -------------------- | ------------ | ---------------- |
-| LCP                  | < 2.5s       | ~1.8s            |
-| CLS                  | < 0.1        | ~0               |
-| TBT                  | < 200ms      | ~50ms            |
-| JS shipped to client | < 200KB gzip | ~140KB gzip      |
-| HTML size for `/`    | < 30KB       | ~18KB            |
+| Metric              | CI budget | Production target (manual) |
+| ------------------- | --------- | -------------------------- |
+| LCP                 | ≤ 2.5s    | ~1.8s                      |
+| CLS                 | ≤ 0.1     | ~0                         |
+| TBT                 | ≤ 200ms   | ~50ms                      |
+| Speed Index         | ≤ 3s      | n/a                        |
+| JS shipped (script) | ≤ 256KB   | ~140KB gzip                |
+| Total page weight   | ≤ 400KB   | ~200KB                     |
+| Performance score   | ≥ 0.85    | ~0.95                      |
+| Accessibility score | ≥ 0.95    | (now CI-enforced)          |
+| Best Practices      | ≥ 0.90    | ~1.0                       |
+| SEO                 | ≥ 0.90    | ~1.0                       |
+| HTML size for `/`   | < 30KB    | ~18KB                      |
 
-These will become CI-enforced budgets in a later PR — see the open work
-section below.
+The assertions land in `warn` mode on the first PR (the issue's
+explicit first-run plan); a follow-up tightens the perf/a11y/LCP/CLS
+triad to `error` once 2–3 CI runs reveal stable values. See the ADR
+for the observed local baselines.
 
 ## Design decisions that shape perf
 
@@ -82,13 +93,33 @@ wrapping changes that visibly move items.
 
 ## Open work
 
-- **Lighthouse CI gate.** Planned PR 9. Will run `@lhci/cli` against
-  production builds and fail the verify workflow if any of LCP, CLS,
-  TBT, or JS bundle size regresses past budget.
-- **Bundle inspection.** No automated tracking yet for individual
-  client-component sizes. We'll add it alongside Lighthouse.
+- **Flip critical assertions to `error`.** The first PR lands all
+  budgets in `warn` mode (see [ADR 0015](./decisions/0015-lighthouse-ci.md)).
+  Once 2–3 CI runs confirm stable values, a follow-up flips
+  `categories:performance`, `categories:accessibility`,
+  `largest-contentful-paint`, and `cumulative-layout-shift` to
+  `error`.
+- **Investigate the CI CLS reading (~0.16).** Manual reads on
+  production show ~0; headless Chromium measures higher. Suspects:
+  theme bootstrap, font swap, Suspense commit. If the cause is real,
+  fix the shift; if it's a headless-measurement artifact, document it
+  in the ADR.
+- **Bundle inspection.** No automated per-chunk size tracking yet.
+  We'll add `@next/bundle-analyzer` alongside Lighthouse if the
+  `resource-summary:script:size` signal turns out to be too coarse.
 
-## How to measure right now
+## How to measure locally
+
+The CI-enforced way:
+
+```sh
+npm run test:lhci
+```
+
+Runs `@lhci/cli` against a local prod build on `http://localhost:4321`
+exactly as CI does. Reports land in `.lighthouseci/` (gitignored).
+
+For an ad-hoc DevTools read of production:
 
 ```sh
 npm run build
@@ -96,7 +127,7 @@ npm run start              # production server on :3000
 # Open Chrome DevTools → Lighthouse → Mobile + Slow 4G + 4x CPU
 ```
 
-For a sharper read, run the Lighthouse CLI directly:
+For a sharper CLI read against an arbitrary URL:
 
 ```sh
 npx lighthouse http://localhost:3000 --view --preset=desktop
