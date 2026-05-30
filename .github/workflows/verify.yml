@@ -62,11 +62,17 @@ jobs:
       # so we don't have to bump the workflow when the image moves.
       - name: Discover Chrome for Lighthouse
         run: |
-          CHROME_PATH=$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -1)
+          # Find the full Chrome binary the Playwright image ships, wherever
+          # it lives (the dir name carries the Chromium build number, and the
+          # leaf dir has been chrome-linux or chrome-linux64 across versions).
+          CHROME_PATH=$(find /ms-playwright -type f -name chrome 2>/dev/null | head -1)
           if [ -z "$CHROME_PATH" ]; then
-            echo "Could not find Chromium under /ms-playwright" >&2
+            echo "Could not find a 'chrome' binary under /ms-playwright. Contents:" >&2
+            ls -la /ms-playwright >&2 2>/dev/null || true
+            find /ms-playwright -maxdepth 3 -name '*chrom*' >&2 2>/dev/null || true
             exit 1
           fi
+          echo "Found Chrome at $CHROME_PATH"
           echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
           "$CHROME_PATH" --version
 
