@@ -35,7 +35,7 @@ import { useMemo, useState } from "react";
 import { type LabelColor, swatchFor } from "@/lib/labels";
 import { formatDueDate, type Priority, toISODate } from "@/lib/dates";
 
-interface ParsedQuickAdd {
+export interface ParsedQuickAdd {
   dueDate?: string; // ISO YYYY-MM-DD
   labels: string[];
   priority: Priority;
@@ -109,7 +109,7 @@ const PRIORITY_WORDS: Record<string, Priority> = {
  * date keyword, every `@label`, and a `!priority` marker; whatever's
  * left becomes the title.
  */
-function parseQuickAdd(raw: string): ParsedQuickAdd {
+export function parseQuickAdd(raw: string): ParsedQuickAdd {
   const labels: string[] = [];
   let dueDate: string | undefined;
   let priority: Priority = "none";
