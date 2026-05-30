@@ -209,7 +209,7 @@ function AcceptedPanel({
             <span className="text-[12px] font-semibold text-faint">
               {i + 1}
             </span>
-            {item.title}
+            <span>{item.title}</span>
           </li>
         ))}
       </ol>
