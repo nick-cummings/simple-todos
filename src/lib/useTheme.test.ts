@@ -3,6 +3,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { THEME_KEY } from "./theme";
 
+// Seam mock (ADR 0008 / ADR 0012): the hook must persist through
+// `safeWrite`, not raw `localStorage.setItem`. The default
+// implementation writes through so the rest of the suite still
+// observes persistence; individual tests override it to assert the
+// call shape or simulate the failure path.
+vi.mock("./storage", () => ({
+  safeWrite: vi.fn((key: string, value: string) => {
+    globalThis.localStorage.setItem(key, value);
+    return true;
+  }),
+}));
+
+// Resolve the mocked `safeWrite` instance the freshly imported hook
+// uses (module registry is shared until the next resetModules).
+async function getSafeWriteMock() {
+  const { safeWrite } = await import("./storage");
+  return vi.mocked(safeWrite);
+}
+
 async function importUseTheme() {
   vi.resetModules();
   const mod = await import("./useTheme");
@@ -78,13 +97,23 @@ describe("useTheme", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
-  it("setTheme survives a localStorage write that throws", async () => {
+  it("setTheme persists through safeWrite, not raw localStorage", async () => {
     mockMatchMedia(false);
     const useTheme = await importUseTheme();
+    const safeWrite = await getSafeWriteMock();
     const { result } = renderHook(() => useTheme());
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("quota");
+    act(() => {
+      result.current.setTheme("dark");
     });
+    expect(safeWrite).toHaveBeenCalledWith(THEME_KEY, "dark");
+  });
+
+  it("setTheme survives a safeWrite failure (returns false) without throwing", async () => {
+    mockMatchMedia(false);
+    const useTheme = await importUseTheme();
+    const safeWrite = await getSafeWriteMock();
+    safeWrite.mockReturnValue(false);
+    const { result } = renderHook(() => useTheme());
     act(() => {
       result.current.setTheme("light");
     });

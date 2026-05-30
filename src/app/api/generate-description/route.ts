@@ -35,8 +35,15 @@ const upstashLimiter = (() => {
   });
 })();
 
-// In-memory fallback (leaky — see note in security audit). Used only
-// when Upstash isn't configured.
+// In-memory fallback limiter. Used only when Upstash isn't configured
+// (local dev, or before the user provisions Redis). Bounded two ways so
+// it can't grow without limit across the lambda's lifetime:
+//   1. Expired entries (reset < now) are pruned on every call.
+//   2. A hard cap evicts oldest-inserted entries when a flood of
+//      distinct IPs within a single window would otherwise overflow it.
+// ~10k entries is a few hundred KB — generous for the fallback path
+// while still a firm ceiling.
+const MAX_BUCKETS = 10_000;
 const buckets = new Map<string, { count: number; reset: number }>();
 /**
  * Server-side proxy that calls Claude Haiku 4.5 to generate a description
@@ -195,13 +202,28 @@ function clientIp(request: Request): string {
   return "unknown";
 }
 
+// Make room for one new bucket. Only bites when MAX_BUCKETS distinct IPs
+// are all live within the same window (pruning can't help then). Map
+// iteration is insertion-ordered, so the front entry is the oldest —
+// which, since every window is the same length, is also the soonest to
+// expire.
+function evictUntilUnderCap(): void {
+  while (buckets.size >= MAX_BUCKETS) {
+    const oldest = buckets.keys().next().value;
+    if (oldest === undefined) break;
+    buckets.delete(oldest);
+  }
+}
+
 function inMemoryLimit(ip: string): {
   allowed: boolean;
   retryAfterSec: number;
 } {
   const now = Date.now();
+  pruneExpiredBuckets(now);
   const b = buckets.get(ip);
   if (!b || b.reset < now) {
+    evictUntilUnderCap();
     buckets.set(ip, { count: 1, reset: now + RATE_LIMIT_WINDOW_MS });
     return { allowed: true, retryAfterSec: 0 };
   }
@@ -214,3 +236,19 @@ function inMemoryLimit(ip: string): {
   b.count += 1;
   return { allowed: true, retryAfterSec: 0 };
 }
+
+// Drop every bucket whose window has elapsed. Deleting during Map
+// iteration is well-defined in JS, so a single pass is safe.
+function pruneExpiredBuckets(now: number): void {
+  for (const [ip, b] of buckets) {
+    if (b.reset < now) buckets.delete(ip);
+  }
+}
+
+// Test-only handle on the fallback limiter. Next ignores non-HTTP-method
+// exports from a route module, so this is inert in production.
+export const __fallbackLimiterInternals = {
+  bucketCount: () => buckets.size,
+  inMemoryLimit,
+  MAX_BUCKETS,
+};

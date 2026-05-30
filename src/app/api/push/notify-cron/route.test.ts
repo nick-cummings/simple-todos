@@ -7,6 +7,7 @@ const getSubscription = vi.fn();
 const deleteReminder = vi.fn();
 const deleteSubscription = vi.fn();
 const markReminderSent = vi.fn();
+const markSubscriptionUsed = vi.fn();
 const sendReminderPush = vi.fn();
 
 vi.mock("@/lib/pushStore", () => ({
@@ -15,6 +16,7 @@ vi.mock("@/lib/pushStore", () => ({
   getSubscription: (...a: unknown[]) => getSubscription(...a),
   listReminders: (...a: unknown[]) => listReminders(...a),
   markReminderSent: (...a: unknown[]) => markReminderSent(...a),
+  markSubscriptionUsed: (...a: unknown[]) => markSubscriptionUsed(...a),
 }));
 
 vi.mock("@/lib/webPush", () => ({
@@ -69,8 +71,10 @@ beforeEach(() => {
   deleteSubscription.mockReset();
   sendReminderPush.mockReset();
   markReminderSent.mockReset();
-  // Default markReminderSent to resolve true (record found + updated).
+  markSubscriptionUsed.mockReset();
+  // Default markReminderSent / markSubscriptionUsed to resolve true.
   markReminderSent.mockResolvedValue(true);
+  markSubscriptionUsed.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -173,6 +177,39 @@ describe("GET /api/push/notify-cron — dispatch", () => {
     const deletedOrder = deleteReminder.mock.invocationCallOrder[0]!;
     expect(markedOrder).toBeLessThan(deletedOrder);
     expect(deleteSubscription).not.toHaveBeenCalled();
+    // Subscription is stamped with the delivery timestamp so the GC
+    // cron can tell the device is still alive.
+    expect(markSubscriptionUsed).toHaveBeenCalledWith("b1", expect.any(Number));
+  });
+
+  it("does not stamp the subscription on expired or failed outcomes", async () => {
+    listReminders.mockResolvedValueOnce([
+      makeReminder({ browserId: "expired-b", id: "r-exp" }),
+      makeReminder({ browserId: "failed-b", id: "r-fail" }),
+    ]);
+    getSubscription
+      .mockResolvedValueOnce({
+        browserId: "expired-b",
+        createdAt: 0,
+        subscription: {
+          endpoint: "https://x",
+          keys: { auth: "a", p256dh: "p" },
+        },
+      })
+      .mockResolvedValueOnce({
+        browserId: "failed-b",
+        createdAt: 0,
+        subscription: {
+          endpoint: "https://y",
+          keys: { auth: "a", p256dh: "p" },
+        },
+      });
+    sendReminderPush
+      .mockResolvedValueOnce({ status: "expired", statusCode: 410 })
+      .mockResolvedValueOnce({ status: "failed", statusCode: 500 });
+    const { GET } = await importRoute();
+    await GET(makeRequest(`Bearer ${SECRET}`));
+    expect(markSubscriptionUsed).not.toHaveBeenCalled();
   });
 
   it("drops both reminder + subscription on 410 expired response", async () => {

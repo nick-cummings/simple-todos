@@ -89,6 +89,22 @@ either way: tell the user to export and clear. Reactive is enough.
   (e.g. `simple-todos:v1`), letting unrelated keys (theme,
   browserId, etc.) write through so the rest of the app still
   mounts cleanly.
+- **Non-app-data writes route through `safeWrite` too, for
+  consistency.** The original wrapper targeted the three app-data
+  writes above, but ancillary keys were still calling
+  `localStorage.setItem` raw and would throw `QuotaExceededError`
+  unhandled. As of this consistency pass, all three also flow through
+  `safeWrite`:
+  - `useTheme` — `THEME_KEY` (the `setTheme` persistence write; the
+    pre-paint inline script in the layout only _reads_ the key, so it
+    is not affected).
+  - `useReminders` — `PERMISSION_PROMPTED_KEY` and `BROWSER_ID_KEY`.
+    These are best-effort: the hooks keep working on the in-memory
+    value for the session if the write fails (a fresh `browserId` is
+    minted next load). They are not the same stakes as losing todo
+    data, but routing them through `safeWrite` means a quota event
+    still reports to Sentry and surfaces the banner rather than
+    crashing the caller. No write outside `safeWrite` remains.
 
 ## References
 
@@ -97,7 +113,11 @@ either way: tell the user to export and clear. Reactive is enough.
 - `src/components/StorageErrorBanner.tsx` — UI
 - Callers: `src/lib/todos.ts → saveTodos`,
   `src/lib/labels.ts → saveLabels`,
-  `src/lib/backup.ts → writeBackupToStorage`
+  `src/lib/backup.ts → writeBackupToStorage`,
+  `src/lib/useInstallPrompt.ts → dismiss`,
+  `src/lib/useTheme.ts → setTheme`,
+  `src/lib/useReminders.ts → enable` (prompted flag) and
+  `ensureBrowserId` (browserId)
 - Runbook: [`docs/operations/runbook-data-loss.md`](../operations/runbook-data-loss.md)
 - Related: [ADR 0002](./0002-localstorage-as-source-of-truth.md),
   [ADR 0011](./0011-sentry-for-error-reporting.md) (Sentry tagging)

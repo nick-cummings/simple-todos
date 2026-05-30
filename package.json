@@ -16,7 +16,9 @@
     "test:run": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:lhci": "lhci autorun",
-    "verify": "npm run format:check && npm run typecheck && npm run lint && npm run test:run && npm run test:e2e && npm run test:lhci",
+    "verify:static": "npm run format:check && npm run typecheck && npm run lint",
+    "verify:fast": "npm run verify:static && npm run test:run",
+    "verify": "npm run verify:fast && npm run test:e2e",
     "prepush": "npm run verify",
     "prepare": "husky"
   },

@@ -1,8 +1,17 @@
 "use client";
 
-import { type SyntheticEvent, useEffect, useRef, useState } from "react";
+import {
+  type SyntheticEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 import { normalizeLabel, type Recurrence, Todo, TodoInput } from "@/lib/todos";
+import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import { useLabels } from "@/lib/useLabels";
 
 import { FormBody } from "./FormBody";
@@ -42,6 +51,8 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
   const [closing, setClosing] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const closingRef = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const headingId = useId();
 
   useEffect(() => {
     if (mode !== "form") return;
@@ -82,25 +93,19 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
     };
   }, []);
 
-  function requestClose() {
+  const requestClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
     setClosing(true);
     globalThis.setTimeout(() => {
       onClose();
     }, EXIT_MS);
-  }
+  }, [onClose]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") requestClose();
-    };
-    globalThis.addEventListener("keydown", onKey);
-    return () => {
-      globalThis.removeEventListener("keydown", onKey);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Confine keyboard focus to the dialog and restore it to the trigger
+  // when the modal unmounts; close on Escape. See docs/features/a11y.md.
+  useFocusTrap(panelRef);
+  useEscapeKey(requestClose);
 
   function addLabel(raw: string) {
     const next = normalizeLabel(raw);
@@ -160,7 +165,7 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
 
   return (
     <div
-      aria-label={heading}
+      aria-labelledby={headingId}
       aria-modal="true"
       className={`fixed inset-0 z-50 flex items-end justify-center bg-overlay backdrop-blur-md sm:items-center sm:p-4 ${
         closing ? "animate-fade-out" : "animate-fade-in"
@@ -181,11 +186,15 @@ function TodoModalContent({ initial, onClose, onDelete, onSubmit }: Props) {
             closing ? "animate-pop-out" : "animate-pop-in"
           }`
         }
+        ref={panelRef}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         {/* Header (fixed) */}
         <div className="flex shrink-0 items-center justify-between px-6 pb-3 pt-5">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">
+          <h2
+            className="text-xs font-semibold uppercase tracking-[0.14em] text-faint"
+            id={headingId}
+          >
             {heading}
           </h2>
           <button

@@ -7,7 +7,9 @@ import {
   getReminder,
   getSubscription,
   listReminders,
+  listSubscriptions,
   markReminderSent,
+  markSubscriptionUsed,
   type PushSubscriptionRecord,
   type ReminderRecord,
   saveReminder,
@@ -181,6 +183,65 @@ describe("pushStore reminders", () => {
     const list = await listReminders();
     expect(list.map((r) => r.id)).toEqual(["r1"]); // mget returns the record from r2 under r1 key match
     // (The point is we get one record back and don't crash.)
+  });
+});
+
+describe("pushStore listSubscriptions", () => {
+  it("returns [] when no subscriptions exist", async () => {
+    expect(await listSubscriptions()).toEqual([]);
+  });
+
+  it("returns a single saved subscription", async () => {
+    await saveSubscription(SUB);
+    const list = await listSubscriptions();
+    expect(list).toEqual([SUB]);
+  });
+
+  it("returns every subscription in storage", async () => {
+    await saveSubscription(SUB);
+    await saveSubscription({ ...SUB, browserId: "b2" });
+    const list = await listSubscriptions();
+    expect(list).toHaveLength(2);
+    expect(list.map((s) => s.browserId).toSorted()).toEqual(["b1", "b2"]);
+  });
+
+  it("skips subscriptions whose payload won't parse", async () => {
+    fake.store.set("subscription:bad", "{not valid json");
+    fake.store.set("subscription:good", JSON.stringify(SUB));
+    const list = await listSubscriptions();
+    // One survives; the malformed entry is dropped instead of throwing.
+    expect(list).toHaveLength(1);
+    expect(list[0]?.browserId).toBe("b1");
+  });
+
+  it("ignores reminder:* keys when scanning subscriptions", async () => {
+    await saveSubscription(SUB);
+    await saveReminder(REMINDER);
+    const list = await listSubscriptions();
+    expect(list).toHaveLength(1);
+    expect(list[0]?.browserId).toBe("b1");
+  });
+});
+
+describe("pushStore markSubscriptionUsed", () => {
+  it("writes lastReminderAt onto an existing subscription and preserves the rest", async () => {
+    await saveSubscription(SUB);
+    const ok = await markSubscriptionUsed("b1", 12_345_678);
+    expect(ok).toBe(true);
+    const after = await getSubscription("b1");
+    expect(after).toEqual({ ...SUB, lastReminderAt: 12_345_678 });
+  });
+
+  it("returns false when the subscription has been deleted", async () => {
+    const ok = await markSubscriptionUsed("never-existed", Date.now());
+    expect(ok).toBe(false);
+  });
+
+  it("overwrites a previous lastReminderAt rather than appending", async () => {
+    await saveSubscription({ ...SUB, lastReminderAt: 1 });
+    await markSubscriptionUsed("b1", 999);
+    const after = await getSubscription("b1");
+    expect(after?.lastReminderAt).toBe(999);
   });
 });
 

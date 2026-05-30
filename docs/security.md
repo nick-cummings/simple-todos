@@ -60,7 +60,18 @@ All routes under `/api/` follow the same posture:
 
 - **`POST /api/generate-description`** — rate-limited per IP via
   `@upstash/ratelimit` (sliding window). Input is validated; non-trivial
-  prompts are rejected. Anthropic API key is server-only.
+  prompts are rejected. Anthropic API key is server-only. When Upstash
+  isn't configured (local dev, or before Redis is provisioned) it falls
+  back to a per-lambda in-memory limiter. That map is bounded: expired
+  entries are pruned on every call, and a hard `MAX_BUCKETS` cap evicts
+  the oldest entries if a flood of distinct IPs within a single window
+  would otherwise overflow it — so a hostile spray of unique source IPs
+  can't grow it without limit across the lambda's lifetime. The tradeoff:
+  once that cap is hit (>`MAX_BUCKETS` live IPs in one window), evicting
+  the oldest _live_ bucket resets that IP's counter early, so a determined
+  flood could let an evicted IP regain its quota — an accepted, bounded
+  relaxation that only applies to the in-memory fallback, never the
+  shared Upstash limiter.
 - **`POST /api/push/subscribe`** — accepts only known browserId-bound
   subscriptions. Idempotent.
 - **`DELETE /api/push/subscribe`** — removes a subscription by browserId.

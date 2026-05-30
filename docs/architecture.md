@@ -130,6 +130,22 @@ Flat string keys, no sets/hashes. Volume is single-user-tiny.
 
 See [operations/deploy.md](./operations/deploy.md).
 
+## Design mockups (dev-only)
+
+The `/mockups/*` routes (`labels`, `label-picker`, `reminders`,
+`undo-toast`, `recurring`) host unfinished design mockups backed by large
+mock components under `src/components/mockups/`. They render in local dev
+and on Vercel preview deploys but **404 in production** — they're
+unfinished UI we don't want exposed publicly. The check is centralized in
+`mockupsEnabled()` (`src/lib/mockupsEnabled.ts`): each `page.tsx` calls
+`notFound()` when it returns false. The gate prefers `VERCEL_ENV` (so
+preview deploys keep the mockups) and falls back to `NODE_ENV`. Because
+these are statically-prerendered server components, the gate is resolved
+at **build time, per deploy** from that deploy's `VERCEL_ENV` (the
+production build bakes in the 404; a preview build bakes in the mock) —
+not a per-request runtime check. The mockups still ship in the bundle;
+they're just unreachable on the production deploy.
+
 ## What's deliberately not here
 
 - **No auth.** Single user. Adding auth would change the storage model

@@ -56,6 +56,25 @@ jobs:
 
       - run: npm run test:e2e
 
+      # Lighthouse uses the Chromium that already ships with the
+      # Playwright image (saves a separate browser install). The binary's
+      # directory name includes the pinned Chromium build number; glob it
+      # so we don't have to bump the workflow when the image moves.
+      - name: Discover Chrome for Lighthouse
+        run: |
+          CHROME_PATH=$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -1)
+          if [ -z "$CHROME_PATH" ]; then
+            echo "Could not find Chromium under /ms-playwright" >&2
+            exit 1
+          fi
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          "$CHROME_PATH" --version
+
+      - name: Lighthouse CI healthcheck
+        run: npx lhci healthcheck
+
+      - run: npm run test:lhci
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v7
@@ -72,4 +91,12 @@ jobs:
           path: |
             playwright-report/
             test-results/
+          retention-days: 14
+
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-report
+          path: .lighthouseci/
           retention-days: 14

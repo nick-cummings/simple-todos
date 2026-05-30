@@ -26,6 +26,7 @@ import { withViewTransition } from "@/lib/viewTransition";
 import InstallBanner from "../InstallBanner";
 import LabelsManager from "../LabelsManager";
 import RemindersGate from "../RemindersGate";
+import { SortMenu } from "../SortMenu";
 import StorageErrorBanner from "../StorageErrorBanner";
 import ThemeToggle from "../ThemeToggle";
 import TodoCard from "../TodoCard";
@@ -34,8 +35,15 @@ import UndoToast from "../UndoToast";
 import { EmptyState, SectionHeader } from "./EmptyState";
 import { FilterChips } from "./FilterChips";
 import { SearchInput } from "./SearchInput";
-import { SortMenu } from "./SortMenu";
 import { StatusChips } from "./StatusChips";
+
+const SORT_LABELS: Record<SortKey, string> = {
+  completed: "Open first",
+  createdAsc: "Oldest",
+  createdDesc: "Newest",
+  dueDate: "Due date",
+  titleAsc: "Title",
+};
 
 export default function TodoApp() {
   const {
@@ -355,7 +363,12 @@ export default function TodoApp() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <SearchInput onChange={setQuery} ref={searchRef} value={query} />
-            <SortMenu onChange={handleSort} value={sort} />
+            <SortMenu
+              ariaLabel="Sort by"
+              labels={SORT_LABELS}
+              onChange={handleSort}
+              value={sort}
+            />
           </div>
 
           <StatusChips

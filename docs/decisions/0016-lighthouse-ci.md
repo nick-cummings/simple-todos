@@ -3,7 +3,7 @@ status: accepted
 date: 2026-05-24
 ---
 
-# 0015 — Gate the verify workflow on Lighthouse budgets
+# 0016 — Gate the verify workflow on Lighthouse budgets
 
 ## Context
 
@@ -30,6 +30,13 @@ accessibility, best-practices, and SEO. Budgets are codified in
 [`lighthouserc.json`](../../lighthouserc.json) and assert against
 3 runs at the median value, mobile preset, against `npm run
 start:test` on `http://localhost:4321`.
+
+It runs as a **step in the `verify` workflow only**, via `npm run
+test:lhci` (`lhci autorun`) — deliberately _not_ added to the local
+`npm run verify` / pre-push chain. A full `lhci autorun` rebuilds and
+serves the app and runs Lighthouse 3×, which is far too heavy for a
+local pre-push; keeping it CI-only honours the fast-pre-push intent of
+[ADR 0013](./0013-change-aware-pre-push.md).
 
 ### Budgets
 

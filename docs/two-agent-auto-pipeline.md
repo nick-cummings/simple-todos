@@ -20,22 +20,18 @@ You review the comments and merge (or not). Neither agent can merge.
                      └──────────────────┘      death leaves a recoverable
                      Implement + tests          partial branch.
                      ↻ commit + push
-                     ↻ commit + push           (verify runs against
-                     ↻ commit + push           each push but doesn't
-                     Update docs                 trigger the reviewer
-                     ↻ commit + push           until the PR is marked
-                     npm run verify             ready AND carries the
-                     Finalize PR body            "claude-review" label.)
+                     ↻ commit + push           (verify runs on every
+                     ↻ commit + push           push; it gates the
+                     Update docs                MERGE, not the review.)
+                     ↻ commit + push
+                     npm run verify
+                     Finalize PR body
                      gh pr ready
                      gh pr edit --add-label
-                       claude-review ──────────►
-                                                 npm run verify (final)
-                                                 (typecheck/lint/
-                                                  vitest/playwright)
-                                                       ▼
-                                                 pass ──────────────────►
-                                                                          (Has claude-review
-                                                                          label? if not, skip.)
+                       claude-review ──────────────────────────────────►
+                                                                          (Non-draft + has
+                                                                          claude-review
+                                                                          label? else skip.)
                                                                           Read PR + diff
                                                                           Check seams,
                                                                           docs, ADRs
@@ -71,10 +67,10 @@ the typing; the human does the judging.
 | --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **File**        | [`.github/workflows/claude-implementer.yml`](../.github/workflows/claude-implementer.yml)                      |
 | **Trigger**     | `issues.labeled` where `label.name == 'claude'`                                                                |
-| **Model**       | `claude-opus-4-7` (this is real implementation work)                                                           |
+| **Model**       | `claude-opus-4-8` (this is real implementation work)                                                           |
 | **Auth**        | Official Claude GitHub App (required — see [Why an App token](#why-an-app-token-not-the-default-github_token)) |
 | **Permissions** | `contents: write`, `issues: write`, `pull-requests: write`                                                     |
-| **Max turns**   | 80                                                                                                             |
+| **Max turns**   | 120                                                                                                            |
 | **Output**      | Feature branch `claude/<issue-number>-<slug>`, draft PR with `Fixes #N`, transitioned to ready for review      |
 
 The implementer inherits [`AGENTS.md`](../AGENTS.md) automatically
@@ -88,8 +84,8 @@ mark ready.
 |                 |                                                                                                                     |
 | --------------- | ------------------------------------------------------------------------------------------------------------------- |
 | **File**        | [`.github/workflows/claude-reviewer.yml`](../.github/workflows/claude-reviewer.yml)                                 |
-| **Trigger**     | `workflow_run` after the `verify` workflow completes successfully                                                   |
-| **Filter**      | Only runs for PRs (not pushes to `main`); skips draft PRs; **skips PRs that don't carry the `claude-review` label** |
+| **Trigger**     | `pull_request` — `ready_for_review`, or `labeled` with `claude-review` (independent of CI status)                   |
+| **Filter**      | Requires a **non-draft PR carrying the `claude-review` label**; skips drafts and unlabeled PRs                      |
 | **Model**       | `claude-sonnet-4-6` (review is pattern-matching; fast + cheap is right)                                             |
 | **Permissions** | `contents: read`, `pull-requests: write`, `issues: write`                                                           |
 | **Max turns**   | 15                                                                                                                  |
@@ -112,12 +108,55 @@ reviewer workflow would silently never start.
 
 The fix is to use a GitHub App token instead. The official Claude
 GitHub App is the easiest path: install it once, and the action
-picks it up automatically. The reviewer's `workflow_run` trigger
-then fires correctly when the verify workflow completes for the
-implementer's commits.
+picks it up automatically. Because the implementer marks the PR
+ready and adds the `claude-review` label using the App token, those
+`pull_request` events trigger the reviewer's workflow downstream —
+which the default `GITHUB_TOKEN` would not.
 
 A custom app (via `actions/create-github-app-token`) works too;
 use it if the official app is blocked by org policy.
+
+## Model auth: Max subscription trial
+
+The model auth is currently pointed at a **Claude Max subscription**
+(OAuth token via `claude_code_oauth_token`) instead of pay-as-you-go
+API billing. This is a trial to see whether subscription quota covers
+the pipeline's real usage. Both workflows use it, so the whole
+pipeline's usage bills against the one shared subscription.
+
+What this changes:
+
+- **Cost within quota is $0.** No per-issue API charge as long as you
+  stay under the subscription's limits.
+- **Caching gets better for free.** Prompt caching is automatic and on
+  by default either way (there is no enable flag; only a
+  `DISABLE_PROMPT_CACHING` escape hatch we don't set). Subscription
+  auth requests the **1-hour** cache TTL at no extra cost; API-key auth
+  defaults to 5 minutes. Within a single run this rarely matters — the
+  cache is cold at the start of every fresh Actions run regardless, so
+  the benefit is intra-run, not across runs.
+
+What to watch:
+
+- **Limits are shared and hard.** Max has a 5-hour rolling window _and_
+  weekly caps, shared across Claude.ai, the desktop app, and every
+  Claude Code session — including this pipeline. Hitting a cap is a
+  hard cutoff, not a throttle: an in-flight implementer run can die
+  mid-implementation. The save-your-work rule limits the blast radius
+  (the partial branch survives) but the run won't finish. Opt-in usage
+  credits keep things going past the cap, but at API rates — i.e. you'd
+  be paying anyway.
+- **It's a ToS gray area.** Subscription OAuth tokens are sanctioned
+  for official Anthropic tools (Claude Code, which this action runs),
+  but unattended CI use isn't explicitly documented. API-key billing is
+  the unambiguous path; keep it as the fallback (step 2).
+- **If we keep this past the trial, it earns an ADR** (cost/security
+  posture) per [ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md).
+  Right now it's an experiment.
+
+A cheaper-reviewer alternative we verified but deferred (routing the
+reviewer to DeepSeek) is captured in
+[`deepseek-reviewer-option.md`](./deepseek-reviewer-option.md).
 
 ## Save-your-work: incremental commits, early draft PR
 
@@ -169,18 +208,32 @@ repo (or grant org-wide access if you want the same pipeline on
 other repos), and accept the permission scopes it requests.
 
 The Claude Code action auto-detects the installed App and uses its
-token, which is what lets the implementer's PR + ready-for-review
-events trigger the reviewer's `workflow_run` downstream. The
-default `GITHUB_TOKEN` would silently fail to trigger anything.
+token, which is what lets the implementer's ready-for-review +
+`claude-review` label events trigger the reviewer's `pull_request`
+workflow downstream. The default `GITHUB_TOKEN` would silently fail
+to trigger anything.
 
-### 2. Set the API key secret
+### 2. Set the model-auth secret
+
+The pipeline currently authenticates the **model** against a Claude
+Max subscription via an OAuth token — a trial (see
+[Model auth: Max subscription trial](#model-auth-max-subscription-trial)).
+Generate the token locally (it's interactive and needs a Claude
+subscription) and store it as a secret:
 
 ```sh
-gh secret set ANTHROPIC_API_KEY --body "<your key>"
+claude setup-token                  # prints a long-lived OAuth token
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --body "<token from setup-token>"
 ```
 
-Both workflows reference `secrets.ANTHROPIC_API_KEY`. Without it,
-the action fails fast on its `anthropic_api_key` input.
+Both workflows reference `secrets.CLAUDE_CODE_OAUTH_TOKEN`. To fall
+back to pay-as-you-go API billing, swap each workflow's auth input
+back to `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` and set
+that secret with `gh secret set ANTHROPIC_API_KEY`.
+
+This token authenticates only the model. The GitHub App token that
+does git/PR operations and fires the reviewer handoff is separate and
+unchanged (step 1).
 
 ### 3. Create the labels
 
@@ -197,11 +250,11 @@ gh label create claude-review \
 ```
 
 - **`claude`** on an issue → fires the implementer.
-- **`claude-review`** on a PR → makes the reviewer fire when verify
-  goes green. Without it the reviewer skips, even if everything
-  else is in place. The implementer adds this label to its own PRs
-  as part of the auto-chain; humans add it manually when they want
-  a review on their own PR.
+- **`claude-review`** on a non-draft PR → fires the reviewer (on the
+  `ready_for_review` / `labeled` event). Without it the reviewer
+  skips, even if everything else is in place. The implementer adds
+  this label to its own PRs as part of the auto-chain; humans add it
+  manually when they want a review on their own PR.
 
 If you rename either, update the corresponding workflow's `if:`
 filter / label-resolution step.
@@ -319,16 +372,16 @@ and open a normal PR.
 
 ## Guard rails
 
-| Guard                                            | What it stops                                             |
-| ------------------------------------------------ | --------------------------------------------------------- |
-| Branch protection requiring 1 human approval     | The agent merging its own (or another agent's) PR.        |
-| Bot reviews don't satisfy the approval rule      | The reviewer agent self-approving to bypass the gate.     |
-| `claude` label is the only implementer trigger   | Random comments / mentions don't spawn implementer runs.  |
-| Reviewer triggers on `workflow_run` after verify | Reviewer doesn't run against broken implementations.      |
-| Workflow runs in `permissions:` sandbox          | The agent can't change repo settings, secrets, or admin.  |
-| Implementer pushes only to `claude/*` branches   | Naming convention makes bot-created branches obvious.     |
-| App token (not default) for the implementer      | Loop-prevention doesn't kill the handoff to the reviewer. |
-| Reviewer prompt explicitly forbids `--approve`   | Defense-in-depth alongside branch protection.             |
+| Guard                                                 | What it stops                                                |
+| ----------------------------------------------------- | ------------------------------------------------------------ |
+| Branch protection requiring 1 human approval          | The agent merging its own (or another agent's) PR.           |
+| Bot reviews don't satisfy the approval rule           | The reviewer agent self-approving to bypass the gate.        |
+| `claude` label is the only implementer trigger        | Random comments / mentions don't spawn implementer runs.     |
+| Reviewer fires only on a non-draft `claude-review` PR | Routine PRs / other labels don't spawn (costly) review runs. |
+| Workflow runs in `permissions:` sandbox               | The agent can't change repo settings, secrets, or admin.     |
+| Implementer pushes only to `claude/*` branches        | Naming convention makes bot-created branches obvious.        |
+| App token (not default) for the implementer           | Loop-prevention doesn't kill the handoff to the reviewer.    |
+| Reviewer prompt explicitly forbids `--approve`        | Defense-in-depth alongside branch protection.                |
 
 ## What the pipeline does NOT do
 
@@ -343,9 +396,9 @@ and open a normal PR.
 - **Respond to issue comments.** Only the label triggers the
   implementer. Adding context to an issue after the implementer has
   started has no effect on the in-flight run.
-- **Run against `main` pushes.** The reviewer's `workflow_run`
-  filter requires the upstream workflow to have been triggered by a
-  pull request.
+- **Run against `main` pushes.** The reviewer only triggers on
+  pull-request `ready_for_review` / `labeled` events, so a direct
+  push to `main` (which has no PR) never fires it.
 
 ## When NOT to use the pipeline
 
@@ -368,15 +421,46 @@ human contributor, label it `claude`, watch the loop run.
 
 Rough per-issue cost, depending on complexity:
 
-| Run                                   | Typical | Heavy  |
-| ------------------------------------- | ------- | ------ |
-| Implementer (Opus 4.7, ~80 turns)     | $2-8    | $8-20+ |
-| Reviewer (Sonnet 4.6, ~15 turns)      | $0.20-1 | $1-3   |
-| GitHub Actions runner minutes (Hobby) | free    | free   |
+| Run                                   | Typical | Heavy   |
+| ------------------------------------- | ------- | ------- |
+| Implementer (Opus 4.8, ~120 turns)    | $3-10   | $10-24+ |
+| Reviewer (Sonnet 4.6, ~15 turns)      | $0.20-1 | $1-3    |
+| GitHub Actions runner minutes (Hobby) | free    | free    |
 
-To cap spend, set [Anthropic API spend
+These are the **API-billing** figures (the fallback auth). Under the
+current Max-subscription trial (see [Model auth: Max subscription
+trial](#model-auth-max-subscription-trial)) the per-issue dollar cost
+is $0 within quota — the real budget is the subscription's shared
+5-hour + weekly usage limits, and the failure mode is a hard cutoff
+mid-run rather than a bill.
+
+To cap spend on the API-billing fallback, set [Anthropic API spend
 limits](https://console.anthropic.com/settings/billing). The
-implementer's `--max-turns 80` is also a hard ceiling.
+implementer's `--max-turns 120` is also a hard ceiling either way.
+(Raised from 80 after a run did all the work but ran out of turns on
+the finalization step; 120 leaves headroom to mark the PR ready.)
+
+### Friction the prompt pre-empts
+
+A post-mortem on the first successful run ($5.51, 102 turns) found
+~34% of the cost was friction rather than implementation. The
+prompt now pre-empts the common time-wasters:
+
+- **Environment facts** ("Husky is disabled, no sudo, npm deps
+  installed, Playwright deps missing, App token can't write
+  workflows") so the agent doesn't have to discover them by trying
+  and failing.
+- **Repo layout** so the agent doesn't `ls` directories that have
+  predictable contents.
+- **`npm run verify:fast`** (`verify:static` + unit tests, ~10s)
+  for iteration. Full `npm run verify` (~5min including E2E) is
+  reserved for one final check before marking ready. Previous runs
+  ran full verify 2-3 times mid-implementation; the prompt now
+  forbids that.
+- **"Don't re-read the issue"** rule. The agent was reading the
+  issue body in 3 different formats hoping for clarity.
+
+Expected savings: ~$1-2 per medium-sized issue.
 
 ## Tool allowlist (don't forget this one)
 
@@ -407,15 +491,32 @@ workflow.
   leaves the branch + PR in a partial state and the next iteration
   is on the human (or a fresh re-trigger).
 - **The reviewer can't execute tests.** It reads test files but
-  doesn't run them. The `workflow_run` gate ensures CI has gone
-  green before the reviewer fires, but the reviewer's "is this
-  test testing the right thing?" judgment is still pattern-matching.
+  doesn't run them. It also no longer waits for CI — it fires on the
+  ready/label event, so it may review a diff before `verify` is
+  green. That's intentional: branch protection's required status
+  checks still block merging non-green code, so the review is purely
+  advisory and its "is this test testing the right thing?" judgment
+  is pattern-matching either way.
 - **Parallel issues with the `claude` label** spawn parallel
   implementers. They don't coordinate. Worst case: two PRs touching
   the same file conflict at merge time.
-- **Force-pushes to a PR branch** re-trigger verify, which
-  re-triggers the reviewer. Expect duplicate reviews on iterated
-  PRs.
+- **Pushing new commits to a PR does not re-trigger the reviewer.**
+  It fires on `ready_for_review` / `labeled`, not on pushes. To get a
+  fresh review after changes, remove and re-add the `claude-review`
+  label (or toggle the PR back to draft and mark it ready again).
+- **Reviewer-workflow changes only apply to PRs branched afterward.**
+  `pull_request` workflows run from the **PR's head branch**, not
+  `main`. So edits to `claude-reviewer.yml` take effect only for PRs
+  whose branch was cut from a `main` that already had them; PRs already
+  in flight keep the old reviewer behaviour until rebranched. (The
+  implementer always branches from current `main`, so new runs are
+  fine — this only bites while iterating on the reviewer workflow
+  itself.) The old `workflow_run` trigger didn't have this property
+  because it always ran from the default branch.
+- **The reviewer runs under a bot actor.** Its trigger is the
+  implementer (`claude[bot]`) adding the label, so the action's
+  bot-actor guard requires `allowed_bots` to list our App. It's scoped
+  to `claude[bot]` only — never `*` on this public repo.
 
 ## References
 

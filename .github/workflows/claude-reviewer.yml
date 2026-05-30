@@ -1,27 +1,43 @@
 name: Claude Reviewer
 
-# Fires after the `verify` workflow completes successfully on a PR.
-# This means the reviewer sees a known-good build, not a race against
-# CI — see docs/two-agent-auto-pipeline.md ("Reviewer timing").
+# Fires when a PR is marked ready for review, or gains the
+# `claude-review` label while already ready. Decoupled from `verify`:
+# this is an advisory pass, and branch protection's required status
+# checks still block merging non-green code — so reviewing before CI
+# finishes is safe, and (unlike the old workflow_run trigger) a clean
+# run that marks the PR ready can't slip past the reviewer just because
+# its final verify completed while the PR was still a draft. See
+# docs/two-agent-auto-pipeline.md ("Reviewer trigger").
 on:
-  workflow_run:
-    workflows: [verify]
-    types: [completed]
+  pull_request:
+    types: [ready_for_review, labeled]
 
-# At most one reviewer per PR head SHA. A force-push (which retriggers
-# verify) will cancel any in-flight review for the prior SHA.
+# Serialize reviewer runs per PR, but DON'T cancel in progress. The
+# implementer's auto-chain fires `ready_for_review` then `labeled` in
+# quick succession — with cancel-in-progress the second event would
+# cancel the first's run, and we saw the real (labeled) review get
+# killed that way. With it off, the ready_for_review run skips (no label
+# yet) and the labeled run queues behind it and reviews. There's no
+# push trigger anymore, so there's nothing else to dedupe.
 concurrency:
-  group: claude-reviewer-${{ github.event.workflow_run.head_sha }}
-  cancel-in-progress: true
+  group: claude-reviewer-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
 
 jobs:
   review:
-    # Guard the whole job:
-    #  - upstream verify succeeded
-    #  - upstream was triggered by a pull_request (not a push to main)
+    # Run only when the PR is non-draft AND carries `claude-review`,
+    # reached either way round:
+    #  - the label is added to an already-ready PR (the implementer's
+    #    auto-chain adds it last, after `gh pr ready`), or
+    #  - a PR that already has the label is marked ready (human path).
+    # The per-event label check avoids firing twice for the pair of
+    # events the auto-chain emits (ready_for_review, then labeled).
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
+      github.event.pull_request.draft == false &&
+      (
+        (github.event.action == 'labeled' && github.event.label.name == 'claude-review') ||
+        (github.event.action == 'ready_for_review' && contains(github.event.pull_request.labels.*.name, 'claude-review'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -31,54 +47,33 @@ jobs:
       id-token: write # required by the action for OIDC federation against the Claude API
 
     steps:
-      # Find the PR associated with the upstream workflow run.
-      # workflow_run events don't carry the PR number directly, so
-      # look it up by head SHA. Skip cases:
-      #  - No open, ready-for-review PR for this SHA.
-      #  - PR doesn't carry the `claude-review` label. The reviewer is
-      #    opt-in per-PR; otherwise it would fire on every PR's verify
-      #    success, which is noisy and costly. The implementer adds
-      #    the label itself after marking ready (auto-chain); humans
-      #    add it manually when they want a review.
-      - name: Resolve PR for this run
-        id: pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          PR_JSON=$(gh api "repos/${REPO}/commits/${HEAD_SHA}/pulls" \
-            --jq '[.[] | select(.state == "open" and .draft == false)] | first')
-          if [ -z "$PR_JSON" ] || [ "$PR_JSON" = "null" ]; then
-            echo "No open, ready-for-review PR for ${HEAD_SHA}; skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          NUMBER=$(echo "$PR_JSON" | jq -r .number)
-          HAS_LABEL=$(echo "$PR_JSON" | jq -r '.labels[].name' | grep -F -x "claude-review" || true)
-          if [ -z "$HAS_LABEL" ]; then
-            echo "PR #${NUMBER} doesn't carry the claude-review label; skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "number=${NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-
       - name: Checkout PR head
-        if: steps.pr.outputs.skip != 'true'
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
           # Full history so the agent can inspect prior commits + the
           # base branch for context.
           fetch-depth: 0
 
       - name: Run Claude reviewer
-        if: steps.pr.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Same Max-subscription OAuth auth as the implementer (TRIAL)
+          # — so the whole pipeline's usage bills against the one
+          # shared subscription quota, which is what we want to measure.
+          # The reviewer MODEL stays Sonnet (below); only the auth
+          # source changed. To revert, swap back to anthropic_api_key.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The reviewer triggers on `pull_request` (ready/label) events,
+          # and the implementer (claude[bot]) is what adds the
+          # `claude-review` label — a bot actor. claude-code-action's
+          # bot guard blocks bot-initiated runs unless the bot is
+          # allowlisted. Scope it to our own App only — NOT `*`: this is
+          # a PUBLIC repo, where `*` would let any external App invoke
+          # the agent with prompts it controls. Both spellings cover the
+          # action's actor-name matching. The job `if:` still gates on a
+          # non-draft PR carrying the label.
+          allowed_bots: "claude[bot],claude"
           # Same rationale as the implementer — visibility into per-
           # turn tool calls is essential for debugging silent runs.
           show_full_output: true
@@ -99,13 +94,28 @@ jobs:
 
             ## The task
 
-            Review pull request #${{ steps.pr.outputs.number }} in
-            `${{ github.repository }}`. The PR has just passed CI
-            (`verify`), so you're looking at known-green code.
+            Review pull request #${{ github.event.pull_request.number }} in
+            `${{ github.repository }}`. The PR was just marked ready for
+            review. CI (`verify`) runs separately and gates the merge;
+            your pass is advisory, so do NOT assume the diff is green —
+            if something looks like it would fail typecheck, lint, or a
+            test, call it out.
+
+            ## Repo layout (you don't need to `ls` to find these)
+
+            - `src/lib/` — pure logic + hooks
+            - `src/components/` — React components
+            - `src/app/` — Next.js App Router (routes, layouts, API)
+            - `tests/e2e/` — Playwright specs
+            - `docs/architecture.md`, `docs/testing.md`, `docs/security.md`, `docs/performance.md`, `docs/observability.md` — cross-cutting
+            - `docs/decisions/NNNN-<slug>.md` — ADRs
+            - `docs/decisions/README.md` — ADR index
+            - `docs/features/<name>.md` — feature docs
+            - `docs/operations/<name>.md` — runbooks
 
             ## Required workflow
 
-            1. **Read the PR.** Use `gh pr view ${{ steps.pr.outputs.number }} --comments` and `gh pr diff ${{ steps.pr.outputs.number }}` to see the description and the full diff.
+            1. **Read the PR.** Use `gh pr view ${{ github.event.pull_request.number }} --comments` and `gh pr diff ${{ github.event.pull_request.number }}` to see the description and the full diff.
 
             2. **Read the linked issue if one exists.** The PR description should say `Closes #N` — if it does, `gh issue view N` to ground yourself in what the change was supposed to do.
 
@@ -143,7 +153,7 @@ jobs:
             5. **Leave the review.** Submit a single review that contains both a top-level summary AND any inline line comments. `gh pr review` only handles the summary; inline line comments need the GitHub API directly. Use this one-shot pattern:
 
                ```sh
-               gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/reviews \
+               gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
                  -X POST \
                  -f event=COMMENT \
                  -f body="<the summary template below>" \
