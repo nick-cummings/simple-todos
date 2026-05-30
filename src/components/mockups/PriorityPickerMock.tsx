@@ -59,6 +59,14 @@ function isLeveled(p: Priority): p is Exclude<Priority, "none"> {
   return p !== "none";
 }
 
+function colorFor(p: Priority): string | undefined {
+  return isLeveled(p) ? PRIORITY_COLOR[p] : undefined;
+}
+
+function tintFor(p: Priority): string | undefined {
+  return isLeveled(p) ? PRIORITY_TINT[p] : undefined;
+}
+
 export default function PriorityPickerMock() {
   const [selected, setSelected] = useState<Priority>("medium");
 
@@ -78,8 +86,8 @@ export default function PriorityPickerMock() {
         {/* Left: list with priority indicators */}
         <ul className="flex flex-col gap-2.5">
           {CARDS.map((t) => {
-            const leveled = isLeveled(t.priority);
-            const color = leveled ? PRIORITY_COLOR[t.priority] : undefined;
+            const color = colorFor(t.priority);
+            const tint = tintFor(t.priority);
             return (
               <li
                 key={t.title}
@@ -101,13 +109,10 @@ export default function PriorityPickerMock() {
                       <CalendarIcon />
                       {t.due}
                     </span>
-                    {leveled && (
+                    {color && (
                       <span
                         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold capitalize"
-                        style={{
-                          color,
-                          backgroundColor: PRIORITY_TINT[t.priority],
-                        }}
+                        style={{ color, backgroundColor: tint }}
                       >
                         {t.priority}
                       </span>
@@ -151,9 +156,8 @@ export default function PriorityPickerMock() {
             <div className="flex flex-wrap gap-1.5">
               {LEVELS.map((p) => {
                 const active = selected === p.value;
-                const color = isLeveled(p.value)
-                  ? PRIORITY_COLOR[p.value]
-                  : undefined;
+                const color = colorFor(p.value);
+                const tint = tintFor(p.value);
                 return (
                   <button
                     key={p.value}
@@ -171,7 +175,7 @@ export default function PriorityPickerMock() {
                         ? {
                             color,
                             borderColor: `${color}66`,
-                            backgroundColor: PRIORITY_TINT[p.value],
+                            backgroundColor: tint,
                           }
                         : undefined
                     }
