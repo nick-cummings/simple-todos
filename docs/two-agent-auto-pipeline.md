@@ -63,21 +63,34 @@ the typing; the human does the judging.
 
 ### Implementer
 
-|                 |                                                                                                                |
-| --------------- | -------------------------------------------------------------------------------------------------------------- |
-| **File**        | [`.github/workflows/claude-implementer.yml`](../.github/workflows/claude-implementer.yml)                      |
-| **Trigger**     | `issues.labeled` where `label.name == 'claude'`                                                                |
-| **Model**       | `claude-opus-4-8` (this is real implementation work)                                                           |
-| **Auth**        | Official Claude GitHub App (required — see [Why an App token](#why-an-app-token-not-the-default-github_token)) |
-| **Permissions** | `contents: write`, `issues: write`, `pull-requests: write`                                                     |
-| **Max turns**   | 120                                                                                                            |
-| **Output**      | Feature branch `claude/<issue-number>-<slug>`, draft PR with `Fixes #N`, transitioned to ready for review      |
+|                 |                                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **File**        | [`.github/workflows/claude-implementer.yml`](../.github/workflows/claude-implementer.yml) (agent + prompt: [`.github/actions/claude-implement`](../.github/actions/claude-implement/action.yml)) |
+| **Trigger**     | `issues.labeled` where `label.name == 'claude'`                                                                                                                                                  |
+| **Model**       | `claude-opus-4-8` (this is real implementation work)                                                                                                                                             |
+| **Auth**        | Official Claude GitHub App (required — see [Why an App token](#why-an-app-token-not-the-default-github_token))                                                                                   |
+| **Permissions** | `contents: write`, `issues: write`, `pull-requests: write`                                                                                                                                       |
+| **Max turns**   | 120                                                                                                                                                                                              |
+| **Retries**     | Up to 2 **selective** retries (3 attempts) on transient flakes — see [ADR 0017](./decisions/0017-implementer-selective-retry.md)                                                                 |
+| **Output**      | Feature branch `claude/<issue-number>-<slug>`, draft PR with `Fixes #N`, transitioned to ready for review                                                                                        |
 
 The implementer inherits [`AGENTS.md`](../AGENTS.md) automatically
-(the action reads it on startup). The workflow's inline `prompt:`
-adds the step-by-step procedure: read the issue, plan, implement,
-test, update docs per the convention, push, open a draft PR, then
-mark ready.
+(the action reads it on startup). The step-by-step procedure (read the
+issue, plan, implement, test, update docs, push, open a draft PR, mark
+ready) lives in the **composite action**
+[`.github/actions/claude-implement`](../.github/actions/claude-implement/action.yml)
+— one source of truth shared by every retry attempt.
+
+**Selective retries.** The agent occasionally dies on a transient Claude
+Code harness bug (a `thinking`-block 400; also overloaded/5xx/429). The
+workflow runs the composite up to **3 times**, but only retries when a
+**triage** step ([`.github/actions/implementer-triage`](../.github/actions/implementer-triage/action.yml))
+classifies the failure as transient — a turn-ceiling or any unrecognized
+failure stops the chain immediately, and a partial branch/PR is cleaned
+up before each retry. The job still red-X's if no attempt succeeds. The
+job timeout is 90 min to span the chain. **Caveat:** a process _hang_
+(an attempt that finishes but doesn't exit) is cancelled at the timeout,
+not retried — see [ADR 0017](./decisions/0017-implementer-selective-retry.md).
 
 ### Reviewer
 
