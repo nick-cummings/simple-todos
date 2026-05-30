@@ -31,12 +31,16 @@ vi.mock("@/components/mockups/RecurringTaskMock", () => ({
 vi.mock("@/components/mockups/UndoToastMock", () => ({
   default: () => <div data-testid="mock-component" />,
 }));
+vi.mock("@/components/mockups/AutoLabelMock", () => ({
+  default: () => <div data-testid="mock-component" />,
+}));
 
 import LabelsMockupPage from "./labels/page";
 import LabelPickerMockupPage from "./label-picker/page";
 import RemindersPage from "./reminders/page";
 import RecurringPage from "./recurring/page";
 import UndoToastPage from "./undo-toast/page";
+import AutoLabelPage from "./auto-label/page";
 
 const pages = [
   ["labels", LabelsMockupPage],
@@ -44,6 +48,7 @@ const pages = [
   ["reminders", RemindersPage],
   ["recurring", RecurringPage],
   ["undo-toast", UndoToastPage],
+  ["auto-label", AutoLabelPage],
 ] as const;
 
 beforeEach(() => {
