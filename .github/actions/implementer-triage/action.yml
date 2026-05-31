@@ -1,0 +1,63 @@
+name: Implementer triage
+description: >-
+  Decide whether a failed implementer attempt is worth retrying (SELECTIVE:
+  only the known-transient harness flakes, not legitimate failures), and clean
+  up any partial branch/PR so the retry starts from a clean slate. See ADR 0017.
+
+inputs:
+  issue:
+    description: The issue number the attempt was for.
+    required: true
+  github_token:
+    description: Token for closing PRs / deleting branches (the job's GITHUB_TOKEN).
+    required: true
+
+outputs:
+  retry:
+    description: "'true' if the failure is a known-transient flake worth retrying."
+    value: ${{ steps.classify.outputs.retry }}
+
+runs:
+  using: composite
+  steps:
+    # Classify from the action's result file. RETRY only on signatures we've
+    # confirmed are transient (a fresh agent run clears them); DON'T retry the
+    # turn-ceiling or anything unrecognized — those won't fix themselves and a
+    # retry just burns a second run. A missing file (abnormal early crash) is
+    # treated as non-retryable on purpose.
+    - id: classify
+      shell: bash
+      run: |
+        set -uo pipefail
+        OUT="${RUNNER_TEMP}/claude-execution-output.json"
+        [ -f "$OUT" ] || OUT="$(find "${RUNNER_TEMP}" -maxdepth 3 -name 'claude-execution-output.json' 2>/dev/null | head -1)"
+        retry=false
+        if [ -n "${OUT:-}" ] && [ -f "$OUT" ]; then
+          if grep -qiE "(thinking|redacted_thinking)[^\"]*cannot be modified|overloaded_error|\"Connection error\"|fetch failed|API Error: (5[0-9][0-9]|429|529)" "$OUT"; then
+            retry=true
+          fi
+        fi
+        echo "retry=$retry" >> "$GITHUB_OUTPUT"
+        echo "::notice title=Implementer triage::failure classified retryable=$retry (output: ${OUT:-none})"
+
+    # Wipe any partial branch/PR the failed attempt left so the retry's
+    # `git checkout -b claude/<issue>-<slug>` can't collide (and so a junk-slug
+    # branch from a crashed run doesn't linger). Matched by issue number, not
+    # slug, to catch garbled slugs too.
+    - if: steps.classify.outputs.retry == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        ISSUE: ${{ inputs.issue }}
+      run: |
+        set -uo pipefail
+        gh pr list --state open --json number,headRefName \
+          --jq ".[] | select(.headRefName | startswith(\"claude/${ISSUE}-\")) | .number" \
+          | while read -r pr; do
+              [ -n "$pr" ] && gh pr close "$pr" --delete-branch || true
+            done
+        git ls-remote --heads origin "claude/${ISSUE}-*" 2>/dev/null \
+          | awk '{print $2}' | sed 's#refs/heads/##' \
+          | while read -r b; do
+              [ -n "$b" ] && git push origin --delete "$b" || true
+            done

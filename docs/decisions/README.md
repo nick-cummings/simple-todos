@@ -30,6 +30,7 @@ Template: [TEMPLATE.md](./TEMPLATE.md)
 | 0014 | [Garbage-collect stale push subscriptions](./0014-stale-subscription-gc.md)                                 | accepted |
 | 0015 | [One generic SortMenu, styled by a `variant` prop](./0015-generic-sortmenu-via-variant-prop.md)             | accepted |
 | 0016 | [Gate the verify workflow on Lighthouse budgets](./0016-lighthouse-ci.md)                                   | accepted |
+| 0017 | [Implementer: selective retries via a composite action](./0017-implementer-selective-retry.md)              | accepted |
 
 ## Numbering
 
