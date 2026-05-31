@@ -111,6 +111,24 @@ the `safeWrite` rule from [ADR 0012](./decisions/0012-localstorage-quota-handlin
 the Suspense rule from [ADR 0006](./decisions/0006-suspense-for-search-params.md);
 plus general bugs, accessibility regressions, and security.
 
+### Reviser (`@claude` on a PR)
+
+The lightweight iteration path. Mention **`@claude`** in a comment on a
+PR — a top-level comment, an inline review comment, or a review summary
+— and [`claude-pr-reviser.yml`](../.github/workflows/claude-pr-reviser.yml)
+checks out that PR's branch and updates it: it reads the triggering
+comment + **all** PR comments + inline review comments + the Claude
+reviewer's notes, reads the linked issue (`Closes #N`) for the spec and
+any refined decisions, plans the change, implements it on the branch
+(commits only — never force-push), runs `verify`, and posts a summary
+comment. Same Opus 4.8 + auth as the implementer.
+
+**Loop guard:** it fires only on a **human** (`sender.type != 'Bot'`)
+comment containing `@claude`, and the agent is told never to write
+`@claude` in its own summary — so its own comments can't re-trigger it.
+It's human-initiated by design (you decide when to mention it); it does
+not auto-run on every comment.
+
 ## Why an App token, not the default `GITHUB_TOKEN`
 
 GitHub's loop-prevention says: events triggered by the default
@@ -398,11 +416,12 @@ and open a normal PR.
 
 ## What the pipeline does NOT do
 
-- **Auto-address reviewer feedback.** Don't wire the reviewer's
-  comments to re-trigger the implementer — that's the runaway-cost
-  trap. Iterations go through a fresh human-driven trigger
-  (re-label the issue, or `@claude address the review comments`
-  manually).
+- **_Auto_-address reviewer feedback.** The reviewer's comments don't
+  re-trigger anything on their own — that's the runaway-cost trap.
+  Iteration is **human-initiated**: mention `@claude` on the PR and the
+  [Reviser](#reviser-claude-on-a-pr) updates it (or re-label the issue
+  to re-run the implementer from scratch). The distinction is that a
+  human decides when to iterate; nothing loops automatically.
 - **Merge.** Branch protection prevents this and the prompts forbid
   it. Belt + suspenders.
 - **Approve.** Same.
