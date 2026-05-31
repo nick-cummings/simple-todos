@@ -3,30 +3,23 @@
 /**
  * MOCKUP — not wired into the app.
  *
- * Demonstrates subtasks: a parent todo expands into a nested checklist.
- * Each subtask can be checked, reordered, and indented/outdented to
- * express a shallow hierarchy. The parent card grows a progress
- * indicator (bar + "done of total") driven by the checklist.
+ * Demonstrates subtasks: a parent todo expands into a flat checklist.
+ * Each subtask can be checked, reordered, and deleted. The parent card
+ * grows a progress indicator (bar + "done of total") driven by the
+ * checklist.
  *
  * Interactions wired with local state so a reviewer can feel the UX:
- *  - Add: the composer at the bottom appends a top-level subtask.
+ *  - Add: the composer at the bottom appends a subtask.
  *  - Check: clicking the checkbox toggles done; the parent progress
  *    updates live.
  *  - Reorder: the ↑/↓ controls swap a row with its neighbor.
- *  - Indent / outdent: the →/← controls nudge a row's depth (capped at
- *    one level of nesting — enough to group without becoming an
- *    outliner). A row can only indent if it has a row above it to
- *    nest under.
+ *  - Delete: the trash control removes a row.
  *
  * Notes for the build issue (no data wiring here):
- *  - Likely data model: `subtasks: { id: string; title: string; done:
- *    boolean; depth: number }[]` on Todo, or a separate child-todo
- *    relation. Depth is a flat integer (0 = top level, 1 = nested) so
- *    reordering stays a simple array operation rather than tree
- *    surgery.
- *  - Parent progress = done leaves / total. A parent with subtasks is
- *    "complete" only when every subtask is done; toggling the last one
- *    is the natural place to auto-complete the parent.
+ *  - Data model (per #46): `subtasks: { id: string; title: string;
+ *    done: boolean }[]` on Todo — a flat checklist, no nesting/depth.
+ *  - Parent progress = done / total. Recommend progress-only for v1
+ *    (no auto-complete of the parent); see #46.
  */
 
 import { useMemo, useState } from "react";
@@ -35,20 +28,17 @@ type Subtask = {
   id: string;
   title: string;
   done: boolean;
-  depth: 0 | 1;
 };
-
-const MAX_DEPTH = 1;
 
 let nextId = 0;
 const makeId = () => `s${nextId++}`;
 
 const INITIAL: Subtask[] = [
-  { id: makeId(), title: "Pick a venue", done: true, depth: 0 },
-  { id: makeId(), title: "Confirm with the park office", done: true, depth: 1 },
-  { id: makeId(), title: "Send invites", done: false, depth: 0 },
-  { id: makeId(), title: "Order the cake", done: false, depth: 0 },
-  { id: makeId(), title: "Ask about nut allergies", done: false, depth: 1 },
+  { id: makeId(), title: "Pick a venue", done: true },
+  { id: makeId(), title: "Confirm with the park office", done: true },
+  { id: makeId(), title: "Send invites", done: false },
+  { id: makeId(), title: "Order the cake", done: false },
+  { id: makeId(), title: "Ask about nut allergies", done: false },
 ];
 
 export default function SubtasksMock() {
@@ -81,21 +71,6 @@ export default function SubtasksMock() {
     });
   }
 
-  function setDepth(index: number, delta: -1 | 1) {
-    setSubtasks((prev) =>
-      prev.map((s, i) => {
-        if (i !== index) return s;
-        // Can only indent under a preceding row.
-        if (delta === 1 && index === 0) return s;
-        const depth = Math.min(
-          MAX_DEPTH,
-          Math.max(0, s.depth + delta),
-        ) as 0 | 1;
-        return { ...s, depth };
-      }),
-    );
-  }
-
   function remove(id: string) {
     setSubtasks((prev) => prev.filter((s) => s.id !== id));
   }
@@ -103,10 +78,7 @@ export default function SubtasksMock() {
   function add() {
     const title = draft.trim();
     if (!title) return;
-    setSubtasks((prev) => [
-      ...prev,
-      { id: makeId(), title, done: false, depth: 0 },
-    ]);
+    setSubtasks((prev) => [...prev, { id: makeId(), title, done: false }]);
     setDraft("");
   }
 
@@ -117,9 +89,9 @@ export default function SubtasksMock() {
           todos
         </h1>
         <p className="text-[13px] text-muted">
-          Mockup — subtasks. A todo expands into a nested checklist with a
+          Mockup — subtasks. A todo expands into a flat checklist with a
           progress indicator on the parent. Try checking, reordering (↑↓),
-          and indenting (→←).
+          and deleting.
         </p>
       </header>
 
@@ -173,12 +145,12 @@ export default function SubtasksMock() {
             <li
               key={s.id}
               className="group flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-subtle"
-              style={{ marginLeft: s.depth * 28 }}
             >
               <button
                 type="button"
                 role="checkbox"
                 aria-checked={s.done}
+                aria-label={s.title}
                 onClick={() => toggle(s.id)}
                 className={
                   `grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[6px] border-[1.5px] transition-colors ` +
@@ -216,20 +188,6 @@ export default function SubtasksMock() {
                   onClick={() => move(i, 1)}
                 >
                   <ArrowIcon dir="down" />
-                </IconButton>
-                <IconButton
-                  label="Outdent"
-                  disabled={s.depth === 0}
-                  onClick={() => setDepth(i, -1)}
-                >
-                  <ArrowIcon dir="left" />
-                </IconButton>
-                <IconButton
-                  label="Indent"
-                  disabled={s.depth >= MAX_DEPTH || i === 0}
-                  onClick={() => setDepth(i, 1)}
-                >
-                  <ArrowIcon dir="right" />
                 </IconButton>
                 <IconButton label="Delete" onClick={() => remove(s.id)}>
                   <TrashIcon />
@@ -313,8 +271,8 @@ function CheckIcon() {
   );
 }
 
-function ArrowIcon({ dir }: { dir: "down" | "left" | "right" | "up" }) {
-  const rotate = { up: 0, right: 90, down: 180, left: 270 }[dir];
+function ArrowIcon({ dir }: { dir: "down" | "up" }) {
+  const rotate = { up: 0, down: 180 }[dir];
   return (
     <svg
       width="13"
