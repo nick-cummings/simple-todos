@@ -1,0 +1,125 @@
+name: Claude PR Reviser
+
+# Mention `@claude` in a comment on a PR (top-level, inline review comment, or
+# a review summary) and the agent updates THAT PR's branch per the discussion.
+# This is the lightweight iteration path — no label, no separate trigger. It
+# complements the implementer (which creates PRs from scratch on `issues.labeled`).
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+# Serialize revisions per PR; don't cancel an in-flight one (it may have pushed
+# partial work) — a second @claude queues behind it.
+concurrency:
+  group: claude-reviser-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  revise:
+    # Fire only when:
+    #  - a human (not a bot) triggered it — LOOP GUARD: the agent posts its
+    #    summary as claude[bot], so this stops it re-triggering itself; and
+    #  - the comment is on a PR and mentions @claude.
+    if: >-
+      github.event.sender.type != 'Bot' &&
+      (
+        (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && github.event.review.body && contains(github.event.review.body, '@claude'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      HUSKY: "0"
+    permissions:
+      contents: write # push updates to the PR branch
+      issues: write # read the linked issue + comment
+      pull-requests: write # read PR + comments, post a summary comment
+      id-token: write # OIDC federation against the Claude API
+    steps:
+      # The triggering event doesn't reliably check out the PR's branch, so
+      # resolve its head ref and check that out — the agent must work ON the PR.
+      - name: Resolve PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          head=$(gh pr view "$PR" --repo "$REPO" --json headRefName --jq .headRefName)
+          echo "number=$PR" >> "$GITHUB_OUTPUT"
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.pr.outputs.head }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Configure git
+        run: |
+          git config user.name "claude[bot]"
+          git config user.email "claude[bot]@users.noreply.github.com"
+
+      - name: Run Claude PR reviser
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          claude_args: >-
+            --model claude-opus-4-8
+            --max-turns 120
+            --allowed-tools "Bash,Edit,Read,Write,Glob,Grep,WebFetch,WebSearch"
+          prompt: |
+            You are the PR-reviser agent for this repository. Someone mentioned
+            `@claude` on pull request #${{ steps.pr.outputs.number }} in
+            `${{ github.repository }}` to request changes. You are already
+            checked out on that PR's head branch — update it in place.
+
+            ## Environment facts (don't waste turns discovering these)
+
+            - **OS:** Ubuntu runner. **No sudo.** `npm ci` already ran.
+            - **Husky:** `HUSKY=0` is exported job-wide; use plain `git commit` / `git push`.
+            - **Playwright deps:** not installable (`sudo apt-get` fails). Do NOT run `npx playwright install`. Iterate with `verify:fast`; full E2E runs in CI.
+            - **Token scope:** you CANNOT commit to any `.github/workflows/*.yml` file. If a change needs that, put the diff in a PR comment for a human.
+            - Repo layout + conventions are in `AGENTS.md`, `docs/README.md`, `docs/testing.md`, and `docs/decisions/` (ADRs). Read them as needed.
+
+            ## Procedure
+
+            1. **Understand the request.** Read the triggering comment, then ALL
+               discussion on the PR:
+               - `gh pr view ${{ steps.pr.outputs.number }} --comments` (description + top-level comments)
+               - `gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments` (inline review comments)
+               - `gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/reviews` (review summaries — incl. the Claude reviewer's notes)
+               Treat the human comments + review feedback as your instructions.
+
+            2. **Analyze the PR.** `gh pr diff ${{ steps.pr.outputs.number }}` for the current change; read the files it touches and the surrounding code.
+
+            3. **Read the source issue.** The PR body should say `Closes #N` — `gh issue view N --comments` to ground yourself in the original spec AND any refined decisions in the issue body/comments (those supersede older guidance).
+
+            4. **Make a plan.** Decide the concrete edits that satisfy the request, consistent with the issue's decisions and the repo conventions (seam tests per ADR 0008, docs per ADR 0001). If the request is ambiguous, contradicts the issue, or you think it's wrong, **leave a PR comment explaining and stop** — do not guess.
+
+            5. **Implement on the existing branch.** Make the changes and commit + push in small chunks (`git add … && git commit && git push`). Do NOT reset, rebase, or force-push — only add commits. Follow existing patterns.
+
+            6. **Test the changes.** Iterate with `npm run verify:fast` (~10s). Run the full `npm run verify` once before finishing. Fix any failures. If you can't get it green after ~3 honest attempts, push what you have and explain in a PR comment.
+
+            7. **Summarize.** Post ONE PR comment (`gh pr comment ${{ steps.pr.outputs.number }} --body …`) describing what you changed, why, and the verify result.
+
+            ## What you must NOT do
+
+            - **Do NOT write the literal text `@claude` in any comment** — it would re-trigger this workflow on yourself (infinite loop).
+            - **Don't merge, approve, request changes, or add/remove labels.** The human owns those.
+            - **Don't reset/force-push or touch other PRs.** Only add commits to this branch.
+            - **Don't commit to `.github/workflows/*.yml`** (the App token can't push them).
+            - **Don't install Playwright browsers / use sudo.**
