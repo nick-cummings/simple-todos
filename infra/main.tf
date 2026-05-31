@@ -14,6 +14,15 @@ resource "vercel_project" "app" {
   name      = var.project_name
   framework = "nextjs"
 
+  # Expose Vercel's system env vars (VERCEL_ENV, VERCEL_URL, VERCEL_GIT_*, …)
+  # to both the build and the runtime. VERCEL_ENV ("production" | "preview" |
+  # "development") is the canonical "which environment am I in?" signal: the
+  # mockups gate (`mockupsEnabled()`, see docs/architecture.md) reads it to
+  # render `/mockups/*` on preview deploys but 404 them in production, and any
+  # future preview-only feature can gate on the same var instead of minting a
+  # bespoke per-feature flag. These are non-secret platform values.
+  automatically_expose_system_environment_variables = true
+
   # Path is relative to the connected repo root.
   root_directory = null
 
