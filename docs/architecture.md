@@ -141,12 +141,22 @@ and on Vercel preview deploys but **404 in production** — they're
 unfinished UI we don't want exposed publicly. The check is centralized in
 `mockupsEnabled()` (`src/lib/mockupsEnabled.ts`): each `page.tsx` calls
 `notFound()` when it returns false. The gate prefers `VERCEL_ENV` (so
-preview deploys keep the mockups) and falls back to `NODE_ENV`. Because
-these are statically-prerendered server components, the gate is resolved
-at **build time, per deploy** from that deploy's `VERCEL_ENV` (the
-production build bakes in the 404; a preview build bakes in the mock) —
-not a per-request runtime check. The mockups still ship in the bundle;
-they're just unreachable on the production deploy.
+preview deploys keep the mockups) and falls back to `NODE_ENV`.
+
+Because the gate depends on the **runtime** environment, the routes must
+not be statically prerendered — a build-time prerender runs with
+`NODE_ENV=production` and no `VERCEL_ENV`, which would bake a 404 into the
+page on _every_ deploy (preview included). `src/app/mockups/layout.tsx`
+exports `dynamic = "force-dynamic"`, which cascades to the whole segment
+and forces per-request rendering, so the gate reads that request's
+`VERCEL_ENV`: `"preview"` renders the mockup, `"production"` 404s it. The
+mockups still ship in the bundle; they're just unreachable in production.
+
+`VERCEL_ENV` is available at runtime because the Vercel project enables
+`automatically_expose_system_environment_variables` (set in
+[`infra/main.tf`](../infra/main.tf)). That's the canonical environment
+signal — reuse it for any future preview-only behavior rather than adding
+a bespoke flag.
 
 ## What's deliberately not here
 
