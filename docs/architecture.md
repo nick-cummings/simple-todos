@@ -150,6 +150,12 @@ and forces per-request rendering, so the gate reads that request's
 `VERCEL_ENV`: `"preview"` renders the mockup, `"production"` 404s it. The
 mockups still ship in the bundle; they're just unreachable in production.
 
+`VERCEL_ENV` is available at runtime because the Vercel project enables
+`automatically_expose_system_environment_variables` (set in
+[`infra/main.tf`](../infra/main.tf)). That's the canonical environment
+signal — reuse it for any future preview-only behavior rather than adding
+a bespoke flag.
+
 ## What's deliberately not here
 
 - **No auth.** Single user. Adding auth would change the storage model
