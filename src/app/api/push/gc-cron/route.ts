@@ -34,68 +34,69 @@ const GC_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
  *  - Returns a summary so the cron log is greppable.
  */
 export async function GET(request: Request) {
-  if (!isStorageConfigured()) {
-    return NextResponse.json(
-      { error: "Push storage is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
-
-  const now = Date.now();
-  const subscriptions = await listSubscriptions();
-
-  let kept = 0;
-  let legacy = 0;
-  let deleted = 0;
-
-  for (const sub of subscriptions) {
-    if (sub.lastReminderAt === undefined) {
-      legacy += 1;
-      continue;
+    if (!isStorageConfigured()) {
+        return NextResponse.json(
+            { error: "Push storage is not configured." },
+            { status: 503 },
+        );
     }
-    if (now - sub.lastReminderAt > GC_WINDOW_MS) {
-      await deleteSubscription(sub.browserId);
-      deleted += 1;
-    } else {
-      kept += 1;
+    if (!isAuthorized(request)) {
+        return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
-  }
 
-  if (deleted > 0) {
-    Sentry.captureMessage("Pruned stale push subscriptions", {
-      level: "warning",
-      tags: {
-        area: "push-gc",
+    const now = Date.now();
+    const subscriptions = await listSubscriptions();
+
+    let kept = 0;
+    let legacy = 0;
+    let deleted = 0;
+
+    for (const sub of subscriptions) {
+        if (sub.lastReminderAt === undefined) {
+            legacy += 1;
+            continue;
+        }
+        if (now - sub.lastReminderAt > GC_WINDOW_MS) {
+            await deleteSubscription(sub.browserId);
+            deleted += 1;
+        } else {
+            kept += 1;
+        }
+    }
+
+    if (deleted > 0) {
+        Sentry.captureMessage("Pruned stale push subscriptions", {
+            level: "warning",
+            tags: {
+                area: "push-gc",
+                deleted,
+                kept,
+                legacy,
+                windowDays: 90,
+            },
+        });
+    }
+
+    return NextResponse.json({
         deleted,
         kept,
         legacy,
-        windowDays: 90,
-      },
+        total: subscriptions.length,
     });
-  }
-
-  return NextResponse.json({
-    deleted,
-    kept,
-    legacy,
-    total: subscriptions.length,
-  });
 }
 
 function isAuthorized(request: Request): boolean {
-  // If no secret is configured we refuse everything — better than
-  // letting anonymous traffic trigger a cron pass.
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const auth = request.headers.get("authorization") ?? "";
-  return auth === `Bearer ${secret}`;
+    // If no secret is configured we refuse everything — better than
+    // letting anonymous traffic trigger a cron pass.
+    const secret = process.env.CRON_SECRET;
+    if (!secret) return false;
+    const auth = request.headers.get("authorization") ?? "";
+    return auth === `Bearer ${secret}`;
 }
 
 function isStorageConfigured(): boolean {
-  return Boolean(
-    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
-  );
+    return Boolean(
+        process.env.UPSTASH_REDIS_REST_URL &&
+        process.env.UPSTASH_REDIS_REST_TOKEN,
+    );
 }

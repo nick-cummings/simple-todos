@@ -114,8 +114,8 @@ For 40 in that area:
 • Lead time: 4–6 weeks for popular spots, 2 weeks for less-booked weekdays`;
 
 export interface GenerateDescriptionInput {
-  location?: { latitude: number; longitude: number };
-  title: string;
+    location?: { latitude: number; longitude: number };
+    title: string;
 }
 
 /**
@@ -123,33 +123,33 @@ export interface GenerateDescriptionInput {
  * the prompt content is in the (cacheable) system prompt above.
  */
 export function buildUserMessage(input: GenerateDescriptionInput): string {
-  const lines = [`Title: ${input.title.trim()}`];
-  if (input.location) {
-    const { latitude, longitude } = input.location;
-    // 4 decimal places ≈ 11m precision — enough for nearby-search use
-    // cases without being unnecessarily precise about the user's spot.
-    lines.push(
-      `Approximate location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-    );
-  }
-  return lines.join("\n");
+    const lines = [`Title: ${input.title.trim()}`];
+    if (input.location) {
+        const { latitude, longitude } = input.location;
+        // 4 decimal places ≈ 11m precision — enough for nearby-search use
+        // cases without being unnecessarily precise about the user's spot.
+        lines.push(
+            `Approximate location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+        );
+    }
+    return lines.join("\n");
 }
 
 /** Sanity-check coordinates from an untrusted client. */
 export function isValidLocation(loc: unknown): loc is {
-  latitude: number;
-  longitude: number;
+    latitude: number;
+    longitude: number;
 } {
-  if (!loc || typeof loc !== "object") return false;
-  const o = loc as Record<string, unknown>;
-  return (
-    typeof o.latitude === "number" &&
-    typeof o.longitude === "number" &&
-    Number.isFinite(o.latitude) &&
-    Number.isFinite(o.longitude) &&
-    o.latitude >= -90 &&
-    o.latitude <= 90 &&
-    o.longitude >= -180 &&
-    o.longitude <= 180
-  );
+    if (!loc || typeof loc !== "object") return false;
+    const o = loc as Record<string, unknown>;
+    return (
+        typeof o.latitude === "number" &&
+        typeof o.longitude === "number" &&
+        Number.isFinite(o.latitude) &&
+        Number.isFinite(o.longitude) &&
+        o.latitude >= -90 &&
+        o.latitude <= 90 &&
+        o.longitude >= -180 &&
+        o.longitude <= 180
+    );
 }

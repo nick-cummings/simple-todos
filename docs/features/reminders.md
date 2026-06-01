@@ -74,9 +74,9 @@ list changes:
 
 ```tsx
 useEffect(() => {
-  for (const t of todos) {
-    void syncTodoReminder(t);
-  }
+    for (const t of todos) {
+        void syncTodoReminder(t);
+    }
 }, [todos, syncTodoReminder]);
 ```
 
@@ -96,13 +96,13 @@ entirely — see [ADR 0008](../decisions/0008-integration-tests-on-the-wiring-se
    bearer).
 2. Scans every `reminder:*` key.
 3. For each with `fireAt <= now`:
-   - **Dedupe check.** If the reminder has a `sentAt` within the
-     last 6 hours, treat it as already delivered: delete and move on
-     without sending. See "Idempotency" below.
-   - Looks up the matching `subscription:<browserId>`.
-   - Sends a Web Push with payload `{ title, body, todoId, url }`.
-   - On success: writes `sentAt`, then deletes the reminder.
-   - On 410 GONE: deletes both reminder and subscription.
+    - **Dedupe check.** If the reminder has a `sentAt` within the
+      last 6 hours, treat it as already delivered: delete and move on
+      without sending. See "Idempotency" below.
+    - Looks up the matching `subscription:<browserId>`.
+    - Sends a Web Push with payload `{ title, body, todoId, url }`.
+    - On success: writes `sentAt`, then deletes the reminder.
+    - On 410 GONE: deletes both reminder and subscription.
 
 If the subscription is missing (browser cleared data or uninstalled
 PWA), the reminder is silently dropped.

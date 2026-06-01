@@ -31,8 +31,8 @@ Two paths, both ending in the same view-mode modal:
    background tab on desktop).
 2. The SW's `notificationclick` handler iterates `clients.matchAll`
    and, for any client on our origin, does:
-   - `client.postMessage({ type: "reminder-click", url: "/?todo=ID" })`
-   - `client.focus()`
+    - `client.postMessage({ type: "reminder-click", url: "/?todo=ID" })`
+    - `client.focus()`
 3. `TodoApp` has a `serviceWorker.addEventListener("message", …)`
    listener that opens the modal from the URL in the message.
 
@@ -89,14 +89,14 @@ handled (ignored).
   `navigator.serviceWorker` between mount and unmount. See the related
   lesson:
 
-  > Calling host methods (document.startViewTransition, etc.) via a
-  > local binding throws "Illegal invocation". Capturing the
-  > _receiver object_ (not its method) is safe and is the right
-  > pattern when you need a stable reference across the lifetime of
-  > an effect.
+    > Calling host methods (document.startViewTransition, etc.) via a
+    > local binding throws "Illegal invocation". Capturing the
+    > _receiver object_ (not its method) is safe and is the right
+    > pattern when you need a stable reference across the lifetime of
+    > an effect.
 
-  We capture `const sw = navigator.serviceWorker` once and call
-  `sw.addEventListener` / `sw.removeEventListener` through it.
+    We capture `const sw = navigator.serviceWorker` once and call
+    `sw.addEventListener` / `sw.removeEventListener` through it.
 
 - **Hydration timing.** The deep-link effect waits on `hydrated`
   before opening anything. Otherwise it would open before

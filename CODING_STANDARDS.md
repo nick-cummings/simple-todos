@@ -67,12 +67,12 @@ Prettier, with this config:
 
 ```json
 {
-  "semi": true,
-  "singleQuote": false,
-  "trailingComma": "all",
-  "printWidth": 80,
-  "tabWidth": 2,
-  "arrowParens": "always"
+    "semi": true,
+    "singleQuote": false,
+    "trailingComma": "all",
+    "printWidth": 80,
+    "tabWidth": 4,
+    "arrowParens": "always"
 }
 ```
 
@@ -90,11 +90,11 @@ flags; turning them off keeps the syntax tax while discarding the benefit.
 
 ```jsonc
 {
-  "strict": true,
-  "noEmit": true, // a bundler emits; tsc only type-checks
-  "isolatedModules": true,
-  "moduleResolution": "bundler",
-  "paths": { "@/*": ["./src/*"] }, // absolute imports, no ../../.. chains
+    "strict": true,
+    "noEmit": true, // a bundler emits; tsc only type-checks
+    "isolatedModules": true,
+    "moduleResolution": "bundler",
+    "paths": { "@/*": ["./src/*"] }, // absolute imports, no ../../.. chains
 }
 ```
 
@@ -210,15 +210,15 @@ Principles:
   measured numbers so a real regression breaks the build but routine edits
   don't flap. Higher-risk layers carry higher bars:
 
-  | Path                | lines | branches | functions | statements |
-  | ------------------- | ----- | -------- | --------- | ---------- |
-  | repo-wide floor     | 85    | 78       | 84        | 88         |
-  | `src/app/api/**`    | 95    | 90       | 95        | 95         |
-  | `src/components/**` | 88    | 76       | 86        | 84         |
-  | `src/lib/**`        | 94    | 86       | 91        | 92         |
+    | Path                | lines | branches | functions | statements |
+    | ------------------- | ----- | -------- | --------- | ---------- |
+    | repo-wide floor     | 85    | 78       | 84        | 88         |
+    | `src/app/api/**`    | 95    | 90       | 95        | 95         |
+    | `src/components/**` | 88    | 76       | 86        | 84         |
+    | `src/lib/**`        | 94    | 86       | 91        | 92         |
 
-  Bump the bars up when a wave of new tests lands; never down to make red go
-  green.
+    Bump the bars up when a wave of new tests lands; never down to make red go
+    green.
 
 - **Mock at the boundary.** Real `localStorage` (cleared in `beforeEach`);
   external APIs mocked at the `fetch` level; navigation mocked with a reactive

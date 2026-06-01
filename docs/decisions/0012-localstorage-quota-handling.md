@@ -95,16 +95,16 @@ either way: tell the user to export and clear. Reactive is enough.
   `localStorage.setItem` raw and would throw `QuotaExceededError`
   unhandled. As of this consistency pass, all three also flow through
   `safeWrite`:
-  - `useTheme` — `THEME_KEY` (the `setTheme` persistence write; the
-    pre-paint inline script in the layout only _reads_ the key, so it
-    is not affected).
-  - `useReminders` — `PERMISSION_PROMPTED_KEY` and `BROWSER_ID_KEY`.
-    These are best-effort: the hooks keep working on the in-memory
-    value for the session if the write fails (a fresh `browserId` is
-    minted next load). They are not the same stakes as losing todo
-    data, but routing them through `safeWrite` means a quota event
-    still reports to Sentry and surfaces the banner rather than
-    crashing the caller. No write outside `safeWrite` remains.
+    - `useTheme` — `THEME_KEY` (the `setTheme` persistence write; the
+      pre-paint inline script in the layout only _reads_ the key, so it
+      is not affected).
+    - `useReminders` — `PERMISSION_PROMPTED_KEY` and `BROWSER_ID_KEY`.
+      These are best-effort: the hooks keep working on the in-memory
+      value for the session if the write fails (a fresh `browserId` is
+      minted next load). They are not the same stakes as losing todo
+      data, but routing them through `safeWrite` means a quota event
+      still reports to Sentry and surfaces the banner rather than
+      crashing the caller. No write outside `safeWrite` remains.
 
 ## References
 

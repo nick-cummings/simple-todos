@@ -9,8 +9,8 @@ name: Claude Reviewer
 # its final verify completed while the PR was still a draft. See
 # docs/two-agent-auto-pipeline.md ("Reviewer trigger").
 on:
-  pull_request:
-    types: [ready_for_review, labeled]
+    pull_request:
+        types: [ready_for_review, labeled]
 
 # Serialize reviewer runs per PR, but DON'T cancel in progress. The
 # implementer's auto-chain fires `ready_for_review` then `labeled` in
@@ -20,191 +20,191 @@ on:
 # yet) and the labeled run queues behind it and reviews. There's no
 # push trigger anymore, so there's nothing else to dedupe.
 concurrency:
-  group: claude-reviewer-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+    group: claude-reviewer-${{ github.event.pull_request.number }}
+    cancel-in-progress: false
 
 jobs:
-  review:
-    # Run only when the PR is non-draft AND carries `claude-review`,
-    # reached either way round:
-    #  - the label is added to an already-ready PR (the implementer's
-    #    auto-chain adds it last, after `gh pr ready`), or
-    #  - a PR that already has the label is marked ready (human path).
-    # The per-event label check avoids firing twice for the pair of
-    # events the auto-chain emits (ready_for_review, then labeled).
-    if: >-
-      github.event.pull_request.draft == false &&
-      (
-        (github.event.action == 'labeled' && github.event.label.name == 'claude-review') ||
-        (github.event.action == 'ready_for_review' && contains(github.event.pull_request.labels.*.name, 'claude-review'))
-      )
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read # diff + repo state
-      issues: write # leave comments
-      pull-requests: write # submit the review
-      id-token: write # required by the action for OIDC federation against the Claude API
+    review:
+        # Run only when the PR is non-draft AND carries `claude-review`,
+        # reached either way round:
+        #  - the label is added to an already-ready PR (the implementer's
+        #    auto-chain adds it last, after `gh pr ready`), or
+        #  - a PR that already has the label is marked ready (human path).
+        # The per-event label check avoids firing twice for the pair of
+        # events the auto-chain emits (ready_for_review, then labeled).
+        if: >-
+            github.event.pull_request.draft == false &&
+            (
+              (github.event.action == 'labeled' && github.event.label.name == 'claude-review') ||
+              (github.event.action == 'ready_for_review' && contains(github.event.pull_request.labels.*.name, 'claude-review'))
+            )
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        permissions:
+            contents: read # diff + repo state
+            issues: write # leave comments
+            pull-requests: write # submit the review
+            id-token: write # required by the action for OIDC federation against the Claude API
 
-    steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          # Full history so the agent can inspect prior commits + the
-          # base branch for context.
-          fetch-depth: 0
+        steps:
+            - name: Checkout PR head
+              uses: actions/checkout@v6
+              with:
+                  ref: ${{ github.event.pull_request.head.sha }}
+                  # Full history so the agent can inspect prior commits + the
+                  # base branch for context.
+                  fetch-depth: 0
 
-      - name: Run Claude reviewer
-        uses: anthropics/claude-code-action@v1
-        with:
-          # Same Max-subscription OAuth auth as the implementer (TRIAL)
-          # — so the whole pipeline's usage bills against the one
-          # shared subscription quota, which is what we want to measure.
-          # The reviewer MODEL stays Sonnet (below); only the auth
-          # source changed. To revert, swap back to anthropic_api_key.
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # The reviewer triggers on `pull_request` (ready/label) events,
-          # and the implementer (claude[bot]) is what adds the
-          # `claude-review` label — a bot actor. claude-code-action's
-          # bot guard blocks bot-initiated runs unless the bot is
-          # allowlisted. Scope it to our own App only — NOT `*`: this is
-          # a PUBLIC repo, where `*` would let any external App invoke
-          # the agent with prompts it controls. Both spellings cover the
-          # action's actor-name matching. The job `if:` still gates on a
-          # non-draft PR carrying the label.
-          allowed_bots: "claude[bot],claude"
-          # Same rationale as the implementer — visibility into per-
-          # turn tool calls is essential for debugging silent runs.
-          show_full_output: true
-          # Sonnet is the right model for a review pass — pattern-
-          # matching against the diff, not novel implementation.
-          #
-          # --allowed-tools is REQUIRED (the action's default
-          # allowlist excludes Bash). The reviewer needs Bash for
-          # `gh pr view`, `gh pr diff`, and the `gh api` review
-          # submission. Edit/Write are intentionally omitted — the
-          # reviewer is read-only on the codebase.
-          claude_args: >-
-            --model claude-sonnet-4-6
-            --max-turns 15
-            --allowed-tools "Bash,Read,Glob,Grep,WebFetch"
-          prompt: |
-            You are the reviewer agent for this repository.
+            - name: Run Claude reviewer
+              uses: anthropics/claude-code-action@v1
+              with:
+                  # Same Max-subscription OAuth auth as the implementer (TRIAL)
+                  # — so the whole pipeline's usage bills against the one
+                  # shared subscription quota, which is what we want to measure.
+                  # The reviewer MODEL stays Sonnet (below); only the auth
+                  # source changed. To revert, swap back to anthropic_api_key.
+                  claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+                  # The reviewer triggers on `pull_request` (ready/label) events,
+                  # and the implementer (claude[bot]) is what adds the
+                  # `claude-review` label — a bot actor. claude-code-action's
+                  # bot guard blocks bot-initiated runs unless the bot is
+                  # allowlisted. Scope it to our own App only — NOT `*`: this is
+                  # a PUBLIC repo, where `*` would let any external App invoke
+                  # the agent with prompts it controls. Both spellings cover the
+                  # action's actor-name matching. The job `if:` still gates on a
+                  # non-draft PR carrying the label.
+                  allowed_bots: "claude[bot],claude"
+                  # Same rationale as the implementer — visibility into per-
+                  # turn tool calls is essential for debugging silent runs.
+                  show_full_output: true
+                  # Sonnet is the right model for a review pass — pattern-
+                  # matching against the diff, not novel implementation.
+                  #
+                  # --allowed-tools is REQUIRED (the action's default
+                  # allowlist excludes Bash). The reviewer needs Bash for
+                  # `gh pr view`, `gh pr diff`, and the `gh api` review
+                  # submission. Edit/Write are intentionally omitted — the
+                  # reviewer is read-only on the codebase.
+                  claude_args: >-
+                      --model claude-sonnet-4-6
+                      --max-turns 15
+                      --allowed-tools "Bash,Read,Glob,Grep,WebFetch"
+                  prompt: |
+                      You are the reviewer agent for this repository.
 
-            ## The task
+                      ## The task
 
-            Review pull request #${{ github.event.pull_request.number }} in
-            `${{ github.repository }}`. The PR was just marked ready for
-            review. CI (`verify`) runs separately and gates the merge;
-            your pass is advisory, so do NOT assume the diff is green —
-            if something looks like it would fail typecheck, lint, or a
-            test, call it out.
+                      Review pull request #${{ github.event.pull_request.number }} in
+                      `${{ github.repository }}`. The PR was just marked ready for
+                      review. CI (`verify`) runs separately and gates the merge;
+                      your pass is advisory, so do NOT assume the diff is green —
+                      if something looks like it would fail typecheck, lint, or a
+                      test, call it out.
 
-            ## Repo layout (you don't need to `ls` to find these)
+                      ## Repo layout (you don't need to `ls` to find these)
 
-            - `src/lib/` — pure logic + hooks
-            - `src/components/` — React components
-            - `src/app/` — Next.js App Router (routes, layouts, API)
-            - `tests/e2e/` — Playwright specs
-            - `docs/architecture.md`, `docs/testing.md`, `docs/security.md`, `docs/performance.md`, `docs/observability.md` — cross-cutting
-            - `docs/decisions/NNNN-<slug>.md` — ADRs
-            - `docs/decisions/README.md` — ADR index
-            - `docs/features/<name>.md` — feature docs
-            - `docs/operations/<name>.md` — runbooks
+                      - `src/lib/` — pure logic + hooks
+                      - `src/components/` — React components
+                      - `src/app/` — Next.js App Router (routes, layouts, API)
+                      - `tests/e2e/` — Playwright specs
+                      - `docs/architecture.md`, `docs/testing.md`, `docs/security.md`, `docs/performance.md`, `docs/observability.md` — cross-cutting
+                      - `docs/decisions/NNNN-<slug>.md` — ADRs
+                      - `docs/decisions/README.md` — ADR index
+                      - `docs/features/<name>.md` — feature docs
+                      - `docs/operations/<name>.md` — runbooks
 
-            ## Required workflow
+                      ## Required workflow
 
-            1. **Read the PR.** Use `gh pr view ${{ github.event.pull_request.number }} --comments` and `gh pr diff ${{ github.event.pull_request.number }}` to see the description and the full diff.
+                      1. **Read the PR.** Use `gh pr view ${{ github.event.pull_request.number }} --comments` and `gh pr diff ${{ github.event.pull_request.number }}` to see the description and the full diff.
 
-            2. **Read the linked issue if one exists.** The PR description should say `Closes #N` — if it does, `gh issue view N` to ground yourself in what the change was supposed to do.
+                      2. **Read the linked issue if one exists.** The PR description should say `Closes #N` — if it does, `gh issue view N` to ground yourself in what the change was supposed to do.
 
-            3. **Orient against the codebase.** For every file the diff touches, scan the surrounding code so you understand the patterns being used. Read any feature doc in `docs/features/` that names the affected component, and any ADR in `docs/decisions/` that the change interacts with.
+                      3. **Orient against the codebase.** For every file the diff touches, scan the surrounding code so you understand the patterns being used. Read any feature doc in `docs/features/` that names the affected component, and any ADR in `docs/decisions/` that the change interacts with.
 
-            4. **Walk the rubric.** Hunt for specific failure modes, in priority order:
+                      4. **Walk the rubric.** Hunt for specific failure modes, in priority order:
 
-               **Convention compliance**
-               - **Seam test (ADR 0008):** If the diff adds or changes a "hook does work + caller wires it up" pair, is there an integration test that mocks the hook and asserts the caller's call pattern? Unit tests on each side alone are not sufficient.
-               - **Docs convention (ADR 0001):** Any non-trivial behavior change must land with a docs update — new feature doc, updated feature doc, ADR, or runbook. A diff that adds code without docs is a red flag.
-               - **`safeWrite` (ADR 0012):** Any new `localStorage.setItem` call must route through `safeWrite` from `src/lib/storage.ts`, not the raw browser API.
-               - **Suspense boundary (ADR 0006):** Any new consumer of `useSearchParams` must be wrapped in `<Suspense>`.
-               - **DOM method binding (lesson):** Code that does `const f = document.startViewTransition` (or similar host-method extraction) will throw "Illegal invocation". Capture the receiver object instead.
-               - **ESLint disables (ADR 0007):** Any `// eslint-disable-...` line should be followed by a comment explaining why.
+                         **Convention compliance**
+                         - **Seam test (ADR 0008):** If the diff adds or changes a "hook does work + caller wires it up" pair, is there an integration test that mocks the hook and asserts the caller's call pattern? Unit tests on each side alone are not sufficient.
+                         - **Docs convention (ADR 0001):** Any non-trivial behavior change must land with a docs update — new feature doc, updated feature doc, ADR, or runbook. A diff that adds code without docs is a red flag.
+                         - **`safeWrite` (ADR 0012):** Any new `localStorage.setItem` call must route through `safeWrite` from `src/lib/storage.ts`, not the raw browser API.
+                         - **Suspense boundary (ADR 0006):** Any new consumer of `useSearchParams` must be wrapped in `<Suspense>`.
+                         - **DOM method binding (lesson):** Code that does `const f = document.startViewTransition` (or similar host-method extraction) will throw "Illegal invocation". Capture the receiver object instead.
+                         - **ESLint disables (ADR 0007):** Any `// eslint-disable-...` line should be followed by a comment explaining why.
 
-               **Test quality**
-               - Are edge cases covered, or only the happy path?
-               - Do the tests assert behavior or implementation details?
-               - For new error paths: does the test prove the user sees something sensible (not just that an exception is caught)?
+                         **Test quality**
+                         - Are edge cases covered, or only the happy path?
+                         - Do the tests assert behavior or implementation details?
+                         - For new error paths: does the test prove the user sees something sensible (not just that an exception is caught)?
 
-               **Security**
-               - Any new env var that should be Terraform-managed in `infra/`?
-               - Any new external surface (API route, fetch) that should be rate-limited?
-               - Any change to security headers in `next.config.ts`?
+                         **Security**
+                         - Any new env var that should be Terraform-managed in `infra/`?
+                         - Any new external surface (API route, fetch) that should be rate-limited?
+                         - Any change to security headers in `next.config.ts`?
 
-               **Accessibility**
-               - New interactive element without `aria-label` or accessible name?
-               - Modal/dialog without focus management?
-               - Color-only signal?
+                         **Accessibility**
+                         - New interactive element without `aria-label` or accessible name?
+                         - Modal/dialog without focus management?
+                         - Color-only signal?
 
-               **Performance**
-               - Material bundle additions (new dependency)?
-               - Render-loop concerns (effect with missing deps, state in render)?
+                         **Performance**
+                         - Material bundle additions (new dependency)?
+                         - Render-loop concerns (effect with missing deps, state in render)?
 
-            5. **Leave the review.** Submit a single review that contains both a top-level summary AND any inline line comments. `gh pr review` only handles the summary; inline line comments need the GitHub API directly. Use this one-shot pattern:
+                      5. **Leave the review.** Submit a single review that contains both a top-level summary AND any inline line comments. `gh pr review` only handles the summary; inline line comments need the GitHub API directly. Use this one-shot pattern:
 
-               ```sh
-               gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
-                 -X POST \
-                 -f event=COMMENT \
-                 -f body="<the summary template below>" \
-                 -F 'comments[][path]=src/lib/example.ts' \
-                 -F 'comments[][line]=42' \
-                 -F 'comments[][body]=<inline comment, optionally with a suggestion block>'
-               ```
+                         ```sh
+                         gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+                           -X POST \
+                           -f event=COMMENT \
+                           -f body="<the summary template below>" \
+                           -F 'comments[][path]=src/lib/example.ts' \
+                           -F 'comments[][line]=42' \
+                           -F 'comments[][body]=<inline comment, optionally with a suggestion block>'
+                         ```
 
-               For suggestions that GitHub renders as one-click "Apply suggestion" blocks, wrap the proposed replacement in a fenced `suggestion` block inside the inline comment body:
+                         For suggestions that GitHub renders as one-click "Apply suggestion" blocks, wrap the proposed replacement in a fenced `suggestion` block inside the inline comment body:
 
-               ````
-               This duplicates the helper in `src/lib/storage.ts:safeWrite`. Inline it:
+                         ````
+                         This duplicates the helper in `src/lib/storage.ts:safeWrite`. Inline it:
 
-               ```suggestion
-               return safeWrite(KEY, JSON.stringify(value));
-               ```
-               ````
+                         ```suggestion
+                         return safeWrite(KEY, JSON.stringify(value));
+                         ```
+                         ````
 
-               Multiple inline comments: repeat the `-F 'comments[][path]=...'` triplet for each one. They all attach to the same review.
+                         Multiple inline comments: repeat the `-F 'comments[][path]=...'` triplet for each one. They all attach to the same review.
 
-               Use this structure for the summary body:
-               ```
-               ## Reviewer notes (Claude Sonnet 4.6)
+                         Use this structure for the summary body:
+                         ```
+                         ## Reviewer notes (Claude Sonnet 4.6)
 
-               <one-paragraph overall impression>
+                         <one-paragraph overall impression>
 
-               ### Things worth a second look
-               - <bullet, with file:line and why>
+                         ### Things worth a second look
+                         - <bullet, with file:line and why>
 
-               ### Things that look fine but I want to call out
-               - <bullet, with file:line>
+                         ### Things that look fine but I want to call out
+                         - <bullet, with file:line>
 
-               ### Convention checks
-               - Seam test: ✅ / ❌ / N/A
-               - Docs updated: ✅ / ❌ / N/A
-               - <other relevant ADR>: ✅ / ❌ / N/A
-               ```
+                         ### Convention checks
+                         - Seam test: ✅ / ❌ / N/A
+                         - Docs updated: ✅ / ❌ / N/A
+                         - <other relevant ADR>: ✅ / ❌ / N/A
+                         ```
 
-               If you find nothing meaningful to comment on, still submit a review with the convention checks — the absence of findings is itself a signal.
+                         If you find nothing meaningful to comment on, still submit a review with the convention checks — the absence of findings is itself a signal.
 
-            ## What you must NOT do
+                      ## What you must NOT do
 
-            - **Don't approve.** Always submit with `--comment`. Never `--approve`, never `--request-changes`. Branch protection enforces this from the other side, but obey it from this side too — the user wants their own approval to be the only one that lands code.
-            - **Don't merge.** Don't run `gh pr merge` under any circumstances.
-            - **Don't push commits to the PR.** This pass is read-only. If you find a typo or want to "just fix" something, leave a suggestion comment instead. Don't change the diff.
-            - **Don't dismiss other reviews.**
-            - **Don't add or remove labels.**
-            - **Don't be vague.** A review that says "looks good, consider improving error handling" is worthless. Either point at a specific line and explain the concern, or don't bring it up.
+                      - **Don't approve.** Always submit with `--comment`. Never `--approve`, never `--request-changes`. Branch protection enforces this from the other side, but obey it from this side too — the user wants their own approval to be the only one that lands code.
+                      - **Don't merge.** Don't run `gh pr merge` under any circumstances.
+                      - **Don't push commits to the PR.** This pass is read-only. If you find a typo or want to "just fix" something, leave a suggestion comment instead. Don't change the diff.
+                      - **Don't dismiss other reviews.**
+                      - **Don't add or remove labels.**
+                      - **Don't be vague.** A review that says "looks good, consider improving error handling" is worthless. Either point at a specific line and explain the concern, or don't bring it up.
 
-            ## Tone
+                      ## Tone
 
-            You're reviewing the work of a colleague who's read all the same docs. Be direct. Don't pad with praise. Don't apologize for nitpicks — they're useful. Don't restate the obvious.
+                      You're reviewing the work of a colleague who's read all the same docs. Be direct. Don't pad with praise. Don't apologize for nitpicks — they're useful. Don't restate the obvious.
 
-            If the PR is straightforward and well-tested, the review can be short. Length is not a quality signal.
+                      If the PR is straightforward and well-tested, the review can be short. Length is not a quality signal.

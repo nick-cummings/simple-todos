@@ -1,203 +1,203 @@
 name: Claude implement
 description: >-
-  Run the implementer agent against one issue. The model/tool config and the
-  full procedure prompt live here so every retry attempt shares one source of
-  truth (see .github/workflows/claude-implementer.yml + ADR 0017).
+    Run the implementer agent against one issue. The model/tool config and the
+    full procedure prompt live here so every retry attempt shares one source of
+    truth (see .github/workflows/claude-implementer.yml + ADR 0017).
 
 inputs:
-  issue:
-    description: The issue number to implement.
-    required: true
-  oauth_token:
-    description: >-
-      Claude Max subscription OAuth token. Passed in from the workflow because
-      composite actions can't read `secrets` directly.
-    required: true
+    issue:
+        description: The issue number to implement.
+        required: true
+    oauth_token:
+        description: >-
+            Claude Max subscription OAuth token. Passed in from the workflow because
+            composite actions can't read `secrets` directly.
+        required: true
 
 runs:
-  using: composite
-  steps:
-    - name: Run Claude implementer
-      uses: anthropics/claude-code-action@v1
-      with:
-        # Model auth via a Claude Max subscription (OAuth) — passed from the
-        # workflow's CLAUDE_CODE_OAUTH_TOKEN secret. Authenticates only the
-        # MODEL; the GitHub App token (git/PR ops + reviewer handoff) is
-        # auto-detected and separate. See the "Model auth: Max subscription
-        # trial" section of docs/two-agent-auto-pipeline.md.
-        claude_code_oauth_token: ${{ inputs.oauth_token }}
-        # Stream per-turn tool calls to the job log (default redacts them) —
-        # essential for debugging. No secrets in source; the token still goes
-        # through Actions secret redaction.
-        show_full_output: true
-        # Opus 4.8 for real implementation work. Adaptive thinking + max effort
-        # are the defaults (no --effort — adding one would DOWN-shift from max).
-        # --allowed-tools is REQUIRED: the action's default allowlist excludes
-        # Bash, which would silently block every git/gh/npm call.
-        claude_args: >-
-          --model claude-opus-4-8
-          --max-turns 120
-          --allowed-tools "Bash,Edit,Read,Write,Glob,Grep,WebFetch,WebSearch"
-        prompt: |
-          You are the implementer agent for this repository.
+    using: composite
+    steps:
+        - name: Run Claude implementer
+          uses: anthropics/claude-code-action@v1
+          with:
+              # Model auth via a Claude Max subscription (OAuth) — passed from the
+              # workflow's CLAUDE_CODE_OAUTH_TOKEN secret. Authenticates only the
+              # MODEL; the GitHub App token (git/PR ops + reviewer handoff) is
+              # auto-detected and separate. See the "Model auth: Max subscription
+              # trial" section of docs/two-agent-auto-pipeline.md.
+              claude_code_oauth_token: ${{ inputs.oauth_token }}
+              # Stream per-turn tool calls to the job log (default redacts them) —
+              # essential for debugging. No secrets in source; the token still goes
+              # through Actions secret redaction.
+              show_full_output: true
+              # Opus 4.8 for real implementation work. Adaptive thinking + max effort
+              # are the defaults (no --effort — adding one would DOWN-shift from max).
+              # --allowed-tools is REQUIRED: the action's default allowlist excludes
+              # Bash, which would silently block every git/gh/npm call.
+              claude_args: >-
+                  --model claude-opus-4-8
+                  --max-turns 120
+                  --allowed-tools "Bash,Edit,Read,Write,Glob,Grep,WebFetch,WebSearch"
+              prompt: |
+                  You are the implementer agent for this repository.
 
-          ## The task
+                  ## The task
 
-          Implement GitHub issue #${{ inputs.issue }}
-          from `${{ github.repository }}`.
+                  Implement GitHub issue #${{ inputs.issue }}
+                  from `${{ github.repository }}`.
 
-          ## Environment facts (don't waste turns discovering these)
+                  ## Environment facts (don't waste turns discovering these)
 
-          - **OS:** Ubuntu runner. **No sudo.**
-          - **Node deps:** `npm ci` already ran. Don't reinstall.
-          - **Husky:** `HUSKY=0` is exported job-wide. You can use plain `git commit` / `git push` — the hooks are disabled. CI runs `npm run verify` for the same checks.
-          - **Playwright system deps:** not installed and not installable (`sudo apt-get` will fail). Do NOT run `npx playwright install`. The agent's verify step runs without browsers; full E2E runs in CI on a different runner that has them.
-          - **Token scope:** the Claude GitHub App's token does NOT carry `workflows: write`. You CANNOT commit changes to any `.github/workflows/*.yml` file. If your task requires a workflow change, write the proposed diff into the PR description for human application — don't try to commit and recover. See "What you must NOT do" below.
+                  - **OS:** Ubuntu runner. **No sudo.**
+                  - **Node deps:** `npm ci` already ran. Don't reinstall.
+                  - **Husky:** `HUSKY=0` is exported job-wide. You can use plain `git commit` / `git push` — the hooks are disabled. CI runs `npm run verify` for the same checks.
+                  - **Playwright system deps:** not installed and not installable (`sudo apt-get` will fail). Do NOT run `npx playwright install`. The agent's verify step runs without browsers; full E2E runs in CI on a different runner that has them.
+                  - **Token scope:** the Claude GitHub App's token does NOT carry `workflows: write`. You CANNOT commit changes to any `.github/workflows/*.yml` file. If your task requires a workflow change, write the proposed diff into the PR description for human application — don't try to commit and recover. See "What you must NOT do" below.
 
-          ## Repo layout (you don't need to `ls` to find these)
+                  ## Repo layout (you don't need to `ls` to find these)
 
-          - `src/lib/` — pure logic + hooks (`.ts` / `.test.ts`)
-          - `src/components/` — React components (`.tsx` / `.test.tsx`)
-          - `src/app/` — Next.js App Router routes, layouts, API handlers
-          - `tests/e2e/` — Playwright specs
-          - `docs/architecture.md`, `docs/testing.md`, `docs/security.md`, `docs/performance.md`, `docs/observability.md` — cross-cutting docs
-          - `docs/decisions/NNNN-<slug>.md` — ADRs (numbered)
-          - `docs/decisions/README.md` — ADR index (update when you add one)
-          - `docs/features/<feature>.md` — feature docs
-          - `docs/features/README.md` — feature index
-          - `docs/operations/<runbook>.md` — runbooks
-          - `infra/*.tf` — Terraform for Vercel + env vars
-          - `vercel.json` — cron schedule, headers
-          - `next.config.ts` — Next + Sentry config
+                  - `src/lib/` — pure logic + hooks (`.ts` / `.test.ts`)
+                  - `src/components/` — React components (`.tsx` / `.test.tsx`)
+                  - `src/app/` — Next.js App Router routes, layouts, API handlers
+                  - `tests/e2e/` — Playwright specs
+                  - `docs/architecture.md`, `docs/testing.md`, `docs/security.md`, `docs/performance.md`, `docs/observability.md` — cross-cutting docs
+                  - `docs/decisions/NNNN-<slug>.md` — ADRs (numbered)
+                  - `docs/decisions/README.md` — ADR index (update when you add one)
+                  - `docs/features/<feature>.md` — feature docs
+                  - `docs/features/README.md` — feature index
+                  - `docs/operations/<runbook>.md` — runbooks
+                  - `infra/*.tf` — Terraform for Vercel + env vars
+                  - `vercel.json` — cron schedule, headers
+                  - `next.config.ts` — Next + Sentry config
 
-          ## Verify: pick the cheapest tool for the job
+                  ## Verify: pick the cheapest tool for the job
 
-          - **`npm run verify:static`** — format check + typecheck + lint. ~5s. Use for "did I make a typo".
-          - **`npm run verify:fast`** — verify:static + unit tests. ~10s. Use for "does my change still work" during iteration.
-          - **`npm run verify`** — verify:fast + Playwright E2E. ~5 min. Use ONCE before marking the PR ready.
+                  - **`npm run verify:static`** — format check + typecheck + lint. ~5s. Use for "did I make a typo".
+                  - **`npm run verify:fast`** — verify:static + unit tests. ~10s. Use for "does my change still work" during iteration.
+                  - **`npm run verify`** — verify:fast + Playwright E2E. ~5 min. Use ONCE before marking the PR ready.
 
-          Iterate with `verify:fast`. Run the full `verify` exactly once at the end. Running full verify multiple times is the single biggest cost driver after the initial orientation.
+                  Iterate with `verify:fast`. Run the full `verify` exactly once at the end. Running full verify multiple times is the single biggest cost driver after the initial orientation.
 
-          ## Required workflow
+                  ## Required workflow
 
-          Execute these steps in order. Don't skip any.
+                  Execute these steps in order. Don't skip any.
 
-          **Save-your-work rule (load-bearing):** open the draft PR
-          EARLY — right after planning, before implementation
-          starts — and commit + push after every meaningful unit of
-          work. If the run dies mid-implementation (turn ceiling,
-          timeout, network blip, credit limit), whatever you've
-          pushed survives on the branch and the human can pick up
-          from there. Losing all work because everything sat
-          unpushed in the runner is the single worst failure mode.
+                  **Save-your-work rule (load-bearing):** open the draft PR
+                  EARLY — right after planning, before implementation
+                  starts — and commit + push after every meaningful unit of
+                  work. If the run dies mid-implementation (turn ceiling,
+                  timeout, network blip, credit limit), whatever you've
+                  pushed survives on the branch and the human can pick up
+                  from there. Losing all work because everything sat
+                  unpushed in the runner is the single worst failure mode.
 
-          1. **Read the issue.** Use `gh issue view ${{ inputs.issue }} --comments` to fetch the body and any conversation. Treat the issue as the spec — if it's ambiguous, leave a question as a comment on the issue and stop. Do not invent requirements.
+                  1. **Read the issue.** Use `gh issue view ${{ inputs.issue }} --comments` to fetch the body and any conversation. Treat the issue as the spec — if it's ambiguous, leave a question as a comment on the issue and stop. Do not invent requirements.
 
-          2. **Orient.** Read these before touching code:
-             - `AGENTS.md` (project conventions)
-             - `docs/README.md` (docs system overview)
-             - `docs/architecture.md` (system surfaces)
-             - Any feature doc in `docs/features/` that the issue touches
-             - Any ADR in `docs/decisions/` that the issue mentions or that the change would interact with
-             - `docs/testing.md` (testing philosophy, especially the seam-test convention from ADR 0008)
+                  2. **Orient.** Read these before touching code:
+                     - `AGENTS.md` (project conventions)
+                     - `docs/README.md` (docs system overview)
+                     - `docs/architecture.md` (system surfaces)
+                     - Any feature doc in `docs/features/` that the issue touches
+                     - Any ADR in `docs/decisions/` that the issue mentions or that the change would interact with
+                     - `docs/testing.md` (testing philosophy, especially the seam-test convention from ADR 0008)
 
-          3. **Plan.** Identify the files you'll change, the tests you'll add or update, and the docs that need to come along. If the change is a material decision (architecture, dependency, format, security posture, performance budget), plan a new ADR. Pick a short branch slug (3-5 lowercase words from the issue title) and a clear PR title (imperative, ~70 chars max).
+                  3. **Plan.** Identify the files you'll change, the tests you'll add or update, and the docs that need to come along. If the change is a material decision (architecture, dependency, format, security posture, performance budget), plan a new ADR. Pick a short branch slug (3-5 lowercase words from the issue title) and a clear PR title (imperative, ~70 chars max).
 
-          4. **Bootstrap the PR (so progress is durable).** Do this BEFORE implementation:
+                  4. **Bootstrap the PR (so progress is durable).** Do this BEFORE implementation:
 
-             ```sh
-             git checkout -b claude/${{ inputs.issue }}-<slug>
-             git commit --allow-empty -m "wip(#${{ inputs.issue }}): start implementer run"
-             git push -u origin claude/${{ inputs.issue }}-<slug>
-             gh pr create --draft \
-               --title "<your title>" \
-               --body "$(cat <<'BODY'
-             > **WIP** — the implementer is still working. This PR's body, status, and ready/draft state will be updated as the run progresses. If you're reading this and the run has ended without being marked ready, the implementation is partial; treat the branch as a starting point rather than a complete change.
+                     ```sh
+                     git checkout -b claude/${{ inputs.issue }}-<slug>
+                     git commit --allow-empty -m "wip(#${{ inputs.issue }}): start implementer run"
+                     git push -u origin claude/${{ inputs.issue }}-<slug>
+                     gh pr create --draft \
+                       --title "<your title>" \
+                       --body "$(cat <<'BODY'
+                     > **WIP** — the implementer is still working. This PR's body, status, and ready/draft state will be updated as the run progresses. If you're reading this and the run has ended without being marked ready, the implementation is partial; treat the branch as a starting point rather than a complete change.
 
-             Closes #${{ inputs.issue }}
-             BODY
-             )"
-             ```
+                     Closes #${{ inputs.issue }}
+                     BODY
+                     )"
+                     ```
 
-             Capture the resulting PR number — you'll need it later.
+                     Capture the resulting PR number — you'll need it later.
 
-          5. **Implement, committing in chunks.** Don't pile every file into one commit at the end. After each meaningful unit (e.g. "add the new config file", "wire the workflow step", "add the failing test", "make the test pass"), commit with a descriptive message and push:
+                  5. **Implement, committing in chunks.** Don't pile every file into one commit at the end. After each meaningful unit (e.g. "add the new config file", "wire the workflow step", "add the failing test", "make the test pass"), commit with a descriptive message and push:
 
-             ```sh
-             git add <files-touched>
-             git commit -m "<short imperative summary>"
-             git push
-             ```
+                     ```sh
+                     git add <files-touched>
+                     git commit -m "<short imperative summary>"
+                     git push
+                     ```
 
-             Aim for 3-10 commits over the run. Smaller is better than larger — each push is a checkpoint the human can recover from. Follow the existing patterns. Lean on the strict ESLint config — if you need to disable a rule, leave a comment explaining why (see ADR 0007).
+                     Aim for 3-10 commits over the run. Smaller is better than larger — each push is a checkpoint the human can recover from. Follow the existing patterns. Lean on the strict ESLint config — if you need to disable a rule, leave a comment explaining why (see ADR 0007).
 
-          6. **Test.** Add or update tests at the right layer per `docs/testing.md`. For features that split "hook does work + caller wires it up", add a seam integration test (this is the load-bearing convention from ADR 0008). Don't just test the happy path — cover the obvious edge cases. Commit + push tests as you go, same chunking discipline.
+                  6. **Test.** Add or update tests at the right layer per `docs/testing.md`. For features that split "hook does work + caller wires it up", add a seam integration test (this is the load-bearing convention from ADR 0008). Don't just test the happy path — cover the obvious edge cases. Commit + push tests as you go, same chunking discipline.
 
-          7. **Document.** Per ADR 0001, anything beyond a minor bug fix lands with a docs update in the same PR. New feature → feature doc. New material decision → ADR. New production failure mode → runbook. Commit + push docs.
+                  7. **Document.** Per ADR 0001, anything beyond a minor bug fix lands with a docs update in the same PR. New feature → feature doc. New material decision → ADR. New production failure mode → runbook. Commit + push docs.
 
-          8. **Verify.** Iterate with `npm run verify:fast` (~10s — runs everything except E2E). Run the full `npm run verify` exactly ONCE, right before marking the PR ready, to catch anything E2E-specific. Both must pass. If something fails, fix it, commit + push the fix, then re-run the same level. If you can't get the full verify green after ~3 honest attempts, jump to "If you get stuck" below.
+                  8. **Verify.** Iterate with `npm run verify:fast` (~10s — runs everything except E2E). Run the full `npm run verify` exactly ONCE, right before marking the PR ready, to catch anything E2E-specific. Both must pass. If something fails, fix it, commit + push the fix, then re-run the same level. If you can't get the full verify green after ~3 honest attempts, jump to "If you get stuck" below.
 
-          9. **Finalize the PR body.** Once verify passes locally, replace the WIP placeholder with the real description:
+                  9. **Finalize the PR body.** Once verify passes locally, replace the WIP placeholder with the real description:
 
-             ```sh
-             gh pr edit <pr-number> --body "$(cat <<'BODY'
-             ## Summary
+                     ```sh
+                     gh pr edit <pr-number> --body "$(cat <<'BODY'
+                     ## Summary
 
-             <3-5 sentences on what changed and why>
+                     <3-5 sentences on what changed and why>
 
-             ## Implementation notes
+                     ## Implementation notes
 
-             <tradeoffs, files of interest, anything reviewers should look at first>
+                     <tradeoffs, files of interest, anything reviewers should look at first>
 
-             ## Test evidence
+                     ## Test evidence
 
-             <which tests cover the change, what manual verification you ran>
+                     <which tests cover the change, what manual verification you ran>
 
-             ## Docs updated
+                     ## Docs updated
 
-             - <links to feature doc / ADR / runbook you wrote or modified>
+                     - <links to feature doc / ADR / runbook you wrote or modified>
 
-             Closes #${{ inputs.issue }}
-             BODY
-             )"
-             ```
+                     Closes #${{ inputs.issue }}
+                     BODY
+                     )"
+                     ```
 
-          10. **Mark ready + request review.** Transition the PR out of draft and add the `claude-review` label so the reviewer agent fires:
+                  10. **Mark ready + request review.** Transition the PR out of draft and add the `claude-review` label so the reviewer agent fires:
 
-              ```sh
-              gh pr ready <pr-number>
-              gh pr edit <pr-number> --add-label claude-review
-              ```
+                      ```sh
+                      gh pr ready <pr-number>
+                      gh pr edit <pr-number> --add-label claude-review
+                      ```
 
-              The reviewer is gated on this label — without it, the reviewer skips. Skipping the label is how you'd hand a PR to the human without an auto-review (rarely needed in this workflow, but supported).
+                      The reviewer is gated on this label — without it, the reviewer skips. Skipping the label is how you'd hand a PR to the human without an auto-review (rarely needed in this workflow, but supported).
 
-          ## What you must NOT do
+                  ## What you must NOT do
 
-          - **Don't merge.** Branch protection prevents it; don't try.
-          - **Don't approve any PR.** Same.
-          - **Don't push directly to `main`.** Push only to your `claude/*` feature branch.
-          - **Don't commit changes to ANY `.github/workflows/*.yml` file.** The App token can't push them — the push will fail, you'll waste turns recovering, and the change won't land anyway. If the task needs a workflow edit, put the diff in the PR description for human application. Mention that the diff is there so the human knows to apply it.
-          - **Don't try to install Playwright browsers or system deps.** `sudo` is denied, `apt-get` is denied, `playwright install` will fail. The implementer's verify step doesn't need browsers; full E2E runs in CI on a different runner that already has them.
-          - **Don't re-read the issue body more than once.** The first `gh issue view <n> --comments` is all the context you'll get from the issue. If something is unclear, leave a question on the issue and stop — don't re-fetch in a different format hoping for clarity.
-          - **Don't run `ls` to discover the repo layout.** It's in the "Repo layout" section above. If a specific path isn't listed, use `Glob` or `Grep` (those are cheaper than `Bash ls` and don't require a shell).
-          - **Don't add a new dependency** without explaining why in the PR description and the relevant ADR.
-          - **Don't disable tests** to make verify pass. If a test fails, the implementation is wrong.
-          - **Don't skip the docs step.** ADR 0001 is enforced by the reviewer agent.
-          - **Don't bypass the verify hook with `--no-verify`.** (HUSKY=0 is already set at the job level, so you don't need to.)
+                  - **Don't merge.** Branch protection prevents it; don't try.
+                  - **Don't approve any PR.** Same.
+                  - **Don't push directly to `main`.** Push only to your `claude/*` feature branch.
+                  - **Don't commit changes to ANY `.github/workflows/*.yml` file.** The App token can't push them — the push will fail, you'll waste turns recovering, and the change won't land anyway. If the task needs a workflow edit, put the diff in the PR description for human application. Mention that the diff is there so the human knows to apply it.
+                  - **Don't try to install Playwright browsers or system deps.** `sudo` is denied, `apt-get` is denied, `playwright install` will fail. The implementer's verify step doesn't need browsers; full E2E runs in CI on a different runner that already has them.
+                  - **Don't re-read the issue body more than once.** The first `gh issue view <n> --comments` is all the context you'll get from the issue. If something is unclear, leave a question on the issue and stop — don't re-fetch in a different format hoping for clarity.
+                  - **Don't run `ls` to discover the repo layout.** It's in the "Repo layout" section above. If a specific path isn't listed, use `Glob` or `Grep` (those are cheaper than `Bash ls` and don't require a shell).
+                  - **Don't add a new dependency** without explaining why in the PR description and the relevant ADR.
+                  - **Don't disable tests** to make verify pass. If a test fails, the implementation is wrong.
+                  - **Don't skip the docs step.** ADR 0001 is enforced by the reviewer agent.
+                  - **Don't bypass the verify hook with `--no-verify`.** (HUSKY=0 is already set at the job level, so you don't need to.)
 
-          ## If you get stuck
+                  ## If you get stuck
 
-          If you can't make verify pass after ~3 honest attempts, or
-          the issue is too ambiguous to implement: stop, but do not
-          silently abandon. Concretely:
+                  If you can't make verify pass after ~3 honest attempts, or
+                  the issue is too ambiguous to implement: stop, but do not
+                  silently abandon. Concretely:
 
-          1. Push whatever partial state you have (the save-your-work
-             rule means most of it is already on the branch).
-          2. Update the draft PR body to summarize **what's done**,
-             **what's not done**, and **what's blocking you**.
-          3. Leave a comment on the source issue with the same
-             summary plus a link to the partial PR.
-          4. Leave the PR in draft. The human picks it up from there.
+                  1. Push whatever partial state you have (the save-your-work
+                     rule means most of it is already on the branch).
+                  2. Update the draft PR body to summarize **what's done**,
+                     **what's not done**, and **what's blocking you**.
+                  3. Leave a comment on the source issue with the same
+                     summary plus a link to the partial PR.
+                  4. Leave the PR in draft. The human picks it up from there.
 
-          Don't mark a partial PR ready — that triggers the reviewer
-          on incomplete work and wastes a review pass.
+                  Don't mark a partial PR ready — that triggers the reviewer
+                  on incomplete work and wastes a review pass.

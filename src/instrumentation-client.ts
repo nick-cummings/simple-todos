@@ -8,14 +8,14 @@
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  // Tag client events distinctly from server/edge.
-  initialScope: { tags: { runtime: "browser" } },
-  // Errors only — no perf monitoring, no session replay, no auto-
-  // breadcrumb noise from XHR/fetch (we'll add specific breadcrumbs
-  // at the call sites that matter).
-  integrations: [],
-  tracesSampleRate: 0,
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    // Tag client events distinctly from server/edge.
+    initialScope: { tags: { runtime: "browser" } },
+    // Errors only — no perf monitoring, no session replay, no auto-
+    // breadcrumb noise from XHR/fetch (we'll add specific breadcrumbs
+    // at the call sites that matter).
+    integrations: [],
+    tracesSampleRate: 0,
 });
 
 // Required for App Router navigation breadcrumbs. Even with

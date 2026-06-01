@@ -5,5 +5,5 @@
  * always defined) and `unicorn/no-typeof-undefined` at every call site.
  */
 export function isBrowser(): boolean {
-  return typeof globalThis.window !== "undefined";
+    return typeof globalThis.window !== "undefined";
 }

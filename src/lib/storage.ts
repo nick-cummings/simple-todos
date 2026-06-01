@@ -36,21 +36,21 @@ const listeners = new Set<Listener>();
  * confirmation in Settings) should branch on it.
  */
 export function safeWrite(key: string, value: string): boolean {
-  if (!isBrowser() || typeof globalThis.localStorage === "undefined") {
-    notify("unavailable", key);
-    return false;
-  }
-  try {
-    globalThis.localStorage.setItem(key, value);
-    return true;
-  } catch (error: unknown) {
-    const code = classify(error);
-    Sentry.captureException(error, {
-      tags: { area: "storage", code, key },
-    });
-    notify(code, key);
-    return false;
-  }
+    if (!isBrowser() || typeof globalThis.localStorage === "undefined") {
+        notify("unavailable", key);
+        return false;
+    }
+    try {
+        globalThis.localStorage.setItem(key, value);
+        return true;
+    } catch (error: unknown) {
+        const code = classify(error);
+        Sentry.captureException(error, {
+            tags: { area: "storage", code, key },
+        });
+        notify(code, key);
+        return false;
+    }
 }
 
 /**
@@ -60,26 +60,26 @@ export function safeWrite(key: string, value: string): boolean {
  * times; UI consumers should debounce or only show one banner.
  */
 export function subscribeToStorageErrors(listener: Listener): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
+    listeners.add(listener);
+    return () => {
+        listeners.delete(listener);
+    };
 }
 
 function classify(error: unknown): StorageError {
-  if (!(error instanceof Error)) return "unknown";
-  // Spec-compliant browsers throw DOMException with name
-  // "QuotaExceededError". Older Safari throws with the legacy
-  // code 22 and name "QUOTA_EXCEEDED_ERR".
-  if (error.name === "QuotaExceededError") return "quota_exceeded";
-  if (error.name === "QUOTA_EXCEEDED_ERR") return "quota_exceeded";
-  if (error.name === "NS_ERROR_DOM_QUOTA_REACHED") return "quota_exceeded";
-  // Cast to access legacy `code` field without a type clash.
-  const legacy = error as Error & { code?: number };
-  if (legacy.code === 22) return "quota_exceeded";
-  return "unknown";
+    if (!(error instanceof Error)) return "unknown";
+    // Spec-compliant browsers throw DOMException with name
+    // "QuotaExceededError". Older Safari throws with the legacy
+    // code 22 and name "QUOTA_EXCEEDED_ERR".
+    if (error.name === "QuotaExceededError") return "quota_exceeded";
+    if (error.name === "QUOTA_EXCEEDED_ERR") return "quota_exceeded";
+    if (error.name === "NS_ERROR_DOM_QUOTA_REACHED") return "quota_exceeded";
+    // Cast to access legacy `code` field without a type clash.
+    const legacy = error as Error & { code?: number };
+    if (legacy.code === 22) return "quota_exceeded";
+    return "unknown";
 }
 
 function notify(error: StorageError, key: string): void {
-  for (const listener of listeners) listener(error, key);
+    for (const listener of listeners) listener(error, key);
 }

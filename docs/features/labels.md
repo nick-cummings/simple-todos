@@ -32,9 +32,9 @@ Two separate stores:
 
 ```ts
 interface Label {
-  name: string; // lowercase canonical
-  color: ColorKey; // 'gray' | 'red' | 'blue' | …
-  createdAt: number;
+    name: string; // lowercase canonical
+    color: ColorKey; // 'gray' | 'red' | 'blue' | …
+    createdAt: number;
 }
 ```
 

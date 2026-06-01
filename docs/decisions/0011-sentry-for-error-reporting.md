@@ -77,15 +77,15 @@ covered by Vercel's built-in metrics.
   initialize the SDK. This is by design; the DSN is a write-only
   endpoint URL, not a credential. Sentry rate-limits per project.
 - **New env vars to set in Vercel:**
-  - `NEXT_PUBLIC_SENTRY_DSN` — required at build + runtime
-  - `SENTRY_AUTH_TOKEN` — build-time only, for source map upload
-  - `SENTRY_ORG`, `SENTRY_PROJECT` — build-time only
-  - **`SENTRY_ORG` must be the slug, not the display name.** Sentry's
-    UI shows the human-readable org name ("Nick Cummings") but
-    `withSentryConfig`'s source-map upload — and Sentry's API — both
-    expect the slug (`nick-cummings`). The DSN has the org _ID_ baked
-    in so runtime captures work either way; only source-map upload
-    breaks silently with the wrong value.
+    - `NEXT_PUBLIC_SENTRY_DSN` — required at build + runtime
+    - `SENTRY_AUTH_TOKEN` — build-time only, for source map upload
+    - `SENTRY_ORG`, `SENTRY_PROJECT` — build-time only
+    - **`SENTRY_ORG` must be the slug, not the display name.** Sentry's
+      UI shows the human-readable org name ("Nick Cummings") but
+      `withSentryConfig`'s source-map upload — and Sentry's API — both
+      expect the slug (`nick-cummings`). The DSN has the org _ID_ baked
+      in so runtime captures work either way; only source-map upload
+      breaks silently with the wrong value.
 - **`/monitoring` route now exists.** It's the SDK's tunnel route;
   Sentry's webpack plugin creates the handler at build time. Don't
   use that path for anything else.

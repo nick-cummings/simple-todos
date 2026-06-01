@@ -10,7 +10,7 @@
  * `NODE_ENV` for local and other non-Vercel builds.
  */
 export function mockupsEnabled(): boolean {
-  const vercelEnv = process.env.VERCEL_ENV;
-  if (vercelEnv) return vercelEnv !== "production";
-  return process.env.NODE_ENV !== "production";
+    const vercelEnv = process.env.VERCEL_ENV;
+    if (vercelEnv) return vercelEnv !== "production";
+    return process.env.NODE_ENV !== "production";
 }

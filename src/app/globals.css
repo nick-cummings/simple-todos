@@ -5,415 +5,420 @@
 
 /* -------- Design tokens (light) -------- */
 :root {
-  /* Surfaces */
-  --bg: #f7f8fa;
-  --card: #ffffff;
-  --card-hover: #f2f3f6;
-  --subtle: rgb(15 18 25 / 0.04);
-  --subtle-hover: rgb(15 18 25 / 0.07);
-  --overlay: rgb(10 12 18 / 0.45);
+    /* Surfaces */
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --card-hover: #f2f3f6;
+    --subtle: rgb(15 18 25 / 0.04);
+    --subtle-hover: rgb(15 18 25 / 0.07);
+    --overlay: rgb(10 12 18 / 0.45);
 
-  /* Text */
-  --fg: #0f1115;
-  --muted: #5b6370;
-  --faint: #8b919e;
+    /* Text */
+    --fg: #0f1115;
+    --muted: #5b6370;
+    --faint: #8b919e;
 
-  /* Lines */
-  --line: rgb(15 18 25 / 0.06);
-  --line-strong: rgb(15 18 25 / 0.12);
-  --line-emphasis: rgb(15 18 25 / 0.22);
+    /* Lines */
+    --line: rgb(15 18 25 / 0.06);
+    --line-strong: rgb(15 18 25 / 0.12);
+    --line-emphasis: rgb(15 18 25 / 0.22);
 
-  /* Accent — warm amber */
-  --primary: #ed8a45;
-  --primary-hover: #e27937;
-  --on-primary: #1a0e03;
-  --primary-bg: rgb(237 138 69 / 0.12);
-  --primary-bg-strong: rgb(237 138 69 / 0.2);
-  --primary-border: rgb(237 138 69 / 0.36);
-  --primary-glow: rgb(237 138 69 / 0.08);
-  --ring: rgb(237 138 69 / 0.45);
+    /* Accent — warm amber */
+    --primary: #ed8a45;
+    --primary-hover: #e27937;
+    --on-primary: #1a0e03;
+    --primary-bg: rgb(237 138 69 / 0.12);
+    --primary-bg-strong: rgb(237 138 69 / 0.2);
+    --primary-border: rgb(237 138 69 / 0.36);
+    --primary-glow: rgb(237 138 69 / 0.08);
+    --ring: rgb(237 138 69 / 0.45);
 
-  /* Status */
-  --danger: #e0464f;
-  --danger-bg: rgb(224 70 79 / 0.1);
-  --success: #1fb36c;
+    /* Status */
+    --danger: #e0464f;
+    --danger-bg: rgb(224 70 79 / 0.1);
+    --success: #1fb36c;
 
-  /* Tag colors are read from the label registry at render time
+    /* Tag colors are read from the label registry at render time
      (see src/lib/labels.ts → SWATCHES); no per-name CSS variables. */
 
-  /* Shadows */
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px -8px rgb(0 0 0 / 0.08);
-  --shadow-pop:
-    0 24px 48px -16px rgb(0 0 0 / 0.18), 0 4px 8px rgb(0 0 0 / 0.06);
-  --shadow-fab:
-    inset 0 0 0 1px rgb(255 255 255 / 0.35),
-    0 12px 32px -8px rgb(237 138 69 / 0.55), 0 6px 16px -6px rgb(0 0 0 / 0.18);
+    /* Shadows */
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04);
+    --shadow-card:
+        0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px -8px rgb(0 0 0 / 0.08);
+    --shadow-pop:
+        0 24px 48px -16px rgb(0 0 0 / 0.18), 0 4px 8px rgb(0 0 0 / 0.06);
+    --shadow-fab:
+        inset 0 0 0 1px rgb(255 255 255 / 0.35),
+        0 12px 32px -8px rgb(237 138 69 / 0.55),
+        0 6px 16px -6px rgb(0 0 0 / 0.18);
 
-  /* Motion */
-  --motion-fast: 120ms;
-  --motion-base: 220ms;
-  --motion-slow: 320ms;
-  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* Motion */
+    --motion-fast: 120ms;
+    --motion-base: 220ms;
+    --motion-slow: 320ms;
+    --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* -------- Design tokens (dark) -------- */
 .dark {
-  --bg: #0b0c10;
-  --card: #14161c;
-  --card-hover: #1a1d26;
-  --subtle: rgb(255 255 255 / 0.04);
-  --subtle-hover: rgb(255 255 255 / 0.07);
-  --overlay: rgb(0 0 0 / 0.65);
+    --bg: #0b0c10;
+    --card: #14161c;
+    --card-hover: #1a1d26;
+    --subtle: rgb(255 255 255 / 0.04);
+    --subtle-hover: rgb(255 255 255 / 0.07);
+    --overlay: rgb(0 0 0 / 0.65);
 
-  --fg: #ecedee;
-  --muted: #9ca3ae;
-  --faint: #6b7280;
+    --fg: #ecedee;
+    --muted: #9ca3ae;
+    --faint: #6b7280;
 
-  --line: rgb(255 255 255 / 0.06);
-  --line-strong: rgb(255 255 255 / 0.12);
-  --line-emphasis: rgb(255 255 255 / 0.22);
+    --line: rgb(255 255 255 / 0.06);
+    --line-strong: rgb(255 255 255 / 0.12);
+    --line-emphasis: rgb(255 255 255 / 0.22);
 
-  --primary: #f5a66b;
-  --primary-hover: #f8b987;
-  --on-primary: #1a0e03;
-  --primary-bg: rgb(245 166 107 / 0.1);
-  --primary-bg-strong: rgb(245 166 107 / 0.18);
-  --primary-border: rgb(245 166 107 / 0.28);
-  --primary-glow: rgb(245 166 107 / 0.05);
-  --ring: rgb(245 166 107 / 0.45);
+    --primary: #f5a66b;
+    --primary-hover: #f8b987;
+    --on-primary: #1a0e03;
+    --primary-bg: rgb(245 166 107 / 0.1);
+    --primary-bg-strong: rgb(245 166 107 / 0.18);
+    --primary-border: rgb(245 166 107 / 0.28);
+    --primary-glow: rgb(245 166 107 / 0.05);
+    --ring: rgb(245 166 107 / 0.45);
 
-  --danger: #f87171;
-  --danger-bg: rgb(248 113 113 / 0.1);
-  --success: #4ade80;
+    --danger: #f87171;
+    --danger-bg: rgb(248 113 113 / 0.1);
+    --success: #4ade80;
 
-  /* Tag colors come from the registry; see :root above. */
+    /* Tag colors come from the registry; see :root above. */
 
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -8px rgb(0 0 0 / 0.5);
-  --shadow-pop: 0 24px 64px -16px rgb(0 0 0 / 0.6), 0 4px 8px rgb(0 0 0 / 0.35);
-  --shadow-fab:
-    inset 0 0 0 1px rgb(255 255 255 / 0.22),
-    0 14px 32px -6px rgb(245 166 107 / 0.45), 0 6px 16px -4px rgb(0 0 0 / 0.55);
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+    --shadow-pop:
+        0 24px 64px -16px rgb(0 0 0 / 0.6), 0 4px 8px rgb(0 0 0 / 0.35);
+    --shadow-fab:
+        inset 0 0 0 1px rgb(255 255 255 / 0.22),
+        0 14px 32px -6px rgb(245 166 107 / 0.45),
+        0 6px 16px -4px rgb(0 0 0 / 0.55);
 }
 
 /* -------- Expose tokens as Tailwind theme values -------- */
 @theme inline {
-  --color-bg: var(--bg);
-  --color-card: var(--card);
-  --color-card-hover: var(--card-hover);
-  --color-subtle: var(--subtle);
-  --color-subtle-hover: var(--subtle-hover);
-  --color-overlay: var(--overlay);
-  --color-line: var(--line);
-  --color-line-strong: var(--line-strong);
-  --color-line-emphasis: var(--line-emphasis);
-  --color-fg: var(--fg);
-  --color-muted: var(--muted);
-  --color-faint: var(--faint);
-  --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-on-primary: var(--on-primary);
-  --color-primary-bg: var(--primary-bg);
-  --color-primary-bg-strong: var(--primary-bg-strong);
-  --color-primary-border: var(--primary-border);
-  --color-danger: var(--danger);
-  --color-danger-bg: var(--danger-bg);
-  --color-success: var(--success);
-  --color-ring: var(--ring);
+    --color-bg: var(--bg);
+    --color-card: var(--card);
+    --color-card-hover: var(--card-hover);
+    --color-subtle: var(--subtle);
+    --color-subtle-hover: var(--subtle-hover);
+    --color-overlay: var(--overlay);
+    --color-line: var(--line);
+    --color-line-strong: var(--line-strong);
+    --color-line-emphasis: var(--line-emphasis);
+    --color-fg: var(--fg);
+    --color-muted: var(--muted);
+    --color-faint: var(--faint);
+    --color-primary: var(--primary);
+    --color-primary-hover: var(--primary-hover);
+    --color-on-primary: var(--on-primary);
+    --color-primary-bg: var(--primary-bg);
+    --color-primary-bg-strong: var(--primary-bg-strong);
+    --color-primary-border: var(--primary-border);
+    --color-danger: var(--danger);
+    --color-danger-bg: var(--danger-bg);
+    --color-success: var(--success);
+    --color-ring: var(--ring);
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.5rem;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.625rem;
+    --radius-lg: 0.875rem;
+    --radius-xl: 1.25rem;
+    --radius-2xl: 1.5rem;
 
-  --shadow-soft: var(--shadow-soft);
-  --shadow-card: var(--shadow-card);
-  --shadow-pop: var(--shadow-pop);
-  --shadow-fab: var(--shadow-fab);
+    --shadow-soft: var(--shadow-soft);
+    --shadow-card: var(--shadow-card);
+    --shadow-pop: var(--shadow-pop);
+    --shadow-fab: var(--shadow-fab);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
 
-  --ease-smooth: var(--ease-smooth);
-  --ease-spring: var(--ease-spring);
+    --ease-smooth: var(--ease-smooth);
+    --ease-spring: var(--ease-spring);
 
-  --animate-fade-in: fade-in var(--motion-fast) var(--ease-smooth) both;
-  --animate-fade-out: fade-out var(--motion-base) var(--ease-smooth) both;
-  --animate-pop-in: pop-in var(--motion-base) var(--ease-spring) both;
-  --animate-pop-out: pop-out var(--motion-base) var(--ease-smooth) both;
-  --animate-slide-up: slide-up var(--motion-base) var(--ease-smooth) both;
-  --animate-chip-in: chip-in 180ms var(--ease-spring) both;
-  --animate-chip-out: chip-out 160ms var(--ease-smooth) both;
-  --animate-check: check 280ms var(--ease-spring) both;
+    --animate-fade-in: fade-in var(--motion-fast) var(--ease-smooth) both;
+    --animate-fade-out: fade-out var(--motion-base) var(--ease-smooth) both;
+    --animate-pop-in: pop-in var(--motion-base) var(--ease-spring) both;
+    --animate-pop-out: pop-out var(--motion-base) var(--ease-smooth) both;
+    --animate-slide-up: slide-up var(--motion-base) var(--ease-smooth) both;
+    --animate-chip-in: chip-in 180ms var(--ease-spring) both;
+    --animate-chip-out: chip-out 160ms var(--ease-smooth) both;
+    --animate-check: check 280ms var(--ease-spring) both;
 }
 
 /* -------- Keyframes -------- */
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 @keyframes fade-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
 }
 @keyframes pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 @keyframes pop-out {
-  from {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.96) translateY(8px);
-  }
+    from {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.96) translateY(8px);
+    }
 }
 @keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 @keyframes chip-in {
-  from {
-    opacity: 0;
-    transform: scale(0.7);
-    max-width: 0;
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-    max-width: 16rem;
-  }
+    from {
+        opacity: 0;
+        transform: scale(0.7);
+        max-width: 0;
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+        max-width: 16rem;
+    }
 }
 @keyframes chip-out {
-  from {
-    opacity: 1;
-    transform: scale(1);
-    max-width: 16rem;
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.7);
-    max-width: 0;
-    padding-inline: 0;
-    margin: 0;
-  }
+    from {
+        opacity: 1;
+        transform: scale(1);
+        max-width: 16rem;
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.7);
+        max-width: 0;
+        padding-inline: 0;
+        margin: 0;
+    }
 }
 @keyframes check {
-  0% {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  60% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
+    0% {
+        opacity: 0;
+        transform: scale(0.4);
+    }
+    60% {
+        opacity: 1;
+        transform: scale(1.15);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 /* -------- View Transitions -------- */
 ::view-transition-group(*) {
-  animation-duration: var(--motion-base);
-  animation-timing-function: var(--ease-smooth);
+    animation-duration: var(--motion-base);
+    animation-timing-function: var(--ease-smooth);
 }
 ::view-transition-old(*),
 ::view-transition-new(*) {
-  animation-duration: var(--motion-base);
-  animation-timing-function: var(--ease-smooth);
+    animation-duration: var(--motion-base);
+    animation-timing-function: var(--ease-smooth);
 }
 ::view-transition-old(.todo-vt) {
-  animation: pop-out var(--motion-base) var(--ease-smooth) both;
+    animation: pop-out var(--motion-base) var(--ease-smooth) both;
 }
 ::view-transition-new(.todo-vt) {
-  animation: pop-in var(--motion-base) var(--ease-spring) both;
+    animation: pop-in var(--motion-base) var(--ease-spring) both;
 }
 
 /* -------- Animated strike-through -------- */
 .todo-title {
-  background-image: linear-gradient(currentColor, currentColor);
-  background-position: 0 65%;
-  background-repeat: no-repeat;
-  background-size: 0% 1.5px;
-  transition:
-    background-size var(--motion-base) var(--ease-smooth),
-    color var(--motion-base) var(--ease-smooth);
+    background-image: linear-gradient(currentColor, currentColor);
+    background-position: 0 65%;
+    background-repeat: no-repeat;
+    background-size: 0% 1.5px;
+    transition:
+        background-size var(--motion-base) var(--ease-smooth),
+        color var(--motion-base) var(--ease-smooth);
 }
 .todo-title[data-completed="true"] {
-  background-size: 100% 1.5px;
-  color: var(--faint);
+    background-size: 100% 1.5px;
+    color: var(--faint);
 }
 
 /* -------- Tag pill -------- */
 .tag-pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 9999px;
-  padding: 3px 8px;
-  font-family:
-    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1.4;
-  white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 3px 8px;
+    font-family:
+        var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    white-space: nowrap;
 }
 .tag-pill::before {
-  content: "#";
-  margin-right: 3px;
-  opacity: 0.55;
+    content: "#";
+    margin-right: 3px;
+    opacity: 0.55;
 }
 
 /* -------- Priority bar (todo card left edge) -------- */
 .priority-bar {
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
-  transition: background-color var(--motion-base) var(--ease-smooth);
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    transition: background-color var(--motion-base) var(--ease-smooth);
 }
 
 /* -------- Base layer -------- */
 @layer base {
-  html {
-    color-scheme: light dark;
-  }
-  body {
-    background:
-      radial-gradient(
-        ellipse 80% 50% at 50% -10%,
-        var(--primary-glow),
-        transparent 70%
-      ),
-      var(--bg);
-    color: var(--fg);
-    font-family:
-      var(--font-geist-sans),
-      system-ui,
-      -apple-system,
-      "Segoe UI",
-      Roboto,
-      Helvetica,
-      Arial,
-      sans-serif;
-    font-feature-settings: "ss01", "cv11";
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-    min-height: 100vh;
-    transition:
-      background-color var(--motion-base) var(--ease-smooth),
-      color var(--motion-base) var(--ease-smooth);
-  }
+    html {
+        color-scheme: light dark;
+    }
+    body {
+        background:
+            radial-gradient(
+                ellipse 80% 50% at 50% -10%,
+                var(--primary-glow),
+                transparent 70%
+            ),
+            var(--bg);
+        color: var(--fg);
+        font-family:
+            var(--font-geist-sans),
+            system-ui,
+            -apple-system,
+            "Segoe UI",
+            Roboto,
+            Helvetica,
+            Arial,
+            sans-serif;
+        font-feature-settings: "ss01", "cv11";
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        min-height: 100vh;
+        transition:
+            background-color var(--motion-base) var(--ease-smooth),
+            color var(--motion-base) var(--ease-smooth);
+    }
 
-  button,
-  input,
-  textarea,
-  select,
-  a,
-  [role="button"] {
-    transition:
-      background-color var(--motion-fast) var(--ease-smooth),
-      border-color var(--motion-fast) var(--ease-smooth),
-      color var(--motion-fast) var(--ease-smooth),
-      box-shadow var(--motion-fast) var(--ease-smooth);
-  }
+    button,
+    input,
+    textarea,
+    select,
+    a,
+    [role="button"] {
+        transition:
+            background-color var(--motion-fast) var(--ease-smooth),
+            border-color var(--motion-fast) var(--ease-smooth),
+            color var(--motion-fast) var(--ease-smooth),
+            box-shadow var(--motion-fast) var(--ease-smooth);
+    }
 
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]):not(:disabled),
-  summary,
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled),
-  input[type="date"]:not(:disabled),
-  input[type="submit"]:not(:disabled),
-  input[type="reset"]:not(:disabled),
-  input[type="button"]:not(:disabled),
-  label:has(> input[type="checkbox"]:not(:disabled)) {
-    cursor: pointer;
-  }
-  button:disabled,
-  [aria-disabled="true"] {
-    cursor: not-allowed;
-  }
+    button:not(:disabled),
+    [role="button"]:not([aria-disabled="true"]):not(:disabled),
+    summary,
+    select:not(:disabled),
+    input[type="checkbox"]:not(:disabled),
+    input[type="radio"]:not(:disabled),
+    input[type="date"]:not(:disabled),
+    input[type="submit"]:not(:disabled),
+    input[type="reset"]:not(:disabled),
+    input[type="button"]:not(:disabled),
+    label:has(> input[type="checkbox"]:not(:disabled)) {
+        cursor: pointer;
+    }
+    button:disabled,
+    [aria-disabled="true"] {
+        cursor: not-allowed;
+    }
 
-  ::selection {
-    background: color-mix(in oklab, var(--primary) 35%, transparent);
-    color: var(--fg);
-  }
+    ::selection {
+        background: color-mix(in oklab, var(--primary) 35%, transparent);
+        color: var(--fg);
+    }
 
-  *:focus {
-    outline: none;
-  }
-  *:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-    border-radius: inherit;
-  }
+    *:focus {
+        outline: none;
+    }
+    *:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+        border-radius: inherit;
+    }
 
-  kbd {
-    display: inline-flex;
-    align-items: center;
-    height: 20px;
-    padding: 0 6px;
-    border-radius: 6px;
-    background: var(--subtle);
-    border: 1px solid var(--line);
-    color: var(--faint);
-    font-family:
-      var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    font-weight: 500;
-  }
+    kbd {
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: 6px;
+        background: var(--subtle);
+        border: 1px solid var(--line);
+        color: var(--faint);
+        font-family:
+            var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+            monospace;
+        font-size: 11px;
+        font-weight: 500;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-    scroll-behavior: auto !important;
-  }
+    *,
+    *::before,
+    *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 /* iOS Safari auto-zooms text inputs whose font-size is < 16px when focused.
    Bump form controls to 16px on touch devices only — desktop keeps the
    smaller, denser sizing from the design tokens. */
 @media (pointer: coarse) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
-      [type="range"]
-    ):not([type="color"]),
-  textarea,
-  select {
-    font-size: 16px;
-  }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
+            [type="range"]
+        ):not([type="color"]),
+    textarea,
+    select {
+        font-size: 16px;
+    }
 }

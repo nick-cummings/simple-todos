@@ -32,19 +32,21 @@ swap) wants a clean replace.
 
 ```json
 {
-  "version": 1,
-  "exportedAt": "2026-05-23T15:00:00.000Z",
-  "todos": [
-    {
-      "id": "abc123",
-      "title": "Buy coffee",
-      "completed": false,
-      "labels": ["errands"],
-      "createdAt": 1700000000000,
-      "updatedAt": 1700000000000
-    }
-  ],
-  "labels": [{ "name": "errands", "color": "blue", "createdAt": 1700000000000 }]
+    "version": 1,
+    "exportedAt": "2026-05-23T15:00:00.000Z",
+    "todos": [
+        {
+            "id": "abc123",
+            "title": "Buy coffee",
+            "completed": false,
+            "labels": ["errands"],
+            "createdAt": 1700000000000,
+            "updatedAt": 1700000000000
+        }
+    ],
+    "labels": [
+        { "name": "errands", "color": "blue", "createdAt": 1700000000000 }
+    ]
 }
 ```
 

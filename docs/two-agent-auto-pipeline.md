@@ -385,16 +385,16 @@ For the reviewer:
   ADRs the change touches.
 - Look for specific failure modes (the order is the rubric, not
   exhaustive):
-  1. New hook + caller without a seam integration test ([ADR 0008](./decisions/0008-integration-tests-on-the-wiring-seam.md))
-  2. New behavior shipped without a docs update ([ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md))
-  3. Material decision shipped without an ADR ([ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md))
-  4. Direct `localStorage.setItem` instead of `safeWrite` ([ADR 0012](./decisions/0012-localstorage-quota-handling.md))
-  5. `useSearchParams` consumer without a Suspense boundary ([ADR 0006](./decisions/0006-suspense-for-search-params.md))
-  6. Extracted DOM methods like `const f = document.startViewTransition` (breaks `this` binding)
-  7. ESLint rule disabled without a comment explaining why
-  8. Test asserting only the happy path when edge cases are obvious
-  9. Accessibility regressions (missing `aria-*`, focus traps, etc.)
-  10. Security regressions (header changes, secrets in source, new env vars without Terraform)
+    1. New hook + caller without a seam integration test ([ADR 0008](./decisions/0008-integration-tests-on-the-wiring-seam.md))
+    2. New behavior shipped without a docs update ([ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md))
+    3. Material decision shipped without an ADR ([ADR 0001](./decisions/0001-everything-substantial-gets-a-doc.md))
+    4. Direct `localStorage.setItem` instead of `safeWrite` ([ADR 0012](./decisions/0012-localstorage-quota-handling.md))
+    5. `useSearchParams` consumer without a Suspense boundary ([ADR 0006](./decisions/0006-suspense-for-search-params.md))
+    6. Extracted DOM methods like `const f = document.startViewTransition` (breaks `this` binding)
+    7. ESLint rule disabled without a comment explaining why
+    8. Test asserting only the happy path when edge cases are obvious
+    9. Accessibility regressions (missing `aria-*`, focus traps, etc.)
+    10. Security regressions (header changes, secrets in source, new env vars without Terraform)
 - Leave inline comments + a single review-level comment summary.
 - Always submit with `gh pr review --comment`. Never `--approve`,
   never `--request-changes`.

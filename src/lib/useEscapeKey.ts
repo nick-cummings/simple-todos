@@ -13,14 +13,14 @@ import { useEffect } from "react";
  * on every render.
  */
 export function useEscapeKey(onEscape: () => void, enabled = true) {
-  useEffect(() => {
-    if (!enabled) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onEscape();
-    };
-    globalThis.addEventListener("keydown", onKeyDown);
-    return () => {
-      globalThis.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onEscape, enabled]);
+    useEffect(() => {
+        if (!enabled) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onEscape();
+        };
+        globalThis.addEventListener("keydown", onKeyDown);
+        return () => {
+            globalThis.removeEventListener("keydown", onKeyDown);
+        };
+    }, [onEscape, enabled]);
 }

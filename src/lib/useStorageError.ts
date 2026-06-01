@@ -5,10 +5,10 @@ import { useEffect, useState } from "react";
 import { type StorageError, subscribeToStorageErrors } from "./storage";
 
 interface StorageErrorState {
-  /** Clear the currently-displayed error. */
-  dismiss: () => void;
-  /** Most recent storage failure, or `null` if none. */
-  error: null | StorageError;
+    /** Clear the currently-displayed error. */
+    dismiss: () => void;
+    /** Most recent storage failure, or `null` if none. */
+    error: null | StorageError;
 }
 
 /**
@@ -21,16 +21,16 @@ interface StorageErrorState {
  * once.
  */
 export function useStorageError(): StorageErrorState {
-  const [error, setError] = useState<null | StorageError>(null);
-  useEffect(() => {
-    return subscribeToStorageErrors((next) => {
-      setError(next);
-    });
-  }, []);
-  return {
-    dismiss: () => {
-      setError(null);
-    },
-    error,
-  };
+    const [error, setError] = useState<null | StorageError>(null);
+    useEffect(() => {
+        return subscribeToStorageErrors((next) => {
+            setError(next);
+        });
+    }, []);
+    return {
+        dismiss: () => {
+            setError(null);
+        },
+        error,
+    };
 }

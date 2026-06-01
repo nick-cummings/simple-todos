@@ -1,108 +1,108 @@
 name: verify
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
 
 # Cancel in-progress runs for the same ref when a new commit lands.
 concurrency:
-  group: verify-${{ github.ref }}
-  cancel-in-progress: true
+    group: verify-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
-  verify:
-    name: typecheck + lint + vitest + playwright
-    runs-on: ubuntu-latest
-    # Official Playwright image ships browsers + every apt system dep
-    # pre-installed for the pinned Playwright version — skips ~30s of
-    # `playwright install-deps` on every run. Bump this tag when the
-    # @playwright/test dep version changes.
-    container:
-      image: mcr.microsoft.com/playwright:v1.60.0-noble
-      # The image runs as root; without this, actions/cache and
-      # actions/setup-node sometimes hit permission issues writing into
-      # /github/home.
-      options: --user 1001
-    steps:
-      - uses: actions/checkout@v6
+    verify:
+        name: typecheck + lint + vitest + playwright
+        runs-on: ubuntu-latest
+        # Official Playwright image ships browsers + every apt system dep
+        # pre-installed for the pinned Playwright version — skips ~30s of
+        # `playwright install-deps` on every run. Bump this tag when the
+        # @playwright/test dep version changes.
+        container:
+            image: mcr.microsoft.com/playwright:v1.60.0-noble
+            # The image runs as root; without this, actions/cache and
+            # actions/setup-node sometimes hit permission issues writing into
+            # /github/home.
+            options: --user 1001
+        steps:
+            - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "22"
+                  cache: npm
 
-      - run: npm ci
+            - run: npm ci
 
-      # Warms `next build`'s incremental cache so Playwright's start:test
-      # doesn't rebuild from scratch every run. Key on the lockfile +
-      # source-file hash so dep or source changes invalidate;
-      # restore-keys lets us fall back to a partial cache when only
-      # source files changed.
-      - name: Cache .next/cache
-        uses: actions/cache@v5
-        with:
-          path: .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**/*.{ts,tsx,css}') }}
-          restore-keys: |
-            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
-            nextjs-${{ runner.os }}-
+            # Warms `next build`'s incremental cache so Playwright's start:test
+            # doesn't rebuild from scratch every run. Key on the lockfile +
+            # source-file hash so dep or source changes invalidate;
+            # restore-keys lets us fall back to a partial cache when only
+            # source files changed.
+            - name: Cache .next/cache
+              uses: actions/cache@v5
+              with:
+                  path: .next/cache
+                  key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**/*.{ts,tsx,css}') }}
+                  restore-keys: |
+                      nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+                      nextjs-${{ runner.os }}-
 
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run test:run
+            - run: npm run typecheck
+            - run: npm run lint
+            - run: npm run test:run
 
-      - run: npm run test:e2e
+            - run: npm run test:e2e
 
-      # Lighthouse uses the Chromium that already ships with the
-      # Playwright image (saves a separate browser install). The binary's
-      # directory name includes the pinned Chromium build number; glob it
-      # so we don't have to bump the workflow when the image moves.
-      - name: Discover Chrome for Lighthouse
-        run: |
-          # Find the full Chrome binary the Playwright image ships, wherever
-          # it lives (the dir name carries the Chromium build number, and the
-          # leaf dir has been chrome-linux or chrome-linux64 across versions).
-          CHROME_PATH=$(find /ms-playwright -type f -name chrome 2>/dev/null | head -1)
-          if [ -z "$CHROME_PATH" ]; then
-            echo "Could not find a 'chrome' binary under /ms-playwright. Contents:" >&2
-            ls -la /ms-playwright >&2 2>/dev/null || true
-            find /ms-playwright -maxdepth 3 -name '*chrom*' >&2 2>/dev/null || true
-            exit 1
-          fi
-          echo "Found Chrome at $CHROME_PATH"
-          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
-          "$CHROME_PATH" --version
+            # Lighthouse uses the Chromium that already ships with the
+            # Playwright image (saves a separate browser install). The binary's
+            # directory name includes the pinned Chromium build number; glob it
+            # so we don't have to bump the workflow when the image moves.
+            - name: Discover Chrome for Lighthouse
+              run: |
+                  # Find the full Chrome binary the Playwright image ships, wherever
+                  # it lives (the dir name carries the Chromium build number, and the
+                  # leaf dir has been chrome-linux or chrome-linux64 across versions).
+                  CHROME_PATH=$(find /ms-playwright -type f -name chrome 2>/dev/null | head -1)
+                  if [ -z "$CHROME_PATH" ]; then
+                    echo "Could not find a 'chrome' binary under /ms-playwright. Contents:" >&2
+                    ls -la /ms-playwright >&2 2>/dev/null || true
+                    find /ms-playwright -maxdepth 3 -name '*chrom*' >&2 2>/dev/null || true
+                    exit 1
+                  fi
+                  echo "Found Chrome at $CHROME_PATH"
+                  echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+                  "$CHROME_PATH" --version
 
-      - name: Lighthouse CI healthcheck
-        run: npx lhci healthcheck
+            - name: Lighthouse CI healthcheck
+              run: npx lhci healthcheck
 
-      - run: npm run test:lhci
+            - run: npm run test:lhci
 
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage
-          path: coverage/
-          retention-days: 14
+            - name: Upload coverage report
+              if: always()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: coverage
+                  path: coverage/
+                  retention-days: 14
 
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 14
+            - name: Upload Playwright report
+              if: failure()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: playwright-report
+                  path: |
+                      playwright-report/
+                      test-results/
+                  retention-days: 14
 
-      - name: Upload Lighthouse report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: lighthouse-report
-          path: .lighthouseci/
-          retention-days: 14
+            - name: Upload Lighthouse report
+              if: always()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: lighthouse-report
+                  path: .lighthouseci/
+                  retention-days: 14

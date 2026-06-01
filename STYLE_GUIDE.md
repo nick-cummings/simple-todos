@@ -189,9 +189,9 @@ Motion exists to **explain change**. Short durations, easing that lands gently.
 - `flex gap-3.5 bg-card border border-line rounded-xl px-[18px] py-4 pl-5 mb-2`.
 - Relative-positioned with `overflow-hidden` to clip the priority bar.
 - **Priority indicator** (left edge, 3px wide, inset 14px vertically):
-  - High → `--danger`
-  - Medium → `--primary` (the accent — medium is "you care, but it's not on fire")
-  - Low → `--line-strong` (neutral, present but de-emphasized)
+    - High → `--danger`
+    - Medium → `--primary` (the accent — medium is "you care, but it's not on fire")
+    - Low → `--line-strong` (neutral, present but de-emphasized)
 - Hover: `border-line-strong bg-card-hover -translate-y-px`.
 - Completed state: `opacity-60` on the whole card, `line-through` on title, checkbox shows filled.
 

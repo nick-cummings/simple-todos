@@ -16,19 +16,19 @@ import { isBrowser } from "./runtime";
  * inconsistent about reporting iPad correctly across versions.
  */
 export function isIOS(): boolean {
-  if (!isBrowser()) return false;
-  const ua = navigator.userAgent;
-  if (/iPhone|iPad|iPod/.test(ua)) return true;
-  // iPadOS 13+ reports as Mac unless desktop-mode is explicitly off.
-  // Hint: real Macs don't have touch.
-  if (
-    ua.includes("Macintosh") &&
-    typeof navigator.maxTouchPoints === "number" &&
-    navigator.maxTouchPoints > 1
-  ) {
-    return true;
-  }
-  return false;
+    if (!isBrowser()) return false;
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua)) return true;
+    // iPadOS 13+ reports as Mac unless desktop-mode is explicitly off.
+    // Hint: real Macs don't have touch.
+    if (
+        ua.includes("Macintosh") &&
+        typeof navigator.maxTouchPoints === "number" &&
+        navigator.maxTouchPoints > 1
+    ) {
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -42,16 +42,16 @@ export function isIOS(): boolean {
  * - Everyone else honors the `display-mode: standalone` media query.
  */
 export function isStandalonePWA(): boolean {
-  if (!isBrowser()) return false;
-  // navigator.standalone is iOS-specific and not in the standard
-  // TS lib types; cast to read it without a clash.
-  const navAny = navigator as Navigator & { standalone?: boolean };
-  if (navAny.standalone === true) return true;
-  if (
-    typeof globalThis.matchMedia === "function" &&
-    globalThis.matchMedia("(display-mode: standalone)").matches
-  ) {
-    return true;
-  }
-  return false;
+    if (!isBrowser()) return false;
+    // navigator.standalone is iOS-specific and not in the standard
+    // TS lib types; cast to read it without a clash.
+    const navAny = navigator as Navigator & { standalone?: boolean };
+    if (navAny.standalone === true) return true;
+    if (
+        typeof globalThis.matchMedia === "function" &&
+        globalThis.matchMedia("(display-mode: standalone)").matches
+    ) {
+        return true;
+    }
+    return false;
 }

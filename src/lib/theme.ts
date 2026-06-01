@@ -6,34 +6,34 @@ export type Theme = "dark" | "light" | "system";
 export const THEME_KEY = "simple-todos:theme";
 
 export function applyResolvedTheme(resolved: ResolvedTheme): void {
-  if (!isBrowser()) return;
-  const root = document.documentElement;
-  root.classList.toggle("dark", resolved === "dark");
-  root.style.colorScheme = resolved;
+    if (!isBrowser()) return;
+    const root = document.documentElement;
+    root.classList.toggle("dark", resolved === "dark");
+    root.style.colorScheme = resolved;
 }
 
 export function isTheme(v: unknown): v is Theme {
-  return v === "system" || v === "light" || v === "dark";
+    return v === "system" || v === "light" || v === "dark";
 }
 
 export function readStoredTheme(): Theme {
-  if (!isBrowser()) return "system";
-  try {
-    const stored = globalThis.localStorage.getItem(THEME_KEY);
-    return isTheme(stored) ? stored : "system";
-  } catch {
-    return "system";
-  }
+    if (!isBrowser()) return "system";
+    try {
+        const stored = globalThis.localStorage.getItem(THEME_KEY);
+        return isTheme(stored) ? stored : "system";
+    } catch {
+        return "system";
+    }
 }
 
 export function resolveTheme(theme: Theme): ResolvedTheme {
-  if (theme === "system") return systemPrefersDark() ? "dark" : "light";
-  return theme;
+    if (theme === "system") return systemPrefersDark() ? "dark" : "light";
+    return theme;
 }
 
 export function systemPrefersDark(): boolean {
-  if (!isBrowser()) return false;
-  return globalThis.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (!isBrowser()) return false;
+    return globalThis.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 // Inline bootstrap script injected into <head> so the correct theme class

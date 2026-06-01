@@ -35,25 +35,25 @@ npm run start
 2. Optionally create a GitHub repo and push this project to it.
 3. Configure Terraform inputs (either env vars or `infra/terraform.tfvars`):
 
-   ```sh
-   cd infra
-   cp terraform.tfvars.example terraform.tfvars
-   # edit terraform.tfvars
-   ```
+    ```sh
+    cd infra
+    cp terraform.tfvars.example terraform.tfvars
+    # edit terraform.tfvars
+    ```
 
-   Or use env vars:
+    Or use env vars:
 
-   ```sh
-   export TF_VAR_vercel_api_token="vrcl_..."
-   export TF_VAR_github_repo="your-user/simple-todos"
-   ```
+    ```sh
+    export TF_VAR_vercel_api_token="vrcl_..."
+    export TF_VAR_github_repo="your-user/simple-todos"
+    ```
 
 4. Apply:
 
-   ```sh
-   terraform init
-   terraform apply
-   ```
+    ```sh
+    terraform init
+    terraform apply
+    ```
 
 Terraform creates the Vercel project and (if `github_repo` is set) wires it to the GitHub repo so pushes to `main` trigger production deploys. Optionally attaches a custom domain via `custom_domain`.
 

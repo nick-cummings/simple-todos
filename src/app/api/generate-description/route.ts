@@ -4,9 +4,9 @@ import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
 
 import {
-  buildUserMessage,
-  GENERATE_DESCRIPTION_SYSTEM_PROMPT,
-  isValidLocation,
+    buildUserMessage,
+    GENERATE_DESCRIPTION_SYSTEM_PROMPT,
+    isValidLocation,
 } from "@/lib/prompts/generateDescription";
 
 /**
@@ -24,15 +24,15 @@ const RATE_LIMIT_WINDOW = "24 h" as const;
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const upstashLimiter = (() => {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
-  return new Ratelimit({
-    analytics: false,
-    limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
-    prefix: "rl:generate-description",
-    redis: new Redis({ token, url }),
-  });
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!url || !token) return null;
+    return new Ratelimit({
+        analytics: false,
+        limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
+        prefix: "rl:generate-description",
+        redis: new Redis({ token, url }),
+    });
 })();
 
 // In-memory fallback limiter. Used only when Upstash isn't configured
@@ -56,150 +56,164 @@ const buckets = new Map<string, { count: number; reset: number }>();
  * below that the marker is a no-op (no error, just no cache hit).
  */
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      { error: "Server is not configured for AI generation." },
-      { status: 503 },
-    );
-  }
-
-  const limit = await checkRateLimit(clientIp(request));
-  if (!limit.allowed) {
-    const minutes = Math.max(1, Math.ceil(limit.retryAfterSec / 60));
-    return NextResponse.json(
-      { error: `Rate limit reached. Try again in ~${minutes} min.` },
-      {
-        headers: { "Retry-After": String(limit.retryAfterSec) },
-        status: 429,
-      },
-    );
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-
-  if (!body || typeof body !== "object") {
-    return NextResponse.json(
-      { error: "Body must be an object." },
-      { status: 400 },
-    );
-  }
-
-  const { location, title } = body as {
-    location?: unknown;
-    title?: unknown;
-  };
-
-  if (typeof title !== "string" || !title.trim()) {
-    return NextResponse.json({ error: "title is required." }, { status: 400 });
-  }
-  if (title.length > 500) {
-    return NextResponse.json(
-      { error: "title is too long (max 500 chars)." },
-      { status: 400 },
-    );
-  }
-
-  const validatedLocation = isValidLocation(location) ? location : undefined;
-
-  const client = new Anthropic();
-
-  try {
-    // Server-side web_search lets Claude look up real prices, named
-    // businesses, and specific advice rather than just suggesting the
-    // user search themselves. Anthropic runs the queries and returns
-    // results to Claude; we pay only for tokens. If the model decides
-    // the title is trivial (e.g. "buy milk"), it skips the search.
-    //
-    // Capped at a single model turn — we do NOT honor `pause_turn`.
-    // A short todo description never needs more tool calls than fit in
-    // one server-side sampling loop, and capping here prevents a
-    // crafted title from running up the bill via runaway tool chains.
-    const response = await client.messages.create({
-      max_tokens: 600,
-      messages: [
-        {
-          content: buildUserMessage({ location: validatedLocation, title }),
-          role: "user",
-        },
-      ],
-      model: "claude-sonnet-4-6",
-      system: [
-        {
-          cache_control: { type: "ephemeral" },
-          text: GENERATE_DESCRIPTION_SYSTEM_PROMPT,
-          type: "text",
-        },
-      ],
-      tools: [{ name: "web_search", type: "web_search_20250305" }],
-    });
-
-    const text = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("")
-      .trim();
-
-    if (!text) {
-      return NextResponse.json(
-        { error: "Model returned an empty response." },
-        { status: 502 },
-      );
+    if (!process.env.ANTHROPIC_API_KEY) {
+        return NextResponse.json(
+            { error: "Server is not configured for AI generation." },
+            { status: 503 },
+        );
     }
 
-    return NextResponse.json({ description: text });
-  } catch (error) {
-    // Typed exception handling per the Anthropic SDK conventions.
-    if (error instanceof Anthropic.RateLimitError) {
-      return NextResponse.json(
-        { error: "Rate limited — try again in a moment." },
-        { status: 429 },
-      );
+    const limit = await checkRateLimit(clientIp(request));
+    if (!limit.allowed) {
+        const minutes = Math.max(1, Math.ceil(limit.retryAfterSec / 60));
+        return NextResponse.json(
+            { error: `Rate limit reached. Try again in ~${minutes} min.` },
+            {
+                headers: { "Retry-After": String(limit.retryAfterSec) },
+                status: 429,
+            },
+        );
     }
-    if (error instanceof Anthropic.AuthenticationError) {
-      return NextResponse.json(
-        { error: "AI service authentication failed." },
-        { status: 502 },
-      );
+
+    let body: unknown;
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json(
+            { error: "Invalid JSON body." },
+            { status: 400 },
+        );
     }
-    if (error instanceof Anthropic.APIError) {
-      return NextResponse.json(
-        { error: `AI service error (${error.status}).` },
-        { status: 502 },
-      );
+
+    if (!body || typeof body !== "object") {
+        return NextResponse.json(
+            { error: "Body must be an object." },
+            { status: 400 },
+        );
     }
-    return NextResponse.json(
-      { error: "Unexpected error generating description." },
-      { status: 500 },
-    );
-  }
+
+    const { location, title } = body as {
+        location?: unknown;
+        title?: unknown;
+    };
+
+    if (typeof title !== "string" || !title.trim()) {
+        return NextResponse.json(
+            { error: "title is required." },
+            { status: 400 },
+        );
+    }
+    if (title.length > 500) {
+        return NextResponse.json(
+            { error: "title is too long (max 500 chars)." },
+            { status: 400 },
+        );
+    }
+
+    const validatedLocation = isValidLocation(location) ? location : undefined;
+
+    const client = new Anthropic();
+
+    try {
+        // Server-side web_search lets Claude look up real prices, named
+        // businesses, and specific advice rather than just suggesting the
+        // user search themselves. Anthropic runs the queries and returns
+        // results to Claude; we pay only for tokens. If the model decides
+        // the title is trivial (e.g. "buy milk"), it skips the search.
+        //
+        // Capped at a single model turn — we do NOT honor `pause_turn`.
+        // A short todo description never needs more tool calls than fit in
+        // one server-side sampling loop, and capping here prevents a
+        // crafted title from running up the bill via runaway tool chains.
+        const response = await client.messages.create({
+            max_tokens: 600,
+            messages: [
+                {
+                    content: buildUserMessage({
+                        location: validatedLocation,
+                        title,
+                    }),
+                    role: "user",
+                },
+            ],
+            model: "claude-sonnet-4-6",
+            system: [
+                {
+                    cache_control: { type: "ephemeral" },
+                    text: GENERATE_DESCRIPTION_SYSTEM_PROMPT,
+                    type: "text",
+                },
+            ],
+            tools: [{ name: "web_search", type: "web_search_20250305" }],
+        });
+
+        const text = response.content
+            .filter(
+                (block): block is Anthropic.TextBlock => block.type === "text",
+            )
+            .map((block) => block.text)
+            .join("")
+            .trim();
+
+        if (!text) {
+            return NextResponse.json(
+                { error: "Model returned an empty response." },
+                { status: 502 },
+            );
+        }
+
+        return NextResponse.json({ description: text });
+    } catch (error) {
+        // Typed exception handling per the Anthropic SDK conventions.
+        if (error instanceof Anthropic.RateLimitError) {
+            return NextResponse.json(
+                { error: "Rate limited — try again in a moment." },
+                { status: 429 },
+            );
+        }
+        if (error instanceof Anthropic.AuthenticationError) {
+            return NextResponse.json(
+                { error: "AI service authentication failed." },
+                { status: 502 },
+            );
+        }
+        if (error instanceof Anthropic.APIError) {
+            return NextResponse.json(
+                { error: `AI service error (${error.status}).` },
+                { status: 502 },
+            );
+        }
+        return NextResponse.json(
+            { error: "Unexpected error generating description." },
+            { status: 500 },
+        );
+    }
 }
 
 async function checkRateLimit(
-  ip: string,
+    ip: string,
 ): Promise<{ allowed: boolean; retryAfterSec: number }> {
-  if (upstashLimiter) {
-    const res = await upstashLimiter.limit(ip);
-    if (res.success) return { allowed: true, retryAfterSec: 0 };
-    return {
-      allowed: false,
-      retryAfterSec: Math.max(1, Math.ceil((res.reset - Date.now()) / 1000)),
-    };
-  }
-  return inMemoryLimit(ip);
+    if (upstashLimiter) {
+        const res = await upstashLimiter.limit(ip);
+        if (res.success) return { allowed: true, retryAfterSec: 0 };
+        return {
+            allowed: false,
+            retryAfterSec: Math.max(
+                1,
+                Math.ceil((res.reset - Date.now()) / 1000),
+            ),
+        };
+    }
+    return inMemoryLimit(ip);
 }
 
 function clientIp(request: Request): string {
-  // Vercel sets x-forwarded-for; first value is the client IP.
-  const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  const real = request.headers.get("x-real-ip");
-  if (real) return real.trim();
-  return "unknown";
+    // Vercel sets x-forwarded-for; first value is the client IP.
+    const fwd = request.headers.get("x-forwarded-for");
+    if (fwd) return fwd.split(",")[0].trim();
+    const real = request.headers.get("x-real-ip");
+    if (real) return real.trim();
+    return "unknown";
 }
 
 // Make room for one new bucket. Only bites when MAX_BUCKETS distinct IPs
@@ -208,47 +222,47 @@ function clientIp(request: Request): string {
 // which, since every window is the same length, is also the soonest to
 // expire.
 function evictUntilUnderCap(): void {
-  while (buckets.size >= MAX_BUCKETS) {
-    const oldest = buckets.keys().next().value;
-    if (oldest === undefined) break;
-    buckets.delete(oldest);
-  }
+    while (buckets.size >= MAX_BUCKETS) {
+        const oldest = buckets.keys().next().value;
+        if (oldest === undefined) break;
+        buckets.delete(oldest);
+    }
 }
 
 function inMemoryLimit(ip: string): {
-  allowed: boolean;
-  retryAfterSec: number;
+    allowed: boolean;
+    retryAfterSec: number;
 } {
-  const now = Date.now();
-  pruneExpiredBuckets(now);
-  const b = buckets.get(ip);
-  if (!b || b.reset < now) {
-    evictUntilUnderCap();
-    buckets.set(ip, { count: 1, reset: now + RATE_LIMIT_WINDOW_MS });
+    const now = Date.now();
+    pruneExpiredBuckets(now);
+    const b = buckets.get(ip);
+    if (!b || b.reset < now) {
+        evictUntilUnderCap();
+        buckets.set(ip, { count: 1, reset: now + RATE_LIMIT_WINDOW_MS });
+        return { allowed: true, retryAfterSec: 0 };
+    }
+    if (b.count >= RATE_LIMIT_MAX) {
+        return {
+            allowed: false,
+            retryAfterSec: Math.ceil((b.reset - now) / 1000),
+        };
+    }
+    b.count += 1;
     return { allowed: true, retryAfterSec: 0 };
-  }
-  if (b.count >= RATE_LIMIT_MAX) {
-    return {
-      allowed: false,
-      retryAfterSec: Math.ceil((b.reset - now) / 1000),
-    };
-  }
-  b.count += 1;
-  return { allowed: true, retryAfterSec: 0 };
 }
 
 // Drop every bucket whose window has elapsed. Deleting during Map
 // iteration is well-defined in JS, so a single pass is safe.
 function pruneExpiredBuckets(now: number): void {
-  for (const [ip, b] of buckets) {
-    if (b.reset < now) buckets.delete(ip);
-  }
+    for (const [ip, b] of buckets) {
+        if (b.reset < now) buckets.delete(ip);
+    }
 }
 
 // Test-only handle on the fallback limiter. Next ignores non-HTTP-method
 // exports from a route module, so this is inert in production.
 export const __fallbackLimiterInternals = {
-  bucketCount: () => buckets.size,
-  inMemoryLimit,
-  MAX_BUCKETS,
+    bucketCount: () => buckets.size,
+    inMemoryLimit,
+    MAX_BUCKETS,
 };

@@ -31,11 +31,11 @@ would just introduce a brief flash.
 
 ```tsx
 export default function Home() {
-  return (
-    <Suspense>
-      <TodoApp />
-    </Suspense>
-  );
+    return (
+        <Suspense>
+            <TodoApp />
+        </Suspense>
+    );
 }
 ```
 

@@ -7,9 +7,9 @@ import TodoApp from "@/components/TodoApp";
 // <Suspense> boundary so the rest of the route can prerender while
 // the client component handles the dynamic params.
 export default function Home() {
-  return (
-    <Suspense>
-      <TodoApp />
-    </Suspense>
-  );
+    return (
+        <Suspense>
+            <TodoApp />
+        </Suspense>
+    );
 }

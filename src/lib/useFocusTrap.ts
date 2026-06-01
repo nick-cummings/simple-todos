@@ -3,18 +3,18 @@
 import { type RefObject, useEffect } from "react";
 
 export const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  '[tabindex]:not([tabindex="-1"])',
+    "a[href]",
+    "button:not([disabled])",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
 export function getFocusable(container: HTMLElement): HTMLElement[] {
-  return [
-    ...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-  ].filter((el) => el.tabIndex !== -1);
+    return [
+        ...container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+    ].filter((el) => el.tabIndex !== -1);
 }
 
 /**
@@ -33,47 +33,47 @@ export function getFocusable(container: HTMLElement): HTMLElement[] {
  * focus sits on the trigger (outside the container) is still caught.
  */
 export function useFocusTrap(
-  containerRef: RefObject<HTMLElement | null>,
-  enabled = true,
+    containerRef: RefObject<HTMLElement | null>,
+    enabled = true,
 ) {
-  useEffect(() => {
-    if (!enabled) return;
-    const container = containerRef.current;
-    if (!container) return;
+    useEffect(() => {
+        if (!enabled) return;
+        const container = containerRef.current;
+        if (!container) return;
 
-    const previouslyFocused = document.activeElement as HTMLElement | null;
+        const previouslyFocused = document.activeElement as HTMLElement | null;
 
-    if (!container.contains(document.activeElement)) {
-      getFocusable(container)[0]?.focus();
-    }
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const focusable = getFocusable(container);
-      if (focusable.length === 0) {
-        e.preventDefault();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable.at(-1);
-      if (!last) return;
-      const active = document.activeElement;
-      const inside = container.contains(active);
-      if (e.shiftKey) {
-        if (!inside || active === first) {
-          e.preventDefault();
-          last.focus();
+        if (!container.contains(document.activeElement)) {
+            getFocusable(container)[0]?.focus();
         }
-      } else if (!inside || active === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
 
-    globalThis.addEventListener("keydown", onKeyDown);
-    return () => {
-      globalThis.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus();
-    };
-  }, [containerRef, enabled]);
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Tab") return;
+            const focusable = getFocusable(container);
+            if (focusable.length === 0) {
+                e.preventDefault();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable.at(-1);
+            if (!last) return;
+            const active = document.activeElement;
+            const inside = container.contains(active);
+            if (e.shiftKey) {
+                if (!inside || active === first) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else if (!inside || active === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+
+        globalThis.addEventListener("keydown", onKeyDown);
+        return () => {
+            globalThis.removeEventListener("keydown", onKeyDown);
+            previouslyFocused?.focus();
+        };
+    }, [containerRef, enabled]);
 }

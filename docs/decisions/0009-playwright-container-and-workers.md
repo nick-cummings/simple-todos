@@ -62,12 +62,12 @@ bump them together.
 
 - **CI E2E step time: 290s → 149s.** Total job: 6m26s → 4m26s.
 - **Two new test environment requirements:**
-  - Service worker must be disabled in the test build, because the
-    combination of WebKit, a registered SW, and Playwright's
-    `page.route()` mocked POSTs interacts badly. See
-    [ADR 0010](./0010-disable-sw-in-playwright.md).
-  - Geolocation is granted up-front in `playwright.config.ts` so the
-    AI feature's `getCurrentPosition` resolves instantly.
+    - Service worker must be disabled in the test build, because the
+      combination of WebKit, a registered SW, and Playwright's
+      `page.route()` mocked POSTs interacts badly. See
+      [ADR 0010](./0010-disable-sw-in-playwright.md).
+    - Geolocation is granted up-front in `playwright.config.ts` so the
+      AI feature's `getCurrentPosition` resolves instantly.
 - **Image version drift risk.** If the `@playwright/test` package
   version moves and the image tag doesn't (or vice versa), browser
   versions can mismatch. The release process: update both in the

@@ -13,30 +13,30 @@ type StartViewTransition = (cb: () => void) => { finished: Promise<void> };
  * user prefers reduced motion.
  */
 export function withViewTransition(callback: () => void): void {
-  if (!supported() || prefersReducedMotion()) {
-    callback();
-    return;
-  }
-  // Must be called as a method on `document` — extracting the function and
-  // invoking it bare throws "Illegal invocation" (loses its `this`).
-  (
-    document as unknown as { startViewTransition: StartViewTransition }
-  ).startViewTransition(() => {
-    // flushSync forces React to commit the update synchronously before the
-    // browser captures the "new" snapshot.
-    flushSync(callback);
-  });
+    if (!supported() || prefersReducedMotion()) {
+        callback();
+        return;
+    }
+    // Must be called as a method on `document` — extracting the function and
+    // invoking it bare throws "Illegal invocation" (loses its `this`).
+    (
+        document as unknown as { startViewTransition: StartViewTransition }
+    ).startViewTransition(() => {
+        // flushSync forces React to commit the update synchronously before the
+        // browser captures the "new" snapshot.
+        flushSync(callback);
+    });
 }
 
 function prefersReducedMotion(): boolean {
-  if (!isBrowser()) return false;
-  return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!isBrowser()) return false;
+    return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function supported(): boolean {
-  if (!isBrowser()) return false;
-  return (
-    typeof (document as unknown as { startViewTransition?: unknown })
-      .startViewTransition === "function"
-  );
+    if (!isBrowser()) return false;
+    return (
+        typeof (document as unknown as { startViewTransition?: unknown })
+            .startViewTransition === "function"
+    );
 }

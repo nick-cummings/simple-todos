@@ -38,11 +38,11 @@ A second daily cron, `/api/push/gc-cron`, scheduled at 10:00 UTC
 1. Authenticates against `CRON_SECRET` (same gate as notify-cron).
 2. Scans every `subscription:*` key via `listSubscriptions()`.
 3. Classifies each row as:
-   - **`kept`** — `lastReminderAt` is within the last 90 days.
-   - **`deleted`** — `lastReminderAt` is older than 90 days; row is
-     removed via `deleteSubscription()`.
-   - **`legacy`** — `lastReminderAt` is unset. Legacy rows are
-     never auto-deleted; see "legacy rows" below.
+    - **`kept`** — `lastReminderAt` is within the last 90 days.
+    - **`deleted`** — `lastReminderAt` is older than 90 days; row is
+      removed via `deleteSubscription()`.
+    - **`legacy`** — `lastReminderAt` is unset. Legacy rows are
+      never auto-deleted; see "legacy rows" below.
 4. If `deleted > 0`, fires a single Sentry `captureMessage` at
    `warning` level with the counts as tags (`area: push-gc`,
    `deleted`, `kept`, `legacy`, `windowDays: 90`). Per-deletion

@@ -8,107 +8,109 @@ import { makeTodo } from "@/test-utils/factories";
 import TodoCard from "./TodoCard";
 
 function isoOffset(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return toISODate(d);
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return toISODate(d);
 }
 
 describe("<TodoCard>", () => {
-  it("renders the title and respects the completed visual state", () => {
-    const todo = makeTodo({ completed: true, title: "Buy milk" });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    const title = screen.getByText("Buy milk");
-    expect(title).toBeInTheDocument();
-    expect(title).toHaveAttribute("data-completed", "true");
-  });
-
-  it("renders label pills for each label", () => {
-    const todo = makeTodo({ labels: ["work", "urgent"] });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    expect(screen.getByText("work")).toBeInTheDocument();
-    expect(screen.getByText("urgent")).toBeInTheDocument();
-  });
-
-  it("calls onOpen when the title area is clicked", async () => {
-    const user = userEvent.setup();
-    const onOpen = vi.fn();
-    const todo = makeTodo({ title: "tap me" });
-    render(<TodoCard onOpen={onOpen} onToggle={() => {}} todo={todo} />);
-    await user.click(screen.getByText("tap me"));
-    expect(onOpen).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls onToggle (and NOT onOpen) when the checkbox is clicked", async () => {
-    const user = userEvent.setup();
-    const onOpen = vi.fn();
-    const onToggle = vi.fn();
-    const todo = makeTodo();
-    render(<TodoCard onOpen={onOpen} onToggle={onToggle} todo={todo} />);
-    await user.click(screen.getByRole("checkbox", { name: /mark as done/i }));
-    expect(onToggle).toHaveBeenCalledTimes(1);
-    expect(onOpen).not.toHaveBeenCalled();
-  });
-
-  it("uses 'Mark as open' label when already completed", () => {
-    const todo = makeTodo({ completed: true });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    expect(
-      screen.getByRole("checkbox", { name: /mark as open/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows 'Overdue' when due date is in the past and not completed", () => {
-    const past = isoOffset(-3);
-    const todo = makeTodo({ completed: false, dueDate: past });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    expect(screen.getByText(/Overdue/)).toBeInTheDocument();
-  });
-
-  it("hides 'Overdue' once the todo is completed", () => {
-    const past = isoOffset(-3);
-    const todo = makeTodo({ completed: true, dueDate: past });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
-  });
-
-  it("does not render Overdue for a future due date", () => {
-    const future = isoOffset(5);
-    const todo = makeTodo({ dueDate: future });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
-  });
-
-  it("renders the relative-time createdAt text", () => {
-    const todo = makeTodo({ createdAt: Date.now() });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    // relativeTime returns "now", "Xm ago", etc.
-    expect(screen.getByText(/now|ago|just/i)).toBeInTheDocument();
-  });
-
-  it("renders the recurrence badge when recurrence is set", () => {
-    const todo = makeTodo({
-      recurrence: { every: 1, unit: "week" },
-      title: "Take out trash",
+    it("renders the title and respects the completed visual state", () => {
+        const todo = makeTodo({ completed: true, title: "Buy milk" });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        const title = screen.getByText("Buy milk");
+        expect(title).toBeInTheDocument();
+        expect(title).toHaveAttribute("data-completed", "true");
     });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    expect(screen.getByText(/^Weekly$/)).toBeInTheDocument();
-  });
 
-  it("renders an Every-N label for custom recurrence", () => {
-    const todo = makeTodo({
-      recurrence: { every: 3, unit: "day" },
-      title: "Stretch",
+    it("renders label pills for each label", () => {
+        const todo = makeTodo({ labels: ["work", "urgent"] });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        expect(screen.getByText("work")).toBeInTheDocument();
+        expect(screen.getByText("urgent")).toBeInTheDocument();
     });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    expect(screen.getByText(/Every 3 days/i)).toBeInTheDocument();
-  });
 
-  it("does not render the recurrence badge when recurrence is undefined", () => {
-    const todo = makeTodo({ recurrence: undefined, title: "One-off" });
-    render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
-    expect(
-      screen.queryByText(/^(Daily|Weekly|Monthly)$/),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText(/^Every \d+/)).not.toBeInTheDocument();
-  });
+    it("calls onOpen when the title area is clicked", async () => {
+        const user = userEvent.setup();
+        const onOpen = vi.fn();
+        const todo = makeTodo({ title: "tap me" });
+        render(<TodoCard onOpen={onOpen} onToggle={() => {}} todo={todo} />);
+        await user.click(screen.getByText("tap me"));
+        expect(onOpen).toHaveBeenCalledTimes(1);
+    });
+
+    it("calls onToggle (and NOT onOpen) when the checkbox is clicked", async () => {
+        const user = userEvent.setup();
+        const onOpen = vi.fn();
+        const onToggle = vi.fn();
+        const todo = makeTodo();
+        render(<TodoCard onOpen={onOpen} onToggle={onToggle} todo={todo} />);
+        await user.click(
+            screen.getByRole("checkbox", { name: /mark as done/i }),
+        );
+        expect(onToggle).toHaveBeenCalledTimes(1);
+        expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("uses 'Mark as open' label when already completed", () => {
+        const todo = makeTodo({ completed: true });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        expect(
+            screen.getByRole("checkbox", { name: /mark as open/i }),
+        ).toBeInTheDocument();
+    });
+
+    it("shows 'Overdue' when due date is in the past and not completed", () => {
+        const past = isoOffset(-3);
+        const todo = makeTodo({ completed: false, dueDate: past });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        expect(screen.getByText(/Overdue/)).toBeInTheDocument();
+    });
+
+    it("hides 'Overdue' once the todo is completed", () => {
+        const past = isoOffset(-3);
+        const todo = makeTodo({ completed: true, dueDate: past });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
+    });
+
+    it("does not render Overdue for a future due date", () => {
+        const future = isoOffset(5);
+        const todo = makeTodo({ dueDate: future });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
+    });
+
+    it("renders the relative-time createdAt text", () => {
+        const todo = makeTodo({ createdAt: Date.now() });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        // relativeTime returns "now", "Xm ago", etc.
+        expect(screen.getByText(/now|ago|just/i)).toBeInTheDocument();
+    });
+
+    it("renders the recurrence badge when recurrence is set", () => {
+        const todo = makeTodo({
+            recurrence: { every: 1, unit: "week" },
+            title: "Take out trash",
+        });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        expect(screen.getByText(/^Weekly$/)).toBeInTheDocument();
+    });
+
+    it("renders an Every-N label for custom recurrence", () => {
+        const todo = makeTodo({
+            recurrence: { every: 3, unit: "day" },
+            title: "Stretch",
+        });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        expect(screen.getByText(/Every 3 days/i)).toBeInTheDocument();
+    });
+
+    it("does not render the recurrence badge when recurrence is undefined", () => {
+        const todo = makeTodo({ recurrence: undefined, title: "One-off" });
+        render(<TodoCard onOpen={() => {}} onToggle={() => {}} todo={todo} />);
+        expect(
+            screen.queryByText(/^(Daily|Weekly|Monthly)$/),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText(/^Every \d+/)).not.toBeInTheDocument();
+    });
 });

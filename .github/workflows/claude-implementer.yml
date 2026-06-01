@@ -3,124 +3,124 @@ name: Claude Implementer
 # Fires when the "claude" label is added to an issue. The label is the
 # only trigger — random comments / mentions / assignments do nothing.
 on:
-  issues:
-    types: [labeled]
+    issues:
+        types: [labeled]
 
 # Only one implementer per issue at a time. Re-labeling an issue while
 # a previous run is in flight will cancel the older one.
 concurrency:
-  group: claude-implementer-${{ github.event.issue.number }}
-  cancel-in-progress: true
+    group: claude-implementer-${{ github.event.issue.number }}
+    cancel-in-progress: true
 
 jobs:
-  implement:
-    if: github.event.label.name == 'claude'
-    runs-on: ubuntu-latest
-    # Spans ALL attempts (up to 3 via selective retry), not a single run, so
-    # it's sized for the worst-case retry chain. Each attempt is still bounded
-    # by --max-turns 120 (~27 min observed). See ADR 0017.
-    # NOTE: a process *hang* (an attempt that finishes but doesn't exit — the
-    # leftover-test-server case) is NOT retried: it would eat the budget and
-    # be cancelled at this timeout. Retry only catches reported failures.
-    timeout-minutes: 90
-    env:
-      # Disable Husky hooks job-wide; CI runs `npm run verify` for the same
-      # checks, so the hooks add only friction here.
-      HUSKY: "0"
-    permissions:
-      contents: write # push the feature branch + delete partial branches on retry
-      issues: write # comment on the source issue
-      pull-requests: write # create/transition the draft PR; close partial PRs on retry
-      id-token: write # OIDC federation against the Claude API
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          # Full history so the agent can read prior commits, and so the local
-          # composite actions under .github/actions/ are available.
-          fetch-depth: 0
+    implement:
+        if: github.event.label.name == 'claude'
+        runs-on: ubuntu-latest
+        # Spans ALL attempts (up to 3 via selective retry), not a single run, so
+        # it's sized for the worst-case retry chain. Each attempt is still bounded
+        # by --max-turns 120 (~27 min observed). See ADR 0017.
+        # NOTE: a process *hang* (an attempt that finishes but doesn't exit — the
+        # leftover-test-server case) is NOT retried: it would eat the budget and
+        # be cancelled at this timeout. Retry only catches reported failures.
+        timeout-minutes: 90
+        env:
+            # Disable Husky hooks job-wide; CI runs `npm run verify` for the same
+            # checks, so the hooks add only friction here.
+            HUSKY: "0"
+        permissions:
+            contents: write # push the feature branch + delete partial branches on retry
+            issues: write # comment on the source issue
+            pull-requests: write # create/transition the draft PR; close partial PRs on retry
+            id-token: write # OIDC federation against the Claude API
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  # Full history so the agent can read prior commits, and so the local
+                  # composite actions under .github/actions/ are available.
+                  fetch-depth: 0
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "22"
+                  cache: npm
 
-      # Install deps up front so the agent doesn't burn a turn on it.
-      - run: npm ci
+            # Install deps up front so the agent doesn't burn a turn on it.
+            - run: npm ci
 
-      # Configure git so the agent's commits identify themselves (the Claude
-      # GitHub App provides the token + identity; see docs/two-agent-auto-pipeline.md).
-      - name: Configure git
-        run: |
-          git config user.name "claude[bot]"
-          git config user.email "claude[bot]@users.noreply.github.com"
+            # Configure git so the agent's commits identify themselves (the Claude
+            # GitHub App provides the token + identity; see docs/two-agent-auto-pipeline.md).
+            - name: Configure git
+              run: |
+                  git config user.name "claude[bot]"
+                  git config user.email "claude[bot]@users.noreply.github.com"
 
-      # --- Implementer with up to 2 SELECTIVE retries (3 attempts total) ---
-      #
-      # The agent + model/tool config + the whole procedure prompt live in
-      # `.github/actions/claude-implement` — one source of truth, used by every
-      # attempt. Each attempt tolerates failure (continue-on-error); the triage
-      # step between attempts retries ONLY on a known-transient harness flake
-      # (e.g. the Claude Code `thinking`-block 400, overloaded/5xx/429), and
-      # cleans up any partial branch/PR first so the retry starts clean. A
-      # non-retryable failure (turn ceiling, real error, anything unrecognized)
-      # stops the chain immediately. The final gate fails the job iff no attempt
-      # succeeded — so genuine/exhausted failures still surface as a red X.
-      #
-      # Rationale, classification, and limitations: ADR 0017.
+            # --- Implementer with up to 2 SELECTIVE retries (3 attempts total) ---
+            #
+            # The agent + model/tool config + the whole procedure prompt live in
+            # `.github/actions/claude-implement` — one source of truth, used by every
+            # attempt. Each attempt tolerates failure (continue-on-error); the triage
+            # step between attempts retries ONLY on a known-transient harness flake
+            # (e.g. the Claude Code `thinking`-block 400, overloaded/5xx/429), and
+            # cleans up any partial branch/PR first so the retry starts clean. A
+            # non-retryable failure (turn ceiling, real error, anything unrecognized)
+            # stops the chain immediately. The final gate fails the job iff no attempt
+            # succeeded — so genuine/exhausted failures still surface as a red X.
+            #
+            # Rationale, classification, and limitations: ADR 0017.
 
-      - name: Implementer (attempt 1)
-        id: a1
-        continue-on-error: true
-        uses: ./.github/actions/claude-implement
-        with:
-          issue: ${{ github.event.issue.number }}
-          oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+            - name: Implementer (attempt 1)
+              id: a1
+              continue-on-error: true
+              uses: ./.github/actions/claude-implement
+              with:
+                  issue: ${{ github.event.issue.number }}
+                  oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-      - name: Triage attempt 1
-        id: t1
-        if: steps.a1.outcome == 'failure'
-        uses: ./.github/actions/implementer-triage
-        with:
-          issue: ${{ github.event.issue.number }}
-          github_token: ${{ github.token }}
+            - name: Triage attempt 1
+              id: t1
+              if: steps.a1.outcome == 'failure'
+              uses: ./.github/actions/implementer-triage
+              with:
+                  issue: ${{ github.event.issue.number }}
+                  github_token: ${{ github.token }}
 
-      - name: Implementer (attempt 2 / retry 1)
-        id: a2
-        if: steps.t1.outputs.retry == 'true'
-        continue-on-error: true
-        uses: ./.github/actions/claude-implement
-        with:
-          issue: ${{ github.event.issue.number }}
-          oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+            - name: Implementer (attempt 2 / retry 1)
+              id: a2
+              if: steps.t1.outputs.retry == 'true'
+              continue-on-error: true
+              uses: ./.github/actions/claude-implement
+              with:
+                  issue: ${{ github.event.issue.number }}
+                  oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-      - name: Triage attempt 2
-        id: t2
-        if: steps.a2.outcome == 'failure'
-        uses: ./.github/actions/implementer-triage
-        with:
-          issue: ${{ github.event.issue.number }}
-          github_token: ${{ github.token }}
+            - name: Triage attempt 2
+              id: t2
+              if: steps.a2.outcome == 'failure'
+              uses: ./.github/actions/implementer-triage
+              with:
+                  issue: ${{ github.event.issue.number }}
+                  github_token: ${{ github.token }}
 
-      - name: Implementer (attempt 3 / retry 2)
-        id: a3
-        if: steps.t2.outputs.retry == 'true'
-        continue-on-error: true
-        uses: ./.github/actions/claude-implement
-        with:
-          issue: ${{ github.event.issue.number }}
-          oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+            - name: Implementer (attempt 3 / retry 2)
+              id: a3
+              if: steps.t2.outputs.retry == 'true'
+              continue-on-error: true
+              uses: ./.github/actions/claude-implement
+              with:
+                  issue: ${{ github.event.issue.number }}
+                  oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-      # Fail the job unless some attempt succeeded. Skipped attempts (chain
-      # stopped early on a non-retryable failure, or an earlier attempt won)
-      # have outcome 'skipped', which correctly doesn't count as success.
-      - name: Resolve job result
-        if: always()
-        run: |
-          if [ "${{ steps.a1.outcome }}" = "success" ] \
-             || [ "${{ steps.a2.outcome }}" = "success" ] \
-             || [ "${{ steps.a3.outcome }}" = "success" ]; then
-            echo "Implementer succeeded."
-            exit 0
-          fi
-          echo "All attempts failed, or the chain stopped on a non-retryable failure."
-          exit 1
+            # Fail the job unless some attempt succeeded. Skipped attempts (chain
+            # stopped early on a non-retryable failure, or an earlier attempt won)
+            # have outcome 'skipped', which correctly doesn't count as success.
+            - name: Resolve job result
+              if: always()
+              run: |
+                  if [ "${{ steps.a1.outcome }}" = "success" ] \
+                     || [ "${{ steps.a2.outcome }}" = "success" ] \
+                     || [ "${{ steps.a3.outcome }}" = "success" ]; then
+                    echo "Implementer succeeded."
+                    exit 0
+                  fi
+                  echo "All attempts failed, or the chain stopped on a non-retryable failure."
+                  exit 1

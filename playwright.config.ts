@@ -6,42 +6,42 @@ import { defineConfig, devices } from "@playwright/test";
 const BASE_URL = "http://localhost:4321";
 
 export default defineConfig({
-  forbidOnly: Boolean(process.env.CI),
-  fullyParallel: true,
-  projects: [
-    {
-      name: "chromium-desktop",
-      use: {
-        ...devices["Desktop Chrome"],
-        viewport: { height: 800, width: 1280 },
-      },
+    forbidOnly: Boolean(process.env.CI),
+    fullyParallel: true,
+    projects: [
+        {
+            name: "chromium-desktop",
+            use: {
+                ...devices["Desktop Chrome"],
+                viewport: { height: 800, width: 1280 },
+            },
+        },
+        {
+            name: "mobile-iphone",
+            use: { ...devices["iPhone 14"] },
+        },
+    ],
+    reporter: process.env.CI ? "line" : "html",
+    retries: process.env.CI ? 2 : 0,
+    testDir: "./tests/e2e",
+    use: {
+        baseURL: BASE_URL,
+        // Grant geolocation up-front with a stub fix so the AI feature's
+        // `getCurrentPosition` resolves instantly across browsers, instead
+        // of waiting the 6s in-app timeout. Tests don't care about the
+        // value, only that the call doesn't block.
+        geolocation: { latitude: 37.7749, longitude: -122.4194 },
+        permissions: ["geolocation"],
+        trace: "on-first-retry",
+        video: "retain-on-failure",
     },
-    {
-      name: "mobile-iphone",
-      use: { ...devices["iPhone 14"] },
+    webServer: {
+        command: "npm run start:test",
+        reuseExistingServer: !process.env.CI,
+        stderr: "pipe",
+        stdout: "ignore",
+        timeout: 120_000,
+        url: BASE_URL,
     },
-  ],
-  reporter: process.env.CI ? "line" : "html",
-  retries: process.env.CI ? 2 : 0,
-  testDir: "./tests/e2e",
-  use: {
-    baseURL: BASE_URL,
-    // Grant geolocation up-front with a stub fix so the AI feature's
-    // `getCurrentPosition` resolves instantly across browsers, instead
-    // of waiting the 6s in-app timeout. Tests don't care about the
-    // value, only that the call doesn't block.
-    geolocation: { latitude: 37.7749, longitude: -122.4194 },
-    permissions: ["geolocation"],
-    trace: "on-first-retry",
-    video: "retain-on-failure",
-  },
-  webServer: {
-    command: "npm run start:test",
-    reuseExistingServer: !process.env.CI,
-    stderr: "pipe",
-    stdout: "ignore",
-    timeout: 120_000,
-    url: BASE_URL,
-  },
-  workers: process.env.CI ? 4 : undefined,
+    workers: process.env.CI ? 4 : undefined,
 });
