@@ -189,6 +189,15 @@ is verified manually on the actual device.
 
 - **No timezone awareness.** Reminders fire at 15:00 UTC for everyone.
   Single-user app, so the author just picked a time they're awake.
+- **One reminder per todo.** `reminderId` is `r-<todoId>`, so a todo
+  carries exactly one reminder. The "multiple reminders" feature
+  (add/remove several offsets, mix relative and absolute) is being
+  prototyped first — see the mockup at `/mockups/multi-reminders`
+  (`src/components/mockups/MultiReminderEditorMock.tsx`). Shipping it
+  for real means moving from a single `reminder:<r-todoId>` key to a
+  list of records per todo, each with its own computed `fireAt`; the
+  cron scan and dedupe logic are already per-record and extend
+  naturally.
 
 ## References
 
