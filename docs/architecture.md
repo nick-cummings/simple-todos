@@ -133,8 +133,10 @@ See [operations/deploy.md](./operations/deploy.md).
 ## Design mockups (dev-only)
 
 The `/mockups/*` routes (`labels`, `label-picker`, `reminders`,
-`undo-toast`, `recurring`) host unfinished design mockups backed by large
-mock components under `src/components/mockups/`. They render in local dev
+`undo-toast`, `recurring`, `quick-add`) host unfinished design mockups
+backed by large mock components under `src/components/mockups/`. The
+`quick-add` mockup also ships a small exported `parseQuickAdd` stub (with
+its own unit test) standing in for the eventual NLP parse endpoint. They render in local dev
 and on Vercel preview deploys but **404 in production** — they're
 unfinished UI we don't want exposed publicly. The check is centralized in
 `mockupsEnabled()` (`src/lib/mockupsEnabled.ts`): each `page.tsx` calls
