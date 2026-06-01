@@ -212,8 +212,16 @@ function AuthoringModal({
   const [dragId, setDragId] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  function onHandlePointerDown(e: React.PointerEvent, id: string) {
+  function onHandlePointerDown(
+    e: React.PointerEvent<HTMLButtonElement>,
+    id: string,
+  ) {
     e.preventDefault();
+    // preventDefault() suppresses the default focus-on-pointerdown, which
+    // would otherwise leave the keyboard-reorder fallback unreachable unless
+    // the user Tabbed to the handle. Focus it explicitly so ArrowUp/ArrowDown
+    // work after a click, matching the caption's a11y claim.
+    e.currentTarget.focus();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDragId(id);
   }
@@ -296,7 +304,7 @@ function AuthoringModal({
                       onMove(i, 1);
                     }
                   }}
-                  className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-md text-faint hover:bg-subtle-hover hover:text-fg active:cursor-grabbing"
+                  className="grid h-7 w-6 shrink-0 cursor-grab touch-none place-items-center rounded-md text-faint hover:bg-subtle-hover hover:text-fg focus-visible:bg-subtle-hover focus-visible:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-line-emphasis active:cursor-grabbing"
                 >
                   <GripIcon />
                 </button>
