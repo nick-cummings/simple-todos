@@ -112,7 +112,7 @@ jobs:
 
             5. **Implement on the existing branch.** Make the changes and commit + push in small chunks (`git add … && git commit && git push`). Do NOT reset, rebase, or force-push — only add commits. Follow existing patterns.
 
-            6. **Test the changes.** Iterate with `npm run verify:fast` (~10s). Run the full `npm run verify` once before finishing. Fix any failures. If you can't get it green after ~3 honest attempts, push what you have and explain in a PR comment.
+            6. **Test the changes.** Run `npm run verify:fast` (~10s — static checks + unit tests, i.e. everything except E2E). Do NOT run the full `npm run verify`: it appends Playwright E2E, which needs browsers this runner doesn't have (and can't install), so it will always fail here — the full suite runs in CI on this PR instead. Fix any failures. If you can't get `verify:fast` green after ~3 honest attempts, push what you have and explain in a PR comment.
 
             7. **Summarize.** Post ONE PR comment (`gh pr comment ${{ steps.pr.outputs.number }} --body …`) describing what you changed, why, and the verify result.
 

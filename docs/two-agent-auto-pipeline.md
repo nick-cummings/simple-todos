@@ -120,8 +120,10 @@ checks out that PR's branch and updates it: it reads the triggering
 comment + **all** PR comments + inline review comments + the Claude
 reviewer's notes, reads the linked issue (`Closes #N`) for the spec and
 any refined decisions, plans the change, implements it on the branch
-(commits only — never force-push), runs `verify`, and posts a summary
-comment. Same Opus 4.8 + auth as the implementer.
+(commits only — never force-push), runs `verify:fast` (the reviser
+runner has no Playwright browsers, so the full `verify` runs in CI on
+the PR, not in-agent), and posts a summary comment. Same Opus 4.8 +
+auth as the implementer.
 
 **Loop guard:** it fires only on a **human** (`sender.type != 'Bot'`)
 comment containing `@claude`, and the agent is told never to write
