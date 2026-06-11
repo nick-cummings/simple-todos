@@ -4,13 +4,13 @@ Global keyboard shortcuts for fast navigation without a mouse.
 
 ## What it does
 
-| Key | Action |
-|---|---|
+| Key             | Action                                   |
+| --------------- | ---------------------------------------- |
 | `⌘K` / `Ctrl+K` | Focus the search bar and select all text |
-| `/` | Focus the search bar |
-| `N` | Open the new-todo modal |
-| `?` | Open the shortcuts help overlay |
-| `Esc` | Close the shortcuts overlay |
+| `/`             | Focus the search bar                     |
+| `N`             | Open the new-todo modal                  |
+| `?`             | Open the shortcuts help overlay          |
+| `Esc`           | Close the shortcuts overlay              |
 
 Single-key shortcuts (`/`, `N`, `?`) are suppressed while the user is typing in an `input`, `textarea`, or `contenteditable`. `⌘K` / `Ctrl+K` fires unconditionally since it does not conflict with typing.
 

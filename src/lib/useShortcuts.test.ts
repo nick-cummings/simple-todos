@@ -19,9 +19,7 @@ function pressInField(key: string, tag: "input" | "textarea") {
     const el = document.createElement(tag);
     document.body.appendChild(el);
     el.focus();
-    el.dispatchEvent(
-        new KeyboardEvent("keydown", { key, bubbles: true }),
-    );
+    el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
     el.remove();
 }
 
