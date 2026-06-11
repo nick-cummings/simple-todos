@@ -8,13 +8,6 @@ interface ShortcutHandlers {
     onOpenNew: () => void;
 }
 
-function isTypingTarget(e: KeyboardEvent): boolean {
-    const target = e.target as HTMLElement | null;
-    if (!target?.tagName) return false;
-    const tag = target.tagName.toLowerCase();
-    return tag === "input" || tag === "textarea" || target.isContentEditable;
-}
-
 /**
  * Registers global keyboard shortcuts for the todo app.
  *
@@ -37,18 +30,21 @@ export function useShortcuts({
             }
             if (isTypingTarget(e)) return;
             switch (e.key) {
-                case "/":
+                case "/": {
                     e.preventDefault();
                     onFocusSearch();
                     break;
-                case "n":
+                }
+                case "?": {
+                    onOpenHelp();
+                    break;
+                }
                 case "N":
+                case "n": {
                     e.preventDefault();
                     onOpenNew();
                     break;
-                case "?":
-                    onOpenHelp();
-                    break;
+                }
             }
         };
         globalThis.addEventListener("keydown", onKeyDown);
@@ -56,4 +52,11 @@ export function useShortcuts({
             globalThis.removeEventListener("keydown", onKeyDown);
         };
     }, [onFocusSearch, onOpenHelp, onOpenNew]);
+}
+
+function isTypingTarget(e: KeyboardEvent): boolean {
+    const target = e.target as HTMLElement | null;
+    if (!target?.tagName) return false;
+    const tag = target.tagName.toLowerCase();
+    return tag === "input" || tag === "textarea" || target.isContentEditable;
 }
