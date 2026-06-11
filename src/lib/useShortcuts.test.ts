@@ -17,9 +17,9 @@ function press(key: string, opts: KeyboardEventInit = {}) {
 
 function pressInField(key: string, tag: "input" | "textarea") {
     const el = document.createElement(tag);
-    document.body.appendChild(el);
+    document.body.append(el);
     el.focus();
-    el.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
     el.remove();
 }
 
@@ -91,13 +91,13 @@ describe("useShortcuts", () => {
         const h = makeHandlers();
         renderHook(() => useShortcuts(h));
         const el = document.createElement("input");
-        document.body.appendChild(el);
+        document.body.append(el);
         el.focus();
         el.dispatchEvent(
             new KeyboardEvent("keydown", {
+                bubbles: true,
                 key: "k",
                 metaKey: true,
-                bubbles: true,
             }),
         );
         el.remove();

@@ -49,7 +49,7 @@ describe("ShortcutsHelp", () => {
         render(<ShortcutsHelp onClose={onClose} open />);
         const backdrop = screen.getByRole("dialog");
         // mousedown on the dialog element itself (the backdrop)
-        await user.pointer({ target: backdrop, keys: "[MouseLeft>]" });
+        await user.pointer({ keys: "[MouseLeft>]", target: backdrop });
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
@@ -66,7 +66,7 @@ describe("ShortcutsHelp", () => {
 
     it("restores focus to the trigger on close", () => {
         const trigger = document.createElement("button");
-        document.body.appendChild(trigger);
+        document.body.append(trigger);
         trigger.focus();
         expect(trigger).toHaveFocus();
 

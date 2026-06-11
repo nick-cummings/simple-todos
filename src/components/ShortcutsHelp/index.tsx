@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useRef } from "react";
+import { useId, useRef } from "react";
 
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useFocusTrap } from "@/lib/useFocusTrap";
@@ -25,10 +25,9 @@ const SHORTCUTS: { description: string; keys: string[] }[] = [
 function ShortcutsHelpContent({ onClose }: { onClose: () => void }) {
     const panelRef = useRef<HTMLDivElement>(null);
     const headingId = useId();
-    const close = useCallback(onClose, [onClose]);
 
     useFocusTrap(panelRef);
-    useEscapeKey(close);
+    useEscapeKey(onClose);
 
     return (
         <div

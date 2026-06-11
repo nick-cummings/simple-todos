@@ -2,17 +2,17 @@
 
 import { useEffect } from "react";
 
-function isTypingTarget(e: KeyboardEvent): boolean {
-    const target = e.target as HTMLElement | null;
-    if (!target || !target.tagName) return false;
-    const tag = target.tagName.toLowerCase();
-    return tag === "input" || tag === "textarea" || target.isContentEditable;
-}
-
 interface ShortcutHandlers {
     onFocusSearch: () => void;
     onOpenHelp: () => void;
     onOpenNew: () => void;
+}
+
+function isTypingTarget(e: KeyboardEvent): boolean {
+    const target = e.target as HTMLElement | null;
+    if (!target?.tagName) return false;
+    const tag = target.tagName.toLowerCase();
+    return tag === "input" || tag === "textarea" || target.isContentEditable;
 }
 
 /**
@@ -36,14 +36,19 @@ export function useShortcuts({
                 return;
             }
             if (isTypingTarget(e)) return;
-            if (e.key === "/") {
-                e.preventDefault();
-                onFocusSearch();
-            } else if (e.key === "n" || e.key === "N") {
-                e.preventDefault();
-                onOpenNew();
-            } else if (e.key === "?") {
-                onOpenHelp();
+            switch (e.key) {
+                case "/":
+                    e.preventDefault();
+                    onFocusSearch();
+                    break;
+                case "n":
+                case "N":
+                    e.preventDefault();
+                    onOpenNew();
+                    break;
+                case "?":
+                    onOpenHelp();
+                    break;
             }
         };
         globalThis.addEventListener("keydown", onKeyDown);
