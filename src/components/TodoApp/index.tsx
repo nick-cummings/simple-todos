@@ -19,6 +19,7 @@ import { useFilterParams } from "@/lib/useFilterParams";
 import { useInstallPrompt } from "@/lib/useInstallPrompt";
 import { useLabels } from "@/lib/useLabels";
 import { useReminders } from "@/lib/useReminders";
+import { useShortcuts } from "@/lib/useShortcuts";
 import { useStorageError } from "@/lib/useStorageError";
 import { useTodos } from "@/lib/useTodos";
 import { withViewTransition } from "@/lib/viewTransition";
@@ -26,6 +27,7 @@ import { withViewTransition } from "@/lib/viewTransition";
 import InstallBanner from "../InstallBanner";
 import LabelsManager from "../LabelsManager";
 import RemindersGate from "../RemindersGate";
+import ShortcutsHelp from "../ShortcutsHelp";
 import { SortMenu } from "../SortMenu";
 import StorageErrorBanner from "../StorageErrorBanner";
 import ThemeToggle from "../ThemeToggle";
@@ -87,6 +89,7 @@ export default function TodoApp() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Todo | undefined>();
     const [labelsManagerOpen, setLabelsManagerOpen] = useState(false);
+    const [shortcutsOpen, setShortcutsOpen] = useState(false);
     // Single-item undo: most recent deletion. Cleared when the user
     // undoes or when the toast's window expires.
     const [pendingUndo, setPendingUndo] = useState<null | Todo>(null);
@@ -182,20 +185,16 @@ export default function TodoApp() {
         }
     }, [todos, syncTodoReminder]);
 
-    // ⌘K / Ctrl+K focuses search.
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-                e.preventDefault();
-                searchRef.current?.focus();
-                searchRef.current?.select();
-            }
-        };
-        globalThis.addEventListener("keydown", onKey);
-        return () => {
-            globalThis.removeEventListener("keydown", onKey);
-        };
-    }, []);
+    useShortcuts({
+        onFocusSearch: () => {
+            searchRef.current?.focus();
+            searchRef.current?.select();
+        },
+        onOpenHelp: () => {
+            setShortcutsOpen(true);
+        },
+        onOpenNew: openNew,
+    });
 
     const labels = useMemo(() => allLabels(todos), [todos]);
     const counts = useMemo(() => labelCounts(todos), [todos]);
@@ -493,6 +492,13 @@ export default function TodoApp() {
                     setPendingUndo(null);
                 }}
                 onUndo={handleUndo}
+            />
+
+            <ShortcutsHelp
+                onClose={() => {
+                    setShortcutsOpen(false);
+                }}
+                open={shortcutsOpen}
             />
         </>
     );
